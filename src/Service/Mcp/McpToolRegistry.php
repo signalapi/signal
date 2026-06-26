@@ -19,6 +19,7 @@ use App\Repository\FlowGroupRunRepository;
 use App\Repository\FlowRunRepository;
 use App\Repository\FlowStepRepository;
 use App\Repository\TestFlowRepository;
+use App\Service\Db\DbQueryRunner;
 use App\Service\FlowExpressionParser;
 use App\Service\FlowRunner;
 use App\Service\FlowRunReporter;
@@ -43,6 +44,7 @@ class McpToolRegistry
         private readonly FlowGroupRepository $groups,
         private readonly FlowGroupRunRepository $groupRuns,
         private readonly FlowRunner $runner,
+        private readonly DbQueryRunner $dbQuery,
         private readonly FlowExpressionParser $parser,
         private readonly FlowRunReporter $reporter,
         private readonly MessageBusInterface $bus,
@@ -69,6 +71,17 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'list_db_connections', 'description' => 'Veritabanı bağlantılarını listeler (kimlik bilgisi dönmez).',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'db_schema', 'description' => 'Bir DB bağlantısının şemasını keşfeder (SQL: tablolar; table verilirse kolon adı+tipi). DB adımı yazmadan önce hangi tablo/alan var görmek için. Mongo/Redis için db_query kullanın.',
+                'inputSchema' => ['type' => 'object', 'required' => ['connection'], 'properties' => [
+                    'connection' => ['type' => 'string', 'description' => 'DB bağlantısı adı veya id'],
+                    'table' => ['type' => 'string', 'description' => 'Verilirse o tablonun kolonlarını döner; boşsa tablo listesi'],
+                ]]],
+            ['name' => 'db_query', 'description' => 'Bir DB bağlantısında SALT-OKUNUR ad-hoc sorgu çalıştırıp satırları döner (SQL: yalnız SELECT/WITH/SHOW/EXPLAIN; yazma engellenir). Gerçek değerleri görüp doğru assertion yazmak için. Sonuç {rowCount, rows[]}.',
+                'inputSchema' => ['type' => 'object', 'required' => ['connection', 'query'], 'properties' => [
+                    'connection' => ['type' => 'string', 'description' => 'DB bağlantısı adı veya id'],
+                    'query' => ['type' => 'string', 'description' => 'Salt-okunur sorgu. {{değişken}} desteklenir.'],
+                    'limit' => ['type' => 'integer', 'description' => 'Dönecek satır üst sınırı (varsayılan 50)'],
+                ]]],
             ['name' => 'list_flows', 'description' => 'Test akışlarını ve adım sayılarını listeler.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'create_flow', 'description' => 'Yeni bir test akışı oluşturur; flowId döner.',
@@ -210,6 +223,8 @@ class McpToolRegistry
             'search_requests' => $this->searchRequests($ws, (string) ($args['query'] ?? '')),
             'list_environments' => $this->listEnvironments($ws),
             'list_db_connections' => $this->listDbConnections($ws),
+            'db_schema' => $this->dbSchema($ws, $args),
+            'db_query' => $this->dbQueryTool($ws, $args),
             'list_flows' => $this->listFlows($ws),
             'create_flow' => $this->createFlow($ws, $args),
             'create_flow_from_collection' => $this->createFlowFromCollection($ws, $args),
@@ -873,6 +888,82 @@ class McpToolRegistry
         $this->groups->remove($suite);
 
         return ['deleted' => true, 'suite' => $name];
+    }
+
+    // ---- db introspection ----
+
+    private function dbSchema(Workspace $ws, array $args): array
+    {
+        $conn = $this->findConnection($ws, (string) ($args['connection'] ?? ''));
+        $type = $conn->getType();
+        if (!\in_array($type, [\App\Entity\DbConnection::TYPE_POSTGRES, \App\Entity\DbConnection::TYPE_MYSQL], true)) {
+            return ['connection' => $conn->getName(), 'type' => $type,
+                'note' => 'Şema keşfi yalnızca SQL (postgres/mysql) için. Mongo/Redis için db_query ile örnek veri çekin.'];
+        }
+
+        $table = trim((string) ($args['table'] ?? ''));
+        $isMysql = \App\Entity\DbConnection::TYPE_MYSQL === $type;
+
+        if ('' === $table) {
+            // List tables.
+            $query = $isMysql
+                ? 'SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() ORDER BY table_name'
+                : "SELECT table_name FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY table_name";
+            $res = $this->dbQuery->run($conn, $query, []);
+            if (!$res->ok) {
+                throw new \InvalidArgumentException('Şema okunamadı: ' . (string) $res->error);
+            }
+            $tables = array_map(static fn (array $r): string => (string) array_values($r)[0], $res->data['rows'] ?? []);
+
+            return ['connection' => $conn->getName(), 'type' => $type, 'tables' => $tables,
+                'hint' => 'Bir tablonun kolonlarını görmek için table parametresiyle tekrar çağırın.'];
+        }
+
+        // List columns of a table. Quote-strip to keep the literal safe.
+        $safe = str_replace("'", '', $table);
+        $schemaFilter = $isMysql ? 'AND table_schema = DATABASE()' : "AND table_schema NOT IN ('pg_catalog','information_schema')";
+        $query = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '$safe' $schemaFilter ORDER BY ordinal_position";
+        $res = $this->dbQuery->run($conn, $query, []);
+        if (!$res->ok) {
+            throw new \InvalidArgumentException('Kolonlar okunamadı: ' . (string) $res->error);
+        }
+        $columns = array_map(static fn (array $r): array => [
+            'name' => (string) ($r['column_name'] ?? ''),
+            'type' => (string) ($r['data_type'] ?? ''),
+            'nullable' => 'YES' === ($r['is_nullable'] ?? null),
+        ], $res->data['rows'] ?? []);
+
+        return ['connection' => $conn->getName(), 'type' => $type, 'table' => $table, 'columns' => $columns,
+            'hint' => 'add_db_step ile assertion: "rows.0.' . ($columns[0]['name'] ?? 'kolon') . ' == ..."'];
+    }
+
+    private function dbQueryTool(Workspace $ws, array $args): array
+    {
+        $conn = $this->findConnection($ws, (string) ($args['connection'] ?? ''));
+        $query = (string) ($args['query'] ?? '');
+        if ('' === trim($query)) {
+            throw new \InvalidArgumentException('query zorunlu.');
+        }
+        // Read-only guard for SQL connections: reject any write/DDL statement.
+        if (\in_array($conn->getType(), [\App\Entity\DbConnection::TYPE_POSTGRES, \App\Entity\DbConnection::TYPE_MYSQL], true)
+            && preg_match('/\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|replace|merge|call|do|set)\b/i', $query)) {
+            throw new \InvalidArgumentException('db_query salt-okunur: yalnızca SELECT/WITH/SHOW/EXPLAIN. Yazma için flow DB adımı kullanın.');
+        }
+
+        $res = $this->dbQuery->run($conn, $query, []);
+        if (!$res->ok) {
+            throw new \InvalidArgumentException('Sorgu hatası: ' . (string) $res->error);
+        }
+        $rows = $res->data['rows'] ?? [];
+        $limit = max(1, (int) ($args['limit'] ?? 50));
+        $truncated = \count($rows) > $limit;
+
+        return [
+            'connection' => $conn->getName(),
+            'rowCount' => $res->data['rowCount'] ?? \count($rows),
+            'rows' => array_slice($rows, 0, $limit),
+            'truncated' => $truncated,
+        ];
     }
 
     // ---- helpers ----
