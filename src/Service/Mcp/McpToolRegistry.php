@@ -91,6 +91,21 @@ class McpToolRegistry
                     'environmentName' => ['type' => 'string', 'description' => 'Varsayılan environment adı'],
                     'stopOnFailure' => ['type' => 'boolean'],
                 ]]],
+            ['name' => 'update_flow', 'description' => 'Bir akışı günceller: ad değiştirme (rename), açıklama, stopOnFailure, varsayılan environment. Yalnızca verilen alanlar değişir.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => [
+                    'flowId' => ['type' => 'string'],
+                    'name' => ['type' => 'string'],
+                    'description' => ['type' => 'string'],
+                    'environmentName' => ['type' => 'string', 'description' => 'Varsayılan environment adı'],
+                    'stopOnFailure' => ['type' => 'boolean'],
+                ]]],
+            ['name' => 'update_step', 'description' => 'Bir adımı günceller: ad değiştirme (rename) ve DB adımı için query/connection. HTTP isteğini düzenlemek için set_step_request kullanın.',
+                'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
+                    'stepId' => ['type' => 'string'],
+                    'name' => ['type' => 'string'],
+                    'query' => ['type' => 'string', 'description' => 'Yalnızca DB adımı: {{değişken}} destekler'],
+                    'connection' => ['type' => 'string', 'description' => 'Yalnızca DB adımı: bağlantı adı veya id'],
+                ]]],
             ['name' => 'add_http_step', 'description' => 'Akışa bir HTTP isteği adımı ekler. extractions: ["var = json.path"], assertions: ["status == 200", "data.id exists"].',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'requestId'], 'properties' => [
                     'flowId' => ['type' => 'string'],
@@ -227,6 +242,8 @@ class McpToolRegistry
             'db_query' => $this->dbQueryTool($ws, $args),
             'list_flows' => $this->listFlows($ws),
             'create_flow' => $this->createFlow($ws, $args),
+            'update_flow' => $this->updateFlow($ws, $args),
+            'update_step' => $this->updateStep($ws, $args),
             'create_flow_from_collection' => $this->createFlowFromCollection($ws, $args),
             'add_http_step' => $this->addHttpStep($ws, $args),
             'add_db_step' => $this->addDbStep($ws, $args),
@@ -342,6 +359,58 @@ class McpToolRegistry
         $this->flows->save($flow);
 
         return ['flowId' => (string) $flow->getId(), 'name' => $flow->getName()];
+    }
+
+    private function updateFlow(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        if (isset($args['name'])) {
+            $name = trim((string) $args['name']);
+            if ('' === $name) {
+                throw new \InvalidArgumentException('name boş olamaz.');
+            }
+            $flow->setName($name);
+        }
+        if (\array_key_exists('description', $args)) {
+            $flow->setDescription(null === $args['description'] ? null : (string) $args['description']);
+        }
+        if (\array_key_exists('stopOnFailure', $args)) {
+            $flow->setStopOnFailure((bool) $args['stopOnFailure']);
+        }
+        if (\array_key_exists('environmentName', $args)) {
+            $flow->setDefaultEnvironment(
+                empty($args['environmentName']) ? null : $this->findEnvironmentByName($ws, (string) $args['environmentName'])
+            );
+        }
+        $this->flows->save($flow);
+
+        return ['ok' => true, 'flowId' => (string) $flow->getId(), 'name' => $flow->getName()];
+    }
+
+    private function updateStep(Workspace $ws, array $args): array
+    {
+        $step = $this->requireStep($ws, (string) ($args['stepId'] ?? ''));
+        if (isset($args['name'])) {
+            $name = trim((string) $args['name']);
+            if ('' === $name) {
+                throw new \InvalidArgumentException('name boş olamaz.');
+            }
+            $step->setName($name);
+        }
+        if (isset($args['query']) || isset($args['connection'])) {
+            if (FlowStep::TYPE_DB !== $step->getType()) {
+                throw new \InvalidArgumentException('query/connection yalnızca DB adımında geçerli.');
+            }
+            if (isset($args['query'])) {
+                $step->setQuery((string) $args['query']);
+            }
+            if (isset($args['connection'])) {
+                $step->setDbConnection($this->findConnection($ws, (string) $args['connection']));
+            }
+        }
+        $this->steps->save($step);
+
+        return ['ok' => true, 'stepId' => (string) $step->getId(), 'name' => $step->getName()];
     }
 
     private function addHttpStep(Workspace $ws, array $args): array
