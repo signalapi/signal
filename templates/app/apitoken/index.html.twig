@@ -1,0 +1,69 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}API Token'ları · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+<div class="pagehead">
+    <div>
+        <h1>API & MCP token'ları</h1>
+        <p class="subtitle">{{ workspace.name }} · CI, webhook ve Claude entegrasyonu için</p>
+    </div>
+</div>
+
+{% if new_token %}
+    <div class="flash success" style="word-break:break-all;">
+        <strong>Yeni token — yalnızca şimdi gösterilir, bir yere kaydedin:</strong><br>
+        <code style="font-size:14px;">{{ new_token }}</code>
+    </div>
+{% endif %}
+
+<form class="addbar" method="post" action="{{ path('app_apitoken_new', {workspace: workspace.id}) }}">
+    <input type="text" name="name" placeholder="Token adı (örn. ci-pipeline, claude-mcp)">
+    <input type="hidden" name="_token" value="{{ csrf_token('apitoken-new') }}">
+    <button class="btn small" type="submit">+ Token oluştur</button>
+</form>
+
+{% if tokens is empty %}
+    <div class="empty" style="text-align:left;padding:24px;margin-bottom:18px;">Henüz token yok. CI, webhook veya MCP entegrasyonu için bir token oluşturun.</div>
+{% else %}
+    <table style="margin-bottom:22px;">
+        <thead><tr><th>Ad</th><th>Önek</th><th>Son kullanım</th><th>Durum</th><th></th></tr></thead>
+        <tbody>
+        {% for t in tokens %}
+            <tr>
+                <td style="font-weight:600;">{{ t.name }}</td>
+                <td><code>{{ t.tokenPrefix }}…</code></td>
+                <td>{{ t.lastUsedAt ? t.lastUsedAt|date('d.m.Y H:i') : '—' }}</td>
+                <td>{% if t.revoked %}<span class="pill off">iptal</span>{% else %}<span class="pill on">aktif</span>{% endif %}</td>
+                <td style="text-align:right;">
+                    {% if not t.revoked %}
+                    <form class="inline" method="post" action="{{ path('app_apitoken_revoke', {workspace: workspace.id, token: t.id}) }}" onsubmit="return confirm('Token iptal edilecek.');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('revoke' ~ t.id) }}">
+                        <button class="btn danger" type="submit">İptal et</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+    <div class="card">
+        <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">CI / Webhook ile çalıştırma</div>
+        <pre class="codebox">curl -X POST http://localhost:8080/api/v1/flows/&lt;FLOW_ID&gt;/run \
+  -H "Authorization: Bearer &lt;TOKEN&gt;"
+<span class="c"># JUnit raporu için: ?format=junit</span>
+<span class="c"># başarısızlıkta HTTP 422 döner</span></pre>
+    </div>
+    <div class="card">
+        <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Claude / MCP bağlantısı</div>
+        <p class="subtitle" style="margin:0 0 10px;font-size:13px;">Bu token ile Claude, doğal dilden bu workspace'te test akışı kurup çalıştırabilir. Endpoint: <code>http://localhost:8080/mcp</code></p>
+        <pre class="codebox">claude mcp add --transport http api-test \
+  http://localhost:8080/mcp \
+  --header "Authorization: Bearer &lt;TOKEN&gt;"</pre>
+    </div>
+</div>
+{% endblock %}

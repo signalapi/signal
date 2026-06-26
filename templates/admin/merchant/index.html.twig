@@ -1,0 +1,40 @@
+{% extends 'admin/_layout.html.twig' %}
+
+{% block title %}Merchant'lar · Süper Admin{% endblock %}
+
+{% block panel %}
+<div class="toolbar">
+    <div><h1>Merchant'lar</h1><p class="subtitle" style="margin:0;">Tüm merchant hesapları.</p></div>
+    <a class="btn" href="{{ path('admin_merchant_new') }}">+ Yeni Merchant</a>
+</div>
+
+{% if merchants is empty %}
+    <div class="empty">Henüz merchant yok. İlkini oluşturun.</div>
+{% else %}
+    <table>
+        <thead><tr><th>Ad</th><th>Slug</th><th>Yetkililer</th><th>Workspace</th><th>Durum</th><th>Oluşturulma</th><th></th></tr></thead>
+        <tbody>
+        {% for m in merchants %}
+            <tr>
+                <td>{{ m.name }}</td>
+                <td><code>{{ m.slug }}</code></td>
+                <td>{{ m.users|length }}</td>
+                <td>{{ m.workspaces|length }}</td>
+                <td>{% if m.active %}<span class="pill on">aktif</span>{% else %}<span class="pill off">pasif</span>{% endif %}</td>
+                <td>{{ m.createdAt|date('d.m.Y H:i') }}</td>
+                <td style="text-align:right;white-space:nowrap;">
+                    <form class="inline" method="post" action="{{ path('admin_merchant_toggle', {id: m.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('toggle' ~ m.id) }}">
+                        <button class="btn ghost small" type="submit">{{ m.active ? 'Pasifleştir' : 'Aktifleştir' }}</button>
+                    </form>
+                    <form class="inline" method="post" action="{{ path('admin_merchant_delete', {id: m.id}) }}" onsubmit="return confirm('Merchant ve tüm verileri silinecek. Emin misiniz?');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ m.id) }}">
+                        <button class="btn danger" type="submit">Sil</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,52 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}DB Bağlantıları · {{ workspace.name }}{% endblock %}
+
+{% set dbicon = {'postgres':'🐘','postgresql':'🐘','mysql':'🐬','mariadb':'🐬','redis':'🟥','mongo':'🍃','mongodb':'🍃'} %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+<div class="pagehead">
+    <div>
+        <h1>Veritabanı bağlantıları</h1>
+        <p class="subtitle">{{ workspace.name }} · test akışlarında sorgu doğrulaması için</p>
+    </div>
+    <div class="actions">
+        <a class="btn" href="{{ path('app_dbconn_new', {workspace: workspace.id}) }}">+ Yeni bağlantı</a>
+    </div>
+</div>
+
+<div class="res-grid stagger">
+    {% for c in connections %}
+        <div class="res-card">
+            <div class="rc-top">
+                <div class="ic">{{ dbicon[c.type|lower] ?? '🗄' }}</div>
+                <div class="rc-name">
+                    <span class="t">{{ c.name }}</span>
+                    <div class="s"><span class="pill" style="background:var(--panel-2);color:var(--muted);">{{ c.type }}</span></div>
+                </div>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:12px;color:var(--muted);margin-top:12px;line-height:1.6;">
+                {{ c.host }}:{{ c.port }}<br>
+                <span style="color:var(--ink);">{{ c.databaseName ?: '— veritabanı yok —' }}</span>
+            </div>
+            <div class="rc-foot">
+                <form method="post" action="{{ path('app_dbconn_test', {workspace: workspace.id, connection: c.id}) }}" class="grow">
+                    <input type="hidden" name="_token" value="{{ csrf_token('dbconn-test' ~ c.id) }}">
+                    <button class="btn ghost" type="submit" style="width:100%;justify-content:center;">⚡ Bağlantıyı test et</button>
+                </form>
+                <a class="btn ghost small" href="{{ path('app_dbconn_edit', {workspace: workspace.id, connection: c.id}) }}">Düzenle</a>
+                <form method="post" action="{{ path('app_dbconn_delete', {workspace: workspace.id, connection: c.id}) }}" onsubmit="return confirm('Bağlantı silinecek.');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ c.id) }}">
+                    <button class="btn danger" type="submit">Sil</button>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+    <a class="res-new" href="{{ path('app_dbconn_new', {workspace: workspace.id}) }}">
+        <span class="plus">+</span>
+        <span style="font-weight:600;">Yeni bağlantı</span>
+        <span style="font-size:12px;">Postgres · MySQL · Redis · Mongo</span>
+    </a>
+</div>
+{% endblock %}

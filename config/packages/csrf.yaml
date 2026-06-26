@@ -1,0 +1,6 @@
+# Classic, session-based (stateful) CSRF protection.
+# Stateless CSRF would require a JS asset to fill the token placeholder; we keep
+# it simple and JS-free for now. Revisit when the SPA frontend lands.
+framework:
+    csrf_protection:
+        enabled: true

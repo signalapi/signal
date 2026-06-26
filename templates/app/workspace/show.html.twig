@@ -1,0 +1,80 @@
+{% extends 'app/_layout.html.twig' %}
+{% import 'app/_runline.html.twig' as rl %}
+
+{% block title %}{{ workspace.name }} · Signal{% endblock %}
+
+{% block panel %}
+<div class="hero">
+    <div class="grid-accent"></div>
+    <p class="eyebrow">Workspace</p>
+    <h1>{{ workspace.name }}</h1>
+    <p class="lead">{{ workspace.description ?: 'İstekleri gönder, akışları zincirle, sonucu veritabanından doğrula — hepsi tek yerde.' }}</p>
+    <div class="actions">
+        <a class="btn" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">▶ Test akışları</a>
+        <a class="btn ghost" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">⬆ Postman içe aktar</a>
+    </div>
+</div>
+
+<div class="metric-grid stagger">
+    {% set cards = [
+        {icon:'🧪', n: collection_count, label:'Collection', route:'app_collection_index'},
+        {icon:'🌐', n: environment_count, label:'Environment', route:'app_environment_index'},
+        {icon:'▶', n: flow_count, label:'Test Akışı', route:'app_flow_index'},
+        {icon:'🗄', n: dbconn_count, label:'DB Bağlantısı', route:'app_dbconn_index'},
+        {icon:'🔑', n: token_count, label:'API Token', route:'app_apitoken_index'},
+    ] %}
+    {% for c in cards %}
+        <a class="metric" href="{{ path(c.route, {workspace: workspace.id}) }}">
+            <div class="ic">{{ c.icon }}</div>
+            <div class="num">{{ c.n }}</div>
+            <div class="cap"><span>{{ c.label }}</span><span class="go">→</span></div>
+        </a>
+    {% endfor %}
+</div>
+
+<div style="display:grid;grid-template-columns:1.6fr 1fr;gap:18px;align-items:start;">
+    {# ---- Recent runs with the runline signature ---- #}
+    <div>
+        <div class="toolbar" style="margin-bottom:12px;">
+            <div class="section-title" style="margin:0;">Son koşumlar</div>
+            <a href="{{ path('app_trends', {workspace: workspace.id}) }}" class="eyebrow" style="text-decoration:none;">Tüm trendler →</a>
+        </div>
+        {% if recent_runs is empty %}
+            <div class="empty">Henüz koşum yok. Bir test akışı oluşturup çalıştırın.</div>
+        {% else %}
+            <div class="card" style="padding:6px 0;">
+                {% for run in recent_runs %}
+                    <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: run.flow.id, run: run.id}) }}"
+                       style="display:flex;align-items:center;gap:14px;padding:12px 18px;text-decoration:none;color:inherit;{{ not loop.last ? 'border-bottom:1px solid var(--border);' }}">
+                        <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:{{ run.status == 'passed' ? 'var(--pass)' : (run.status == 'running' ? 'var(--accent)' : (run.status == 'cancelled' ? 'var(--warn)' : 'var(--fail)')) }};"></span>
+                        <span style="flex:1;min-width:0;">
+                            <span style="font-weight:600;color:var(--ink);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ run.flow.name }}{% if run.batchId %} <span class="mono" style="color:var(--muted);font-size:11px;">data #{{ run.iteration + 1 }}</span>{% endif %}</span>
+                            <span class="mono" style="font-size:11px;color:var(--muted);">{{ run.passedSteps }}/{{ run.totalSteps }} adım · {{ run.createdAt|date('d.m H:i') }}</span>
+                        </span>
+                        {{ rl.line(run) }}
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+
+    {# ---- Quick actions ---- #}
+    <div>
+        <div class="section-title">Hızlı işlemler</div>
+        <div class="quick-grid" style="grid-template-columns:1fr;">
+            <a class="quick" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">
+                <div class="ic">🧪</div><div><div class="t">Collection workbench</div><div class="s">İstek gönder, düzenle</div></div>
+            </a>
+            <a class="quick" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">
+                <div class="ic">🔗</div><div><div class="t">Yeni test akışı</div><div class="s">Zincirle, DB'den doğrula</div></div>
+            </a>
+            <a class="quick" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">
+                <div class="ic">🗄</div><div><div class="t">DB bağlantısı</div><div class="s">Postgres · MySQL · Redis · Mongo</div></div>
+            </a>
+            <a class="quick" href="{{ path('app_apitoken_index', {workspace: workspace.id}) }}">
+                <div class="ic">⚙️</div><div><div class="t">API & MCP</div><div class="s">CI / Claude entegrasyonu</div></div>
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

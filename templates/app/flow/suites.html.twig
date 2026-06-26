@@ -1,0 +1,113 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Suite'ler · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+<style>
+    .st-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 18px; }
+    .st-head h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; }
+    .grp { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); margin-bottom: 14px; }
+    .grp-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .grp-name { font-weight: 600; font-size: 16px; }
+    .grp-head form { display: inline; }
+    .grp-flows { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
+    .grp-flow { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 4px 9px; color: var(--muted); }
+    .grp-flow b { color: var(--accent); }
+    .grp-flow form { display: inline; margin-left: 2px; }
+    .grp-flow .rm { border: none; background: none; color: var(--muted); cursor: pointer; padding: 0; font-size: 12px; }
+    .grp-flow .rm:hover { color: var(--fail); }
+    .grp-add { margin-top: 10px; display: flex; gap: 8px; align-items: center; }
+    .grp-add select { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; color: var(--text); font-size: 12.5px; }
+    .grp-runs { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; padding-top: 12px; border-top: 1px dashed var(--border); }
+    .grp-runs .lbl { font-size: 11px; color: var(--muted); }
+    .grp-run { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-family: var(--font-mono); text-decoration: none;
+        color: var(--muted); background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; }
+    .grp-run:hover { border-color: var(--accent); color: var(--accent); }
+    .grp-run .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+    .grp-run.s-passed .dot { background: var(--pass); }
+    .grp-run.s-failed .dot { background: var(--fail); }
+    .grp-run.s-running { color: var(--accent); border-color: rgba(69,52,214,.3); }
+    .grp-run.s-running .dot { background: var(--accent); animation: pulse 1s infinite; }
+    .grp-create { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+    .grp-create input { background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px; padding: 9px 12px; color: var(--text); font-size: 13.5px; min-width: 280px; }
+</style>
+
+<div class="st-head">
+    <div>
+        <h1>Suite'ler</h1>
+        <p class="subtitle" style="margin:6px 0 0;">{{ groups|length }} suite · bir suite'i tek tıkla baştan sona çalıştır</p>
+    </div>
+    <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← Akışlar</a>
+</div>
+
+{% if groups is empty %}
+    <div class="empty" style="text-align:left;padding:24px;">Henüz suite yok. Aşağıdan oluşturup akış ekle.</div>
+{% endif %}
+
+{% for g in groups %}
+    <div class="grp">
+        <div class="grp-head">
+            <span class="grp-name">🧩 {{ g.name }}</span>
+            <span class="muted-sm">{{ g.flows|length }} akış</span>
+            <div style="flex:1"></div>
+            <form method="post" action="{{ path('app_flow_group_run', {workspace: workspace.id, group: g.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('flow-group-run' ~ g.id) }}">
+                <button class="btn" type="submit" {{ g.flows is empty ? 'disabled' }}>▶ Suite'i çalıştır</button>
+            </form>
+            <form method="post" action="{{ path('app_flow_group_delete', {workspace: workspace.id, group: g.id}) }}" onsubmit="return confirm('Suite silinecek (akışlar korunur).');">
+                <input type="hidden" name="_token" value="{{ csrf_token('flow-group-delete' ~ g.id) }}">
+                <button class="btn danger" type="submit">Sil</button>
+            </form>
+        </div>
+
+        <div class="grp-flows">
+            {% for f in g.flows %}
+                <span class="grp-flow"><b>{{ loop.index }}.</b> <a href="{{ path('app_flow_show', {workspace: workspace.id, flow: f.id}) }}" style="color:inherit;text-decoration:none;">{{ f.name }}</a>
+                    <form method="post" action="{{ path('app_flow_group_assign', {workspace: workspace.id}) }}" title="Suite'den çıkar">
+                        <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
+                        <input type="hidden" name="flow" value="{{ f.id }}"><input type="hidden" name="group" value="">
+                        <button class="rm" type="submit">✕</button>
+                    </form>
+                </span>
+            {% else %}
+                <span class="muted-sm">Boş — aşağıdan akış ekle.</span>
+            {% endfor %}
+        </div>
+
+        {% if ungrouped is not empty %}
+        <form class="grp-add" method="post" action="{{ path('app_flow_group_assign', {workspace: workspace.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
+            <input type="hidden" name="group" value="{{ g.id }}">
+            <select name="flow" onchange="this.form.submit()">
+                <option value="">+ Akış ekle…</option>
+                {% for f in ungrouped %}<option value="{{ f.id }}">{{ f.name }}</option>{% endfor %}
+            </select>
+        </form>
+        {% endif %}
+
+        {% set runs = groupRuns[g.id] ?? [] %}
+        {% if runs is not empty %}
+            <div class="grp-runs">
+                <span class="lbl">Son koşumlar:</span>
+                {% for row in runs %}
+                    {% set gr = row.run %}
+                    <a class="grp-run s-{{ gr.status }}" href="{{ path('app_flow_group_run_show', {workspace: workspace.id, group: g.id, batchId: gr.batchId}) }}" title="{{ gr.createdAt|date('d.m.Y H:i') }}">
+                        <span class="dot"></span>
+                        {%- if gr.status == 'running' -%}
+                            çalışıyor… {{ row.passed }}/{{ gr.total }}
+                        {%- else -%}
+                            {{ row.passed }}/{{ gr.total }} · {{ gr.createdAt|date('d.m H:i') }}
+                        {%- endif -%}
+                    </a>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+{% endfor %}
+
+<form class="grp-create" method="post" action="{{ path('app_flow_group_create', {workspace: workspace.id}) }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
+    <input type="text" name="name" placeholder="Yeni suite adı (örn. Smoke Suite)">
+    <button class="btn small" type="submit">+ Suite oluştur</button>
+</form>
+{% endblock %}

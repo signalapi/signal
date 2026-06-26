@@ -1,0 +1,459 @@
+{% extends 'app/_layout.html.twig' %}
+{% import 'app/_runline.html.twig' as rl %}
+
+{% block title %}{{ flow.name }} · Signal{% endblock %}
+
+{% block panel %}
+<style>
+    .flowpage { --rail-w: 38px; }
+    .fp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
+    .fp-head h1 { margin: 0 0 8px; font-size: 26px; letter-spacing: -.02em; }
+    .fp-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+    .fp-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted);
+        background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; }
+    .fp-tag b { color: var(--ink); font-weight: 600; }
+
+    .fp-grid { display: grid; grid-template-columns: 1.65fr 1fr; gap: 22px; align-items: start; margin-top: 22px; }
+    @media (max-width: 1000px) { .fp-grid { grid-template-columns: 1fr; } }
+
+    .section-title { font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
+        color: var(--muted); margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
+    .section-title .count { color: var(--accent); }
+
+    /* ---- Vertical runline: the signature motif, turned on its side ---- */
+    .runtrack { display: flex; flex-direction: column; }
+    .rt-row { display: flex; gap: 14px; align-items: stretch; }
+    .rt-rail { position: relative; width: var(--rail-w); flex-shrink: 0; display: flex; justify-content: center; }
+    .rt-rail::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px;
+        transform: translateX(-50%); background: var(--border); z-index: 0; transition: background .3s; }
+    .rt-row:first-child .rt-rail::before { top: 21px; }
+    .rt-row:last-child  .rt-rail::before { bottom: calc(100% - 21px); }
+    .rt-row.is-done .rt-rail::before { background: var(--pass); }
+    .rt-row.is-fail .rt-rail::before { background: var(--fail); }
+
+    .rt-node { position: relative; z-index: 1; width: 30px; height: 30px; margin-top: 6px; border-radius: 50%;
+        flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono);
+        font-size: 12px; font-weight: 700; color: var(--muted); background: var(--panel);
+        border: 2px solid var(--border); box-shadow: 0 0 0 4px var(--panel); transition: all .25s; }
+    .rt-node.st-running { color: #fff; background: var(--accent); border-color: var(--accent); animation: rt-pulse 1s infinite; }
+    .rt-node.st-passed  { color: #fff; background: var(--pass); border-color: var(--pass); }
+    .rt-node.st-failed, .rt-node.st-error { color: #fff; background: var(--fail); border-color: var(--fail); }
+    .rt-node.st-skipped { color: var(--warn); background: var(--warn-soft); border-color: var(--warn); }
+    @keyframes rt-pulse { 0%,100% { box-shadow: 0 0 0 4px var(--panel), 0 0 0 5px var(--accent-soft); } 50% { box-shadow: 0 0 0 4px var(--panel), 0 0 0 9px var(--accent-soft); } }
+
+    .rt-card { flex: 1; min-width: 0; margin-bottom: 14px; background: var(--panel); border: 1px solid var(--border);
+        border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); transition: border-color .2s, box-shadow .2s; }
+    .rt-row:last-child .rt-card { margin-bottom: 0; }
+    .rt-card:hover { border-color: #d3d3ca; }
+    .rt-card.st-running { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .rt-card.st-passed  { border-color: rgba(31,157,85,.4); }
+    .rt-card.st-failed, .rt-card.st-error { border-color: rgba(229,72,77,.45); }
+    .rt-chead { display: flex; align-items: center; gap: 9px; }
+    .rt-badge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: .05em;
+        padding: 2px 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+    .rt-badge.m-get { background: #e6f4ec; color: #16a34a; } .rt-badge.m-post { background: #f8efe0; color: #b35900; }
+    .rt-badge.m-put { background: #e7eefc; color: #2563eb; } .rt-badge.m-patch { background: #f0e9fb; color: #8250df; }
+    .rt-badge.m-delete { background: var(--fail-soft); color: #dc2626; }
+    .rt-name { font-weight: 600; font-size: 14px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rt-live { font-family: var(--font-mono); font-size: 11px; flex-shrink: 0; }
+    .rt-detail { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); margin-top: 5px;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .rt-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
+    .rt-sub .retry { color: var(--accent); }
+    .rt-acts { display: flex; gap: 4px; align-items: center; opacity: 0; transition: opacity .15s; flex-shrink: 0; }
+    .rt-card:hover .rt-acts { opacity: 1; }
+    .rt-acts .ib { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
+        border: 1px solid var(--border); background: var(--panel); border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--muted); }
+    .rt-acts .ib:hover { background: var(--panel-2); color: var(--ink); }
+    .rt-acts .ib.danger:hover { background: var(--fail-soft); color: var(--fail); border-color: var(--fail); }
+    .rt-acts .ib[disabled] { opacity: .3; cursor: default; }
+    .rt-acts form { display: inline; }
+
+    .rt-add { display: flex; gap: 14px; align-items: flex-start; margin-top: 2px; }
+    .rt-add .rt-rail .plus { margin-top: 6px; width: 30px; height: 30px; border-radius: 50%; border: 2px dashed var(--border);
+        background: var(--panel); color: var(--muted); display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 1; }
+    .rt-add-body { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .add-form { display: flex; gap: 8px; align-items: center; background: var(--panel); border: 1px dashed var(--border);
+        border-radius: 10px; padding: 9px 11px; }
+    .add-form select { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; color: var(--text); font-size: 13px; }
+    .add-form .lab { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: .04em; flex-shrink: 0; }
+
+    /* ---- Run console (right column) ---- */
+    .console { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
+    .console .lbl { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; display: block; }
+    .console select, .console input[type=text] { width: 100%; background: var(--panel-2); border: 1px solid var(--border);
+        border-radius: 9px; padding: 9px 11px; color: var(--text); font-size: 13px; box-sizing: border-box; }
+    .console input[type=text] { font-family: var(--font-mono); font-size: 12px; }
+    .console .field + .field { margin-top: 12px; }
+    .run-go { width: 100%; justify-content: center; margin-top: 16px; font-size: 14.5px; padding: 12px; }
+    .run-alt { display: flex; gap: 8px; margin-top: 8px; }
+    .run-alt .btn { flex: 1; justify-content: center; }
+
+    /* ---- Live status panel ---- */
+    .livebox { margin-top: 14px; border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--panel); box-shadow: var(--shadow); }
+    .livebox[hidden] { display: none; }
+    .lb-head { display: flex; align-items: center; gap: 10px; }
+    .lb-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
+    .lb-dot.run { animation: rt-pulse 1s infinite; }
+    .lb-dot.passed { background: var(--pass); } .lb-dot.failed { background: var(--fail); } .lb-dot.cancelled { background: var(--warn); }
+    .lb-title { font-weight: 600; font-size: 14px; }
+    .lb-bar { height: 6px; border-radius: 4px; background: var(--panel-2); overflow: hidden; margin: 12px 0 8px; }
+    .lb-fill { height: 100%; width: 0; background: var(--accent); border-radius: 4px; transition: width .35s, background .3s; }
+    .lb-fill.passed { background: var(--pass); } .lb-fill.failed { background: var(--fail); }
+    .lb-meta { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); }
+    .lb-meta a { font-weight: 600; }
+
+    .foldcard { margin-top: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
+    .foldcard > summary { cursor: pointer; list-style: none; padding: 13px 16px; font-size: 13px; font-weight: 600;
+        display: flex; align-items: center; gap: 8px; color: var(--ink); }
+    .foldcard > summary::-webkit-details-marker { display: none; }
+    .foldcard > summary .chev { margin-left: auto; color: var(--muted); transition: transform .2s; font-size: 11px; }
+    .foldcard[open] > summary .chev { transform: rotate(90deg); }
+    .foldcard .fold-body { padding: 0 16px 16px; }
+
+    /* ---- History ---- */
+    .hist { margin-top: 30px; }
+    .hist-row { display: flex; align-items: center; gap: 14px; padding: 13px 4px; border-bottom: 1px solid var(--border); text-decoration: none; color: inherit; }
+    .hist-row:last-child { border-bottom: none; }
+    .hist-row:hover { background: var(--panel-2); border-radius: 8px; }
+    .hist-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+    .hist-main { flex: 1; min-width: 0; }
+    .hist-main .t { font-weight: 600; color: var(--ink); font-size: 13.5px; }
+    .hist-main .s { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+</style>
+
+<div class="flowpage"
+     data-async-url="{{ path('app_flow_run_async', {workspace: workspace.id, flow: flow.id}) }}"
+     data-token="{{ csrf_token('run-flow' ~ flow.id) }}"
+     id="flowPage">
+
+    <div class="fp-head">
+        <div>
+            <h1>{{ flow.name }}</h1>
+            <div class="fp-meta">
+                <span class="fp-tag">📍 <b>{{ flow.steps|length }}</b> adım</span>
+                <span class="fp-tag">🌐 {{ flow.defaultEnvironment ? 'varsayılan: ' : 'env yok' }}<b>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name }}</b></span>
+                <span class="fp-tag">{{ flow.stopOnFailure ? '⛔ ilk hatada durur' : '↪ tüm adımları çalıştırır' }}</span>
+                {% if flow.scheduleEnabled %}<span class="fp-tag" style="color:var(--pass);">⏱ <b style="color:var(--pass);">{{ flow.cronExpression }}</b></span>{% endif %}
+            </div>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+            <a class="btn" href="{{ path('app_flow_builder', {workspace: workspace.id, flow: flow.id}) }}">🔗 Tuval'de düzenle</a>
+            <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← Akışlar</a>
+            <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('Bu akış kalıcı olarak silinecek.');">
+                <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ flow.id) }}">
+                <button class="btn danger" type="submit">Sil</button>
+            </form>
+        </div>
+    </div>
+
+    {% if flow.description %}<p class="subtitle" style="margin:10px 0 0;max-width:680px;">{{ flow.description }}</p>{% endif %}
+
+    <div class="fp-grid">
+        {# ============ LEFT: the vertical runline ============ #}
+        <div>
+            <div class="section-title">Akış adımları <span class="count">{{ flow.steps|length }}</span></div>
+
+            {% if flow.steps is empty %}
+                <div class="empty" style="text-align:left;padding:24px;">Henüz adım yok. Sağdaki konsoldan değil, aşağıdan bir istek seçip ilk adımı ekleyin.</div>
+            {% else %}
+            <div class="runtrack" id="runtrack">
+                {% for step in flow.steps %}
+                    {% set badge = step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : step.reqMethod)) %}
+                    <div class="rt-row" data-pos="{{ loop.index0 }}">
+                        <div class="rt-rail"><div class="rt-node" data-pos="{{ loop.index0 }}" data-idx="{{ loop.index }}">{{ loop.index }}</div></div>
+                        <div class="rt-card" data-pos="{{ loop.index0 }}">
+                            <div class="rt-chead">
+                                <span class="rt-badge m-{{ badge|lower }}">{{ badge }}</span>
+                                <span class="rt-name">{{ step.name }}</span>
+                                <span class="rt-live" data-pos="{{ loop.index0 }}"></span>
+                                <div class="rt-acts">
+                                    <form method="post" action="{{ path('app_flow_step_move', {workspace: workspace.id, flow: flow.id, step: step.id}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('move-step' ~ step.id) }}">
+                                        <input type="hidden" name="direction" value="up">
+                                        <button class="ib" type="submit" title="Yukarı" {{ loop.first ? 'disabled' }}>↑</button>
+                                    </form>
+                                    <form method="post" action="{{ path('app_flow_step_move', {workspace: workspace.id, flow: flow.id, step: step.id}) }}">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('move-step' ~ step.id) }}">
+                                        <input type="hidden" name="direction" value="down">
+                                        <button class="ib" type="submit" title="Aşağı" {{ loop.last ? 'disabled' }}>↓</button>
+                                    </form>
+                                    <a class="ib" href="{{ path('app_flow_step_edit', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" title="Düzenle">✎</a>
+                                    <form method="post" action="{{ path('app_flow_step_delete', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" onsubmit="return confirm('Adım silinecek.');">
+                                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ step.id) }}">
+                                        <button class="ib danger" type="submit" title="Sil">🗑</button>
+                                    </form>
+                                </div>
+                            </div>
+                            <div class="rt-detail">
+                                {% if step.isDelay %}{{ step.query ?: 0 }} ms bekle
+                                {% elseif step.isSetvar %}{{ (step.query ?: '(atama yok)')|slice(0, 90) }}
+                                {% elseif step.isDb %}{% if step.dbConnection %}{{ step.dbConnection.type }} · {{ (step.query ?: '(sorgu yok)')|slice(0, 80) }}{% else %}<span style="color:var(--danger);">bağlantı silinmiş</span>{% endif %}
+                                {% else %}{{ step.reqMethod }} {{ step.reqUrl ?: '(URL boş)' }}{% endif %}
+                            </div>
+                            {% if not step.isDelay and not step.isSetvar %}
+                            <div class="rt-sub">
+                                {{ step.extractions|length }} extraction · {{ step.assertions|length }} assertion{% if step.retryEnabled %} · <span class="retry">↻ {{ step.retryMax }}× / {{ step.retryDelayMs }}ms</span>{% endif %}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            {# add controls #}
+            <div class="rt-add">
+                <div class="rt-rail"><div class="plus">+</div></div>
+                <div class="rt-add-body">
+                    <form class="add-form" method="post" action="{{ path('app_flow_step_add', {workspace: workspace.id, flow: flow.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
+                        <select name="request" required>
+                            <option value="">— istek adımı ekle —</option>
+                            {% for r in available_requests %}<option value="{{ r.id }}">{{ r.collection.name }} / {{ r.name }} ({{ r.method }})</option>{% endfor %}
+                        </select>
+                        <button class="btn small" type="submit" {{ available_requests is empty ? 'disabled' }}>+ İstek</button>
+                    </form>
+                    <form class="add-form" method="post" action="{{ path('app_flow_step_add_db', {workspace: workspace.id, flow: flow.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
+                        <span class="lab">DB</span>
+                        <select name="connection" required>
+                            <option value="">— veritabanı doğrulama adımı —</option>
+                            {% for c in db_connections %}<option value="{{ c.id }}">{{ c.name }} ({{ c.type }})</option>{% endfor %}
+                        </select>
+                        <button class="btn small" type="submit" {{ db_connections is empty ? 'disabled' }}>+ DB</button>
+                    </form>
+                    <div class="add-form" style="justify-content:flex-start;">
+                        <span class="lab" style="color:var(--muted);">YARDIMCI</span>
+                        <form method="post" action="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}" style="display:inline;">
+                            <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
+                            <input type="hidden" name="type" value="setvar">
+                            <button class="btn ghost small" type="submit">+ Değişken set</button>
+                        </form>
+                        <form method="post" action="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}" style="display:inline;">
+                            <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
+                            <input type="hidden" name="type" value="delay">
+                            <button class="btn ghost small" type="submit">+ Bekle</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# ============ RIGHT: run console + live status ============ #}
+        <div>
+            <div class="console">
+                <div class="section-title" style="margin-bottom:14px;">Çalıştır</div>
+                <div class="field">
+                    <label class="lbl" for="runEnv">Environment</label>
+                    <select id="runEnv">
+                        <option value="">{{ flow.defaultEnvironment ? '(varsayılan: ' ~ flow.defaultEnvironment.name ~ ')' : '— yok —' }}</option>
+                        {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="field">
+                    <label class="lbl" for="runVars">Değişkenler (JSON, opsiyonel)</label>
+                    <input type="text" id="runVars" placeholder='{"userId":"42"}'>
+                </div>
+
+                <button class="btn run-go" id="runLive" {{ flow.steps is empty ? 'disabled' }}>▶ Canlı çalıştır</button>
+                <div class="run-alt">
+                    <form method="post" action="{{ path('app_flow_run', {workspace: workspace.id, flow: flow.id}) }}" style="flex:1;" id="syncForm">
+                        <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
+                        <input type="hidden" name="environment" id="syncEnv">
+                        <input type="hidden" name="variables" id="syncVars">
+                        <button class="btn ghost" type="submit" style="width:100%;justify-content:center;" {{ flow.steps is empty ? 'disabled' }} title="Senkron çalıştır, bitince sonucu aç">Bekleyerek çalıştır</button>
+                    </form>
+                </div>
+            </div>
+
+            {# live status — populated by JS #}
+            <div class="livebox" id="livebox" hidden>
+                <div class="lb-head">
+                    <span class="lb-dot run" id="lbDot"></span>
+                    <span class="lb-title" id="lbTitle">Çalışıyor…</span>
+                    <div style="flex:1"></div>
+                    <button class="btn danger" id="lbCancel" hidden>İptal</button>
+                </div>
+                <div class="lb-bar"><div class="lb-fill" id="lbFill"></div></div>
+                <div class="lb-meta">
+                    <span id="lbCount">0/{{ flow.steps|length }} adım</span>
+                    <a href="#" id="lbDetail" hidden>Detayı gör →</a>
+                </div>
+            </div>
+
+            {# data-driven #}
+            <details class="foldcard">
+                <summary>📊 Data-driven çalıştır <span class="chev">▶</span></summary>
+                <div class="fold-body">
+                    <form method="post" action="{{ path('app_flow_run_data', {workspace: workspace.id, flow: flow.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
+                        <label class="lbl" style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">Environment</label>
+                        <select name="environment" style="width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);font-size:13px;margin-bottom:10px;box-sizing:border-box;">
+                            <option value="">{{ flow.defaultEnvironment ? '(varsayılan: ' ~ flow.defaultEnvironment.name ~ ')' : '— yok —' }}</option>
+                            {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+                        </select>
+                        <textarea name="dataset" rows="5" style="width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-family:var(--font-mono);font-size:12px;box-sizing:border-box;" placeholder='[{"email":"a@x.com"},{"email":"b@x.com"}]  ·  veya CSV (ilk satır başlık)'></textarea>
+                        <p class="subtitle" style="font-size:11px;margin:8px 0 10px;">Her satır bir iterasyon. Alanlar <code>{{ '{{email}}' }}</code> gibi kullanılır.</p>
+                        <button class="btn small" type="submit" {{ flow.steps is empty ? 'disabled' }}>▶ Veri kümesiyle çalıştır</button>
+                    </form>
+                </div>
+            </details>
+
+            {# schedule #}
+            <details class="foldcard" {{ flow.scheduleEnabled ? 'open' }}>
+                <summary>⏱ Zamanlama {% if flow.scheduleEnabled %}<span class="pill on" style="margin-left:4px;">açık</span>{% endif %}<span class="chev">▶</span></summary>
+                <div class="fold-body">
+                    <form method="post" action="{{ path('app_flow_schedule', {workspace: workspace.id, flow: flow.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('schedule' ~ flow.id) }}">
+                        <label style="font-size:13px;display:block;margin-bottom:10px;"><input type="checkbox" name="scheduleEnabled" value="1" {{ flow.scheduleEnabled ? 'checked' }}> Aktif</label>
+                        <input type="text" name="cronExpression" value="{{ flow.cronExpression }}" placeholder="*/5 * * * *" style="width:100%;font-family:var(--font-mono);background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);box-sizing:border-box;margin-bottom:10px;">
+                        <p class="subtitle" style="font-size:11px;margin:0 0 10px;">5 alanlı cron · <code>app:run-due-flows</code> dakikada bir.</p>
+                        <button class="btn small" type="submit">Kaydet</button>
+                    </form>
+                </div>
+            </details>
+        </div>
+    </div>
+
+    {# ============ run history ============ #}
+    <div class="hist">
+        <div class="section-title">Koşum geçmişi</div>
+        {% if flow.runs is empty %}
+            <div class="empty" style="text-align:left;padding:22px;">Henüz koşum yok. Yukarıdan akışı çalıştırın.</div>
+        {% else %}
+            <div class="card" style="padding:4px 14px;">
+            {% for run in flow.runs %}
+                {% set dotc = run.status == 'passed' ? 'var(--pass)' : (run.status == 'running' ? 'var(--accent)' : (run.status == 'cancelled' ? 'var(--warn)' : 'var(--fail)')) %}
+                <a class="hist-row" href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: flow.id, run: run.id}) }}">
+                    <span class="hist-dot" style="background:{{ dotc }};"></span>
+                    <span class="hist-main">
+                        <span class="t">{{ run.passedSteps }}/{{ run.totalSteps }} adım{% if run.batchId %} <span class="pill" style="background:var(--panel-2);color:var(--muted);">data #{{ run.iteration + 1 }}</span>{% endif %}</span>
+                        <span class="s">{{ run.environmentName ?: 'env yok' }} · {{ run.durationMs is not null ? run.durationMs ~ ' ms' : '—' }} · {{ run.createdAt|date('d.m.Y H:i:s') }}</span>
+                    </span>
+                    {{ rl.line(run) }}
+                    {% if run.batchId %}<span class="pill" style="background:var(--accent-soft);color:var(--accent);">batch</span>{% endif %}
+                </a>
+            {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% verbatim %}
+<script>
+(function () {
+    var page = document.getElementById('flowPage');
+    if (!page) return;
+    var asyncUrl = page.dataset.asyncUrl, token = page.dataset.token;
+    var runBtn = document.getElementById('runLive');
+    var box = document.getElementById('livebox'), dot = document.getElementById('lbDot');
+    var title = document.getElementById('lbTitle'), fill = document.getElementById('lbFill');
+    var count = document.getElementById('lbCount'), detail = document.getElementById('lbDetail');
+    var cancelBtn = document.getElementById('lbCancel');
+    var GLYPH = { passed: '✓', failed: '✗', error: '✗', skipped: '–', running: '' };
+
+    function resetNodes() {
+        document.querySelectorAll('.rt-node').forEach(function (n) {
+            n.className = 'rt-node';
+            n.textContent = n.dataset.idx;
+        });
+        document.querySelectorAll('.rt-card').forEach(function (c) { c.className = 'rt-card'; });
+        document.querySelectorAll('.rt-row').forEach(function (r) { r.classList.remove('is-done', 'is-fail'); });
+        document.querySelectorAll('.rt-live').forEach(function (l) { l.textContent = ''; l.style.color = ''; });
+    }
+
+    function paintStep(s) {
+        var node = document.querySelector('.rt-node[data-pos="' + s.position + '"]');
+        var card = document.querySelector('.rt-card[data-pos="' + s.position + '"]');
+        var row = document.querySelector('.rt-row[data-pos="' + s.position + '"]');
+        var live = document.querySelector('.rt-live[data-pos="' + s.position + '"]');
+        if (!node) return;
+        node.className = 'rt-node st-' + s.status;
+        if (card) card.className = 'rt-card st-' + s.status;
+        var g = GLYPH[s.status];
+        node.textContent = (g === '' || g === undefined) ? node.dataset.idx : g;
+        if (row) {
+            row.classList.toggle('is-done', s.status === 'passed');
+            row.classList.toggle('is-fail', s.status === 'failed' || s.status === 'error');
+        }
+        if (live) {
+            if (s.status === 'passed' && s.responseStatus) { live.textContent = s.responseStatus + ' · ' + (s.durationMs || 0) + 'ms'; live.style.color = 'var(--pass)'; }
+            else if (s.status === 'failed' || s.status === 'error') { live.textContent = (s.responseStatus || 'hata'); live.style.color = 'var(--fail)'; }
+            else if (s.status === 'running') { live.textContent = '● çalışıyor'; live.style.color = 'var(--accent)'; }
+            else { live.textContent = ''; }
+        }
+    }
+
+    var total = document.querySelectorAll('.rt-node').length;
+
+    function setHead(state, label) {
+        dot.className = 'lb-dot' + (state === 'running' ? ' run' : ' ' + state);
+        title.textContent = label;
+    }
+
+    function poll(url, detailUrl) {
+        fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                (d.steps || []).forEach(paintStep);
+                var done = d.passedSteps || 0;
+                fill.style.width = (total ? Math.round((done / total) * 100) : 0) + '%';
+                count.textContent = done + '/' + (d.totalSteps || total) + ' adım' + (d.cancelRequested ? ' · iptal isteniyor…' : '');
+                if (d.finished) {
+                    cancelBtn.hidden = true;
+                    if (d.status === 'passed') { setHead('passed', 'Tamamlandı — tüm adımlar geçti'); fill.className = 'lb-fill passed'; fill.style.width = '100%'; }
+                    else if (d.status === 'cancelled') { setHead('cancelled', 'İptal edildi'); }
+                    else { setHead('failed', 'Başarısız'); fill.className = 'lb-fill failed'; }
+                    detail.hidden = false; detail.href = detailUrl;
+                    return;
+                }
+                setTimeout(function () { poll(url, detailUrl); }, 900);
+            })
+            .catch(function () { setTimeout(function () { poll(url, detailUrl); }, 2000); });
+    }
+
+    runBtn.addEventListener('click', function () {
+        var env = document.getElementById('runEnv').value;
+        var vars = document.getElementById('runVars').value.trim();
+        var body = new URLSearchParams();
+        body.set('_token', token);
+        body.set('environment', env);
+        if (vars) body.set('variables', vars);
+
+        runBtn.disabled = true; runBtn.textContent = 'Başlatılıyor…';
+        resetNodes();
+        box.hidden = false; fill.className = 'lb-fill'; fill.style.width = '0';
+        setHead('running', 'Çalışıyor…'); detail.hidden = true; cancelBtn.hidden = true;
+        count.textContent = '0/' + total + ' adım';
+
+        fetch(asyncUrl, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: body.toString(),
+        })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                runBtn.disabled = false; runBtn.textContent = '▶ Canlı çalıştır';
+                if (!d.statusUrl) { setHead('failed', 'Başlatılamadı'); return; }
+                total = d.totalSteps || total;
+                poll(d.statusUrl, d.detailUrl);
+            })
+            .catch(function () {
+                runBtn.disabled = false; runBtn.textContent = '▶ Canlı çalıştır';
+                setHead('failed', 'Başlatılamadı — worker çalışıyor mu?');
+            });
+    });
+
+    // mirror console values into the synchronous fallback form
+    var syncForm = document.getElementById('syncForm');
+    if (syncForm) {
+        syncForm.addEventListener('submit', function () {
+            document.getElementById('syncEnv').value = document.getElementById('runEnv').value;
+            document.getElementById('syncVars').value = document.getElementById('runVars').value.trim();
+        });
+    }
+})();
+</script>
+{% endverbatim %}
+{% endblock %}

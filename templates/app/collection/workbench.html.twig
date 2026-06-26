@@ -1,0 +1,982 @@
+{% extends 'app/workbench_layout.html.twig' %}
+
+{% block title %}{{ collection.name }} · Workbench{% endblock %}
+
+{% macro tree_request(r) %}
+    {% set colors = {'GET':'#16a34a','POST':'#c77d11','PUT':'#2563eb','PATCH':'#8250df','DELETE':'#dc2626','HEAD':'#6b7079','OPTIONS':'#6b7079'} %}
+    <div class="tree-req" draggable="true" data-id="{{ r.id }}">
+        <span class="meth" style="color:{{ colors[r.method] ?? 'var(--muted)' }};">{{ r.method }}</span>
+        <span class="t-name">{{ r.name }}</span>
+    </div>
+    <div class="ex-list" data-ex-for="{{ r.id }}">
+        {% for ex in r.examples %}
+            <div class="ex-row" data-ex-id="{{ ex.id }}" title="{{ ex.name }}">
+                <span class="ex-ic {{ ex.success ? 'ok' : (ex.statusCode ? 'bad' : 'na') }}">e.g.</span>
+                <span class="ex-name">{{ ex.name }}</span>
+            </div>
+        {% endfor %}
+    </div>
+{% endmacro %}
+
+{% macro tree_folder(f) %}
+    {% import _self as t %}
+    <div class="tree-folder" data-folder-id="{{ f.id }}">
+        <div class="lbl"><span class="chev">▾</span><span class="ficon">📂</span><span class="fname">{{ f.name }}</span></div>
+        <div class="folder-body" data-folder-id="{{ f.id }}">
+            {% for child in f.children %}{{ t.tree_folder(child) }}{% endfor %}
+            {% for r in f.requests %}{{ t.tree_request(r) }}{% endfor %}
+        </div>
+    </div>
+{% endmacro %}
+
+{% block workbench %}
+{% import _self as t %}
+<style>
+    .wb-tree { width: 290px; border-right: 1px solid var(--border); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
+    .wb-tree-head { padding: 12px 14px 11px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .wb-tree-head .nm { font-weight: 700; font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wb-search { padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    .wb-search input { width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px;
+        padding: 7px 10px 7px 30px; color: var(--text); font-size: 13px; font-family: inherit;
+        background-image: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa0a8' stroke-width='2.2' stroke-linecap='round'><circle cx='11' cy='11' r='7'/><line x1='21' y1='21' x2='16.65' y2='16.65'/></svg>");
+        background-repeat: no-repeat; background-position: 9px center; }
+    .wb-search input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .wb-tree-body { flex: 1; overflow: auto; padding: 8px 8px 18px; }
+    .wb-tree-empty { color: var(--muted); font-size: 12.5px; padding: 14px 10px; }
+
+    .tree-req { display: flex; gap: 9px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text); position: relative; }
+    .tree-req:hover { background: var(--panel-2); }
+    .tree-req.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+    .tree-req.active .t-name { color: var(--accent); }
+    .tree-req.active::before { content: ""; position: absolute; left: -8px; top: 6px; bottom: 6px; width: 3px; border-radius: 0 3px 3px 0; background: var(--accent); }
+    .tree-req.dragging { opacity: .4; }
+    .tree-req.hide, .tree-folder.hide, .ex-list.hide { display: none; }
+    .meth { font-family: var(--font-mono); font-weight: 700; font-size: 9.5px; letter-spacing: .04em; min-width: 40px; text-align: left; flex-shrink: 0; }
+    .t-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    /* Saved example responses, nested under their request (Postman-style) */
+    .ex-list { margin: 0 0 2px 18px; border-left: 1px solid var(--border); padding-left: 4px; }
+    .ex-list:empty { display: none; }
+    .ex-row { display: flex; align-items: center; gap: 7px; padding: 4px 8px; border-radius: 7px; cursor: pointer; font-size: 12px; color: var(--muted); }
+    .ex-row:hover { background: var(--panel-2); color: var(--text); }
+    .ex-row.active { background: var(--accent-soft); color: var(--accent); }
+    .ex-ic { font-family: var(--font-mono); font-size: 8px; font-weight: 700; letter-spacing: .02em; padding: 2px 4px; border-radius: 4px; flex-shrink: 0;
+        background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
+    .ex-ic.ok { color: var(--pass); border-color: rgba(31,157,85,.4); }
+    .ex-ic.bad { color: var(--fail); border-color: rgba(229,72,77,.4); }
+    .ex-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .tree-folder > .lbl { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; padding: 6px 8px; color: var(--ink); cursor: pointer; border-radius: 8px; user-select: none; }
+    .tree-folder > .lbl:hover { background: var(--panel-2); }
+    .tree-folder > .lbl .chev { font-size: 10px; color: var(--muted); transition: transform .15s; width: 10px; text-align: center; }
+    .tree-folder > .lbl .ficon { font-size: 13px; filter: grayscale(.15); }
+    .tree-folder > .lbl .fname { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree-folder.collapsed > .lbl .chev { transform: rotate(-90deg); }
+    .tree-folder.collapsed > .folder-body { display: none; }
+    .folder-body { margin-left: 13px; border-left: 1px solid var(--border); padding-left: 6px; min-height: 4px; }
+    .tree-folder.drag-target > .lbl { background: var(--accent-soft); outline: 1px dashed var(--accent); }
+    .wb-tree-body.drag-target { outline: 1px dashed var(--accent); outline-offset: -4px; border-radius: 8px; }
+
+    .wb-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .wb-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+        padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+    .wb-topbar .crumb { font-weight: 600; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 7px; }
+    .wb-topbar .crumb .ico { filter: grayscale(.2); }
+    .wb-env { display: flex; align-items: center; gap: 8px; }
+    .wb-env select { background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px; padding: 7px 10px;
+        color: var(--ink); font-weight: 600; font-size: 13px; font-family: inherit; min-width: 150px; }
+    .tab-n { font-family: var(--font-mono); font-size: 10px; color: var(--muted); margin-left: 5px; }
+    .tab.active .tab-n { color: var(--accent); }
+    .tab-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); margin-left: 6px; vertical-align: middle; }
+    .tab-dot.on { display: inline-block; }
+    .empty-state { flex: 1; display: flex; align-items: center; justify-content: center; padding: 30px; }
+    .es-card { text-align: center; max-width: 320px; }
+    .es-ic { width: 56px; height: 56px; margin: 0 auto 16px; border-radius: 16px; background: var(--accent-soft);
+        display: flex; align-items: center; justify-content: center; font-size: 26px; }
+    .es-t { font-weight: 650; font-size: 16px; color: var(--ink); }
+    .es-s { color: var(--muted); font-size: 13px; margin: 6px 0 18px; }
+    .builder { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .wb-resizer { height: 8px; flex-shrink: 0; background: var(--panel-2); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: row-resize; position: relative; }
+    .wb-resizer::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 36px; height: 3px; border-radius: 3px; background: var(--border); }
+    .wb-resizer:hover::after { background: var(--accent); }
+    .nmbar { padding: 12px 16px 0; }
+    .nmbar input { border: none; background: transparent; font-size: 16px; font-weight: 600; color: var(--text); width: 60%; }
+    .nmbar input:focus { outline: none; }
+    .urlbar { display: flex; gap: 8px; padding: 12px 16px; align-items: center; }
+    .urlbar select.method { background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; font-weight: 700; color: var(--text); font-family: var(--font-mono); font-size: 13px; }
+    .urlbar input.url { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 9px 12px; color: var(--text); font-family: var(--font-mono); font-size: 13px; }
+    .urlbar input.url:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .tabs { display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--border); }
+    .tab { padding: 9px 12px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); font-size: 13px; }
+    .tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .tabpanel { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; }
+    .tabpanel[hidden] { display: none; }
+    .tabpanel.body-area { overflow: hidden; display: flex; flex-direction: column; }
+    .kv-row { display: flex; gap: 8px; margin-bottom: 6px; }
+    .kv-row input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 7px 9px; color: var(--text); font-family: monospace; font-size: 13px; }
+    .kv-row button { background: transparent; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+    .var-bar { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 7px 16px; border-bottom: 1px solid var(--border); background: var(--panel); }
+    .var-chip { font-family: var(--font-mono); font-size: 11.5px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--border); }
+    .var-chip.ok { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
+    .var-chip.bad { background: var(--fail-soft); color: var(--fail); border-color: color-mix(in srgb, var(--fail) 35%, transparent); }
+
+    /* Code editor: transparent textarea over a highlighted backdrop (real syntax colors) */
+    /* Code editor: line-number gutter + (transparent textarea over highlighted backdrop). Fills available height, scrolls internally. */
+    .hl-wrap { display: flex; flex: 1; min-height: 0; border: 1px solid var(--border); border-radius: 10px;
+        background: var(--panel-2); overflow: hidden; }
+    .hl-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .ln { flex-shrink: 0; width: 48px; padding: 12px 8px 12px 0; text-align: right; font-family: var(--font-mono);
+        font-size: 13px; line-height: 1.55; color: #aeb4bf; background: var(--panel); overflow: hidden; white-space: pre;
+        user-select: none; border-right: 1px solid var(--border); }
+    .ed-stack { position: relative; flex: 1; min-height: 0; }
+    .code-edit, .hl-backdrop { font-family: var(--font-mono); font-size: 13px; line-height: 1.55; white-space: pre;
+        box-sizing: border-box; padding: 12px; margin: 0; border: none; }
+    .code-edit { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: transparent;
+        caret-color: var(--ink); resize: none; overflow: auto; }
+    .code-edit:focus { outline: none; }
+    .code-edit::selection { color: var(--ink); background: #cfd9ff; }
+    .code-edit::-moz-selection { color: var(--ink); background: #cfd9ff; }
+    .hl-backdrop { position: absolute; inset: 0; color: var(--ink); background: transparent; overflow: hidden; pointer-events: none; }
+    .hl-backdrop .j-key { color: #8250df; }
+    .hl-backdrop .j-str { color: #1f9d55; }
+    .hl-backdrop .j-num { color: #b35900; }
+    .hl-backdrop .j-kw  { color: #4534d6; font-weight: 600; }
+    .hl-backdrop .j-pun { color: #9aa0a8; }
+    .hl-backdrop .j-com { color: #9aa0a8; font-style: italic; }
+    /* env-defined variable */
+    .hl-backdrop .v-ok { background: var(--accent-soft); color: var(--accent); border-radius: 3px; padding: 0 1px; }
+    /* dynamic ($) variable — distinct teal */
+    .hl-backdrop .v-dyn { background: #d9f3ee; color: #0e7c6b; border-radius: 3px; padding: 0 1px; }
+    /* undefined variable */
+    .hl-backdrop .v-bad { background: var(--fail-soft); color: var(--fail); border-radius: 3px; padding: 0 1px; }
+
+    /* variable autocomplete dropdown */
+    .ac { position: fixed; z-index: 70; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+        box-shadow: var(--shadow-lg); padding: 5px; min-width: 220px; max-height: 240px; overflow: auto; }
+    .ac[hidden] { display: none; }
+    .ac-item { display: flex; align-items: center; gap: 8px; padding: 6px 9px; border-radius: 7px; cursor: pointer; font-family: var(--font-mono); font-size: 12.5px; }
+    .ac-item.sel { background: var(--accent-soft); }
+    .ac-item .ac-tag { font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 5px; border-radius: 4px; }
+    .ac-item .ac-tag.env { background: var(--accent-soft); color: var(--accent); }
+    .ac-item .ac-tag.dyn { background: #d9f3ee; color: #0e7c6b; }
+    .ac-item .ac-name { color: var(--ink); }
+    .auth-in { width: 100%; max-width: 420px; display: block; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 9px 12px; color: var(--text); font-family: monospace; font-size: 13px; margin-bottom: 12px; }
+    .auth-lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+
+    .response { height: 260px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
+    .resp-head { padding: 10px 16px; display: flex; gap: 18px; align-items: center; border-bottom: 1px solid var(--border); }
+    .resp-status { font-weight: 700; }
+    .resp-body { flex: 1; overflow: auto; }
+    .resp-body pre { margin: 0; padding: 14px 16px; font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
+    .muted-sm { color: var(--muted); font-size: 12px; }
+    .hist-row { display: flex; gap: 10px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+    .hist-row:hover { background: var(--panel-2); }
+    .code-modal { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: flex; align-items: center; justify-content: center; z-index: 60; }
+    .code-modal[hidden] { display: none; }
+    .code-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; width: 700px; max-width: 92vw; max-height: 82vh; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+    .code-head { display: flex; gap: 10px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); }
+    .code-head select { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 8px; color: var(--text); }
+    #codeOut { margin: 0; padding: 16px; overflow: auto; font-size: 12.5px; white-space: pre; font-family: monospace; }
+</style>
+
+<aside class="wb-tree">
+    <div class="wb-tree-head">
+        <span class="nm" title="{{ collection.name }}">{{ collection.name }}</span>
+        <span style="white-space:nowrap;">
+            <button class="btn ghost small" onclick="WB.newFolder()" title="Klasör ekle">+ Klasör</button>
+            <button class="btn small" onclick="WB.newRequest()">+ İstek</button>
+        </span>
+    </div>
+    <div class="wb-search">
+        <input id="treeSearch" placeholder="İstek ara…" spellcheck="false" autocomplete="off">
+    </div>
+    <div class="wb-tree-body" id="tree">
+        {% for f in collection.rootFolders %}{{ t.tree_folder(f) }}{% endfor %}
+        {% for r in collection.rootRequests %}{{ t.tree_request(r) }}{% endfor %}
+        {% if collection.rootFolders is empty and collection.rootRequests is empty %}
+            <p class="muted-sm" style="padding:10px;">Boş collection. "+ İstek" ile başlayın.</p>
+        {% endif %}
+    </div>
+</aside>
+
+<div class="wb-main">
+    <div class="wb-topbar">
+        <div class="crumb"><span class="ico">📁</span> {{ collection.name }}</div>
+        <div class="wb-env">
+            <span class="eyebrow">Environment</span>
+            <select id="wbEnv" title="Tüm isteklere uygulanır">
+                <option value="">— yok —</option>
+                {% for e in environments %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}
+            </select>
+        </div>
+    </div>
+
+    <div class="empty-state" id="emptyState">
+        <div class="es-card">
+            <div class="es-ic">🧪</div>
+            <div class="es-t">Bir istek seç ya da oluştur</div>
+            <div class="es-s">Soldaki ağaçtan bir isteğe tıkla, ya da yeni bir tane ekle.</div>
+            <button class="btn" onclick="WB.newRequest()">+ Yeni istek</button>
+        </div>
+    </div>
+
+    <div class="builder" id="builder" hidden>
+        <div class="nmbar"><input id="reqName" placeholder="İstek adı"></div>
+        <div class="urlbar">
+            <select class="method" id="reqMethod">
+                {% for m in constant('App\\Entity\\ApiRequest::METHODS') %}<option>{{ m }}</option>{% endfor %}
+            </select>
+            <input class="url" id="reqUrl" placeholder="https://api.example.com/{{ '{{path}}' }}">
+            <button class="btn" onclick="WB.send()" id="sendBtn">Gönder ▸</button>
+            <button class="btn ghost" onclick="WB.save()">Kaydet</button>
+            <button class="btn ghost" onclick="WB.openCode()" title="Kod üret">&lt;/&gt;</button>
+            <button class="btn danger" onclick="WB.del()" title="İsteği sil">🗑</button>
+        </div>
+        <div class="tabs">
+            <div class="tab active" data-tab="params" onclick="WB.tab('params')">Params<span class="tab-n" id="tabnParams"></span></div>
+            <div class="tab" data-tab="headers" onclick="WB.tab('headers')">Headers<span class="tab-n" id="tabnHeaders"></span></div>
+            <div class="tab" data-tab="auth" onclick="WB.tab('auth')">Auth<span class="tab-dot" id="tabdAuth"></span></div>
+            <div class="tab" data-tab="body" onclick="WB.tab('body')">Body<span class="tab-dot" id="tabdBody"></span></div>
+        </div>
+        <div class="tabpanel" data-panel="params"><div id="paramsRows"></div></div>
+        <div class="tabpanel" data-panel="headers" hidden><div id="headersRows"></div></div>
+        <div class="tabpanel" data-panel="auth" hidden>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                <label style="font-size:13px;color:var(--muted);">Tür</label>
+                <select id="authType" onchange="WB.renderAuth()" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);">
+                    <option value="none">No Auth</option>
+                    <option value="bearer">Bearer Token</option>
+                    <option value="basic">Basic Auth</option>
+                    <option value="apikey">API Key</option>
+                </select>
+            </div>
+            <div id="authFields"></div>
+        </div>
+        <div class="tabpanel body-area" data-panel="body" hidden>
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <select id="bodyMode" onchange="WB.validateBody()" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:7px;color:var(--text);">
+                    {% for m in ['none','raw','json','form'] %}<option>{{ m }}</option>{% endfor %}
+                </select>
+                <button type="button" class="btn ghost small" id="formatBtn" onclick="WB.formatBody()" hidden>Format</button>
+                <span id="jsonValidity" class="muted-sm"></span>
+                <div style="flex:1"></div>
+                <span class="muted-sm">{{ '{{API_URL}}' }} · {{ '{{$randomEmail}}' }} · {{ '{{$guid}}' }} desteklenir</span>
+            </div>
+            <div class="hl-wrap">
+                <div class="ln" id="lineNums">1</div>
+                <div class="ed-stack">
+                    <div id="bodyBackdrop" class="hl-backdrop"></div>
+                    <textarea id="reqBody" class="code-edit" spellcheck="false" oninput="WB.validateBody()" placeholder="İstek gövdesi"></textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="wb-resizer" id="wbResizer" title="Sürükle: boyutlandır · Tıkla: aşağı indir / geri al" hidden></div>
+
+    <div class="response" id="response" hidden>
+        <div class="resp-head">
+            <span class="resp-status" id="respStatus">—</span>
+            <span class="muted-sm" id="respMeta"></span>
+            <button class="btn ghost small" id="saveExampleBtn" onclick="WB.saveExample()" title="Bu yanıtı örnek olarak kaydet" hidden style="margin-left:6px;">★ Örnek kaydet</button>
+            <button class="btn ghost small" id="delExampleBtn" onclick="WB.deleteExample()" title="Bu örneği sil" hidden style="margin-left:6px;">🗑 Örneği sil</button>
+            <div style="flex:1"></div>
+            <div class="tab active" data-rtab="body" onclick="WB.rtab('body')" style="padding:4px 8px;">Body</div>
+            <div class="tab" data-rtab="headers" onclick="WB.rtab('headers')" style="padding:4px 8px;">Headers</div>
+            <div class="tab" data-rtab="history" onclick="WB.rtab('history')" style="padding:4px 8px;">Geçmiş</div>
+        </div>
+        <div class="resp-body"><pre id="respBody"></pre><pre id="respHeaders" hidden></pre><div id="respHistory" hidden></div></div>
+    </div>
+</div>
+
+<div class="ac" id="ac" hidden></div>
+
+<div id="codeModal" class="code-modal" hidden onclick="if(event.target===this)WB.closeCode()">
+    <div class="code-card">
+        <div class="code-head">
+            <strong>Kod</strong>
+            <select id="codeLang" onchange="WB.renderCode()">
+                <option value="curl">cURL</option>
+                <option value="fetch">JavaScript (fetch)</option>
+                <option value="php">PHP (cURL)</option>
+            </select>
+            <div style="flex:1"></div>
+            <button class="btn small" onclick="WB.copyCode()">Kopyala</button>
+            <button class="btn ghost small" onclick="WB.closeCode()">✕</button>
+        </div>
+        <pre id="codeOut"></pre>
+    </div>
+</div>
+
+<script type="application/json" id="wb-config">{{ {
+    csrf: csrf_token('workbench'),
+    urls: {
+        get:    path('wb_request_get',    {workspace: workspace.id, request: 'REQID'}),
+        save:   path('wb_request_save',   {workspace: workspace.id, request: 'REQID'}),
+        send:   path('wb_request_send',   {workspace: workspace.id, request: 'REQID'}),
+        del:    path('wb_request_delete', {workspace: workspace.id, request: 'REQID'}),
+        create: path('wb_request_create', {workspace: workspace.id, collection: collection.id}),
+        history: path('wb_history_list', {workspace: workspace.id, request: 'REQID'}),
+        historyDetail: path('wb_history_detail', {workspace: workspace.id, history: 'HID'}),
+        exampleCreate: path('wb_example_create', {workspace: workspace.id, request: 'REQID'}),
+        exampleGet: path('wb_example_get', {workspace: workspace.id, example: 'EXID'}),
+        exampleDelete: path('wb_example_delete', {workspace: workspace.id, example: 'EXID'}),
+        folderCreate: path('wb_folder_create', {workspace: workspace.id, collection: collection.id}),
+        reorder: path('wb_request_reorder', {workspace: workspace.id, collection: collection.id})
+    },
+    wsId: workspace.id,
+    envs: environments|map(e => {'id': e.id, 'vars': e.variables|map(v => v.name)})
+}|json_encode|raw }}</script>
+{% verbatim %}
+<script>
+const WB = (() => {
+    const CFG = JSON.parse(document.getElementById('wb-config').textContent);
+    const CSRF = CFG.csrf;
+    const U = CFG.urls;
+    const ENV_VARS = {};
+    (CFG.envs || []).forEach(e => ENV_VARS[e.id] = new Set(Object.values(e.vars || {})));
+    let currentId = null;
+    let draggedEl = null;
+    let lastResp = null;          // last live response (for "save as example")
+    let currentExampleId = null;  // example currently shown in the panel (for delete)
+
+    const $ = id => document.getElementById(id);
+    const api = (url, method='GET', body=null) => fetch(url, {
+        method, headers: {'Content-Type':'application/json','X-CSRF-Token':CSRF},
+        body: body ? JSON.stringify(body) : null
+    }).then(r => r.json());
+
+    function kvRows(container, pairs) {
+        container.innerHTML = '';
+        const data = (pairs || []).concat([{name:'',value:''}]);
+        data.forEach(p => addRow(container, p.name, p.value));
+    }
+    function addRow(container, name='', value='') {
+        const row = document.createElement('div'); row.className = 'kv-row';
+        row.innerHTML = '<input placeholder="ad" value=""><input placeholder="değer" value=""><button title="sil">✕</button>';
+        const [n, v] = row.querySelectorAll('input');
+        n.value = name; v.value = value;
+        const ensureTrailing = () => {
+            const rows = [...container.querySelectorAll('.kv-row')];
+            const last = rows[rows.length-1];
+            const li = last.querySelectorAll('input');
+            if (li[0].value || li[1].value) addRow(container);
+        };
+        n.addEventListener('input', ensureTrailing);
+        v.addEventListener('input', ensureTrailing);
+        row.querySelector('button').onclick = () => { row.remove(); if(!container.querySelector('.kv-row')) addRow(container); };
+        container.appendChild(row);
+    }
+    function collectPairs(container) {
+        return [...container.querySelectorAll('.kv-row')].map(r => {
+            const i = r.querySelectorAll('input');
+            return {name: i[0].value.trim(), value: i[1].value};
+        }).filter(p => p.name !== '');
+    }
+    // ---- Params <-> URL two-way sync (Postman-style; variables kept readable, not encoded) ----
+    function urlToParams() {
+        const url = $('reqUrl').value, qi = url.indexOf('?');
+        const qs = qi >= 0 ? url.slice(qi + 1) : '';
+        const pairs = qs ? qs.split('&').filter(Boolean).map(kv => {
+            const i = kv.indexOf('='); return {name: i >= 0 ? kv.slice(0, i) : kv, value: i >= 0 ? kv.slice(i + 1) : ''};
+        }).filter(p => p.name) : [];
+        kvRows($('paramsRows'), pairs);
+    }
+    function paramsToUrl() {
+        const url = $('reqUrl').value, qi = url.indexOf('?'), base = qi >= 0 ? url.slice(0, qi) : url;
+        const pairs = collectPairs($('paramsRows'));
+        $('reqUrl').value = pairs.length ? base + '?' + pairs.map(p => p.name + '=' + p.value).join('&') : base;
+    }
+
+    function select(id) {
+        currentId = id;
+        lastResp = null; currentExampleId = null;
+        $('saveExampleBtn').hidden = true; $('delExampleBtn').hidden = true;
+        document.querySelectorAll('.ex-row.active').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.tree-req').forEach(el => el.classList.toggle('active', el.dataset.id === id));
+        api(U.get.replace('REQID', id)).then(r => {
+            $('emptyState').hidden = true; $('builder').hidden = false; $('wbResizer').hidden = false;
+            $('reqName').value = r.name; $('reqMethod').value = r.method; $('reqUrl').value = r.url;
+            $('bodyMode').value = r.bodyMode || 'none'; $('reqBody').value = r.body || '';
+            kvRows($('paramsRows'), r.params); kvRows($('headersRows'), r.headers);
+            if (($('reqUrl').value || '').includes('?')) urlToParams(); else paramsToUrl();
+            const a = r.auth || {}; $('authType').value = a.type || 'none'; renderAuth(a);
+            $('response').hidden = false;
+            $('respStatus').textContent = '—'; $('respStatus').style.color = 'var(--muted)';
+            $('respMeta').textContent = 'Gönder\'e basın veya Geçmiş sekmesine bakın';
+            $('respBody').textContent = ''; $('respHeaders').textContent = ''; rtab('body');
+            validateBody(); refreshVars();
+        });
+    }
+    // Remove // line comments and /* block */ comments without touching anything inside strings.
+    function stripJsonComments(src) {
+        let out = '', i = 0, inStr = false, q = '';
+        while (i < src.length) {
+            const c = src[i], n = src[i + 1];
+            if (inStr) {
+                out += c;
+                if (c === '\\') { out += (n || ''); i += 2; continue; }
+                if (c === q) inStr = false;
+                i++; continue;
+            }
+            if (c === '"' || c === "'") { inStr = true; q = c; out += c; i++; continue; }
+            if (c === '/' && n === '/') { while (i < src.length && src[i] !== '\n') i++; continue; }
+            if (c === '/' && n === '*') { i += 2; while (i < src.length && !(src[i] === '*' && src[i + 1] === '/')) i++; i += 2; continue; }
+            out += c; i++;
+        }
+        return out;
+    }
+    // Validate ignoring {{variables}} (placeholders resolved at send time) and // or /* */ comments —
+    // so a body like {"amount": {{amount}}} // note  is considered fine.
+    function jsonForValidation(txt) { return stripJsonComments(txt).replace(/\{\{[^{}]*\}\}/g, '0'); }
+    function validateBody() {
+        const mode = $('bodyMode').value;
+        const badge = $('jsonValidity'); const fmt = $('formatBtn');
+        if (mode !== 'json') { badge.textContent = ''; fmt.hidden = true; return; }
+        fmt.hidden = false;
+        const txt = $('reqBody').value.trim();
+        if (txt === '') { badge.textContent = ''; return; }
+        const hasVars = /\{\{[^{}]*\}\}/.test(txt);
+        try {
+            JSON.parse(jsonForValidation(txt));
+            badge.textContent = hasVars ? '✓ Geçerli (değişkenler çözülecek)' : '✓ Geçerli JSON';
+            badge.style.color = 'var(--accent-2)';
+        } catch (e) {
+            badge.textContent = '✗ ' + e.message; badge.style.color = 'var(--danger)';
+        }
+    }
+    function formatBody() {
+        // Only reformat when there are no template variables (formatting would lose them).
+        const txt = $('reqBody').value;
+        if (/\{\{[^{}]*\}\}/.test(txt)) { flash('Değişken içeren gövde biçimlendirilemez'); return; }
+        try {
+            $('reqBody').value = JSON.stringify(JSON.parse(txt), null, 2);
+            refreshVars(); validateBody();
+        } catch (e) { validateBody(); }
+    }
+    function payload() {
+        return {
+            name: $('reqName').value, method: $('reqMethod').value, url: $('reqUrl').value,
+            headers: collectPairs($('headersRows')), params: collectPairs($('paramsRows')),
+            bodyMode: $('bodyMode').value, body: $('reqBody').value, auth: collectAuth(),
+        };
+    }
+    function renderAuth(prefill) {
+        prefill = prefill || {};
+        const type = $('authType').value, c = $('authFields'), v = k => (prefill[k]||'').replace(/"/g,'&quot;');
+        const inp = (id,ph,val) => '<input id="'+id+'" placeholder="'+ph+'" value="'+val+'" class="auth-in">';
+        const lbl = txt => '<label class="auth-lbl">'+txt+'</label>';
+        let h = '';
+        if (type === 'bearer') h = lbl('Token')+inp('authToken','Token (değişken de olabilir)', v('token'));
+        else if (type === 'basic') h = lbl('Kullanıcı')+inp('authUser','kullanıcı', v('username'))+lbl('Şifre')+inp('authPass','şifre', v('password'));
+        else if (type === 'apikey') h = lbl('Anahtar (key)')+inp('authKey','X-Api-Key', v('key'))+lbl('Değer')+inp('authVal','değer (değişken de olabilir)', v('value'))
+            +lbl('Ekleneceği yer')+'<select id="authAddTo" class="auth-in"><option value="header"'+(prefill.addTo!=='query'?' selected':'')+'>Header</option><option value="query"'+(prefill.addTo==='query'?' selected':'')+'>Query param</option></select>';
+        else h = '<p class="muted-sm">Bu istek için kimlik doğrulama yok.</p>';
+        c.innerHTML = h;
+    }
+    function collectAuth() {
+        const type = $('authType').value, g = id => (document.getElementById(id)?.value || '');
+        if (type === 'bearer') return {type, token: g('authToken')};
+        if (type === 'basic') return {type, username: g('authUser'), password: g('authPass')};
+        if (type === 'apikey') return {type, key: g('authKey'), value: g('authVal'), addTo: g('authAddTo') || 'header'};
+        return {type: 'none'};
+    }
+    function send() {
+        if (!currentId) return;
+        const b = payload(); b.environment = $('wbEnv').value;
+        // Comments are an editor convenience; strip them so the wire body stays valid JSON.
+        if (b.bodyMode === 'json' && b.body) b.body = stripJsonComments(b.body);
+        $('sendBtn').textContent = 'Gönderiliyor…'; $('sendBtn').disabled = true;
+        api(U.send.replace('REQID', currentId), 'POST', b).then(res => {
+            $('sendBtn').textContent = 'Gönder'; $('sendBtn').disabled = false;
+            $('response').hidden = false;
+            if (!res.ok && res.error) {
+                $('respStatus').textContent = 'Hata'; $('respStatus').style.color = 'var(--danger)';
+                $('respMeta').textContent = ''; $('respBody').textContent = res.error; rtab('body');
+                $('respHeaders').textContent = '';
+                lastResp = null; $('saveExampleBtn').hidden = true; $('delExampleBtn').hidden = true;
+                return;
+            }
+            const sc = res.status;
+            $('respStatus').textContent = sc;
+            $('respStatus').style.color = sc < 300 ? 'var(--accent-2)' : (sc < 400 ? 'var(--warn)' : 'var(--danger)');
+            $('respMeta').textContent = res.durationMs + ' ms · ' + res.size + ' B';
+            let body = res.body || '';
+            try { body = JSON.stringify(JSON.parse(body), null, 2); } catch(e) {}
+            $('respBody').textContent = body;
+            $('respHeaders').textContent = Object.entries(res.headers||{}).map(([k,v]) => k+': '+v).join('\n');
+            rtab('body');
+            loadHistory();
+            // Live response → can be saved as an example; refresh the tree's example list.
+            lastResp = { status: res.status, body: res.body, headers: res.headers };
+            currentExampleId = null;
+            document.querySelectorAll('.ex-row.active').forEach(el => el.classList.remove('active'));
+            $('saveExampleBtn').hidden = false; $('delExampleBtn').hidden = true;
+            if (res.examples) renderExamples(currentId, res.examples);
+        });
+    }
+
+    // ---- Saved example responses ----
+    function renderExamples(reqId, list) {
+        const box = document.querySelector('.ex-list[data-ex-for="' + reqId + '"]');
+        if (!box) return;
+        box.innerHTML = (list || []).map(e => {
+            const cls = e.success ? 'ok' : (e.status ? 'bad' : 'na');
+            return '<div class="ex-row" data-ex-id="' + e.id + '" title="' + escAttr(e.name) + '">'
+                + '<span class="ex-ic ' + cls + '">e.g.</span><span class="ex-name">' + escHtml(e.name) + '</span></div>';
+        }).join('');
+    }
+    function escHtml(s) { return String(s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+    function escAttr(s) { return escHtml(s).replace(/"/g, '&quot;'); }
+
+    function showExample(id) {
+        api(U.exampleGet.replace('EXID', id)).then(d => {
+            currentExampleId = id; lastResp = null;
+            document.querySelectorAll('.ex-row.active').forEach(el => el.classList.remove('active'));
+            const row = document.querySelector('.ex-row[data-ex-id="' + id + '"]');
+            if (row) row.classList.add('active');
+            $('response').hidden = false;
+            rtab('body');
+            const sc = d.status;
+            $('respStatus').textContent = sc == null ? '—' : sc;
+            $('respStatus').style.color = sc == null ? 'var(--muted)' : (sc < 300 ? 'var(--accent-2)' : (sc < 400 ? 'var(--warn)' : 'var(--danger)'));
+            $('respMeta').textContent = d.name + ' · örnek' + ({auto:' (otomatik)',imported:' (Postman)',manual:''}[d.source] || '');
+            let body = d.body || '';
+            try { body = JSON.stringify(JSON.parse(body), null, 2); } catch(e) {}
+            $('respBody').textContent = body;
+            $('respHeaders').textContent = Object.entries(d.headers || {}).map(([k,v]) => k+': '+v).join('\n');
+            $('saveExampleBtn').hidden = true; $('delExampleBtn').hidden = false;
+        });
+    }
+    function saveExample() {
+        if (!currentId || !lastResp) return;
+        const name = prompt('Örnek adı:', lastResp.status ? (lastResp.status + ' Response') : 'Örnek');
+        if (name === null) return;
+        api(U.exampleCreate.replace('REQID', currentId), 'POST', {
+            name: name, status: lastResp.status, body: lastResp.body, headers: lastResp.headers,
+        }).then(r => { if (r.ok) { renderExamples(currentId, r.examples); flash('Örnek kaydedildi'); } });
+    }
+    function deleteExample() {
+        if (!currentExampleId) return;
+        if (!confirm('Bu örnek silinecek.')) return;
+        const rid = currentId;
+        api(U.exampleDelete.replace('EXID', currentExampleId), 'POST').then(r => {
+            if (r.ok) { renderExamples(rid, r.examples); currentExampleId = null; $('delExampleBtn').hidden = true; }
+        });
+    }
+
+    function save() {
+        if (!currentId) return;
+        api(U.save.replace('REQID', currentId), 'POST', payload()).then(r => {
+            if (r.ok) { const el = document.querySelector('.tree-req[data-id="'+currentId+'"] .t-name'); if(el) el.textContent = r.request.name;
+                const m = document.querySelector('.tree-req[data-id="'+currentId+'"] .meth'); if(m) m.textContent = r.request.method; flash('Kaydedildi'); }
+        });
+    }
+    function del() {
+        if (!currentId || !confirm('İstek silinecek.')) return;
+        api(U.del.replace('REQID', currentId), 'POST').then(r => {
+            if (r.ok) { document.querySelector('.tree-req[data-id="'+currentId+'"]')?.remove(); currentId=null; $('builder').hidden=true; $('response').hidden=true; $('emptyState').hidden=false; }
+        });
+    }
+    function newRequest() {
+        const name = prompt('İstek adı:', 'Yeni istek'); if (name === null) return;
+        api(U.create, 'POST', {name}).then(r => {
+            if (!r.ok) return;
+            const tree = $('tree'); const colors = {GET:'#16a34a',POST:'#d97706',PUT:'#2563eb',PATCH:'#7c3aed',DELETE:'#dc2626'};
+            const div = document.createElement('div'); div.className='tree-req'; div.dataset.id=r.request.id;
+            div.innerHTML = '<span class="meth" style="color:'+(colors[r.request.method]||'var(--muted)')+'">'+r.request.method+'</span><span class="t-name">'+r.request.name+'</span>';
+            div.onclick = () => select(r.request.id); tree.appendChild(div); select(r.request.id);
+        });
+    }
+    function tab(name) {
+        document.querySelectorAll('.builder .tab').forEach(t => t.classList.toggle('active', t.dataset.tab===name));
+        document.querySelectorAll('.builder .tabpanel').forEach(p => p.hidden = p.dataset.panel!==name);
+    }
+    function rtab(name) {
+        document.querySelectorAll('.response .tab').forEach(t => t.classList.toggle('active', t.dataset.rtab===name));
+        $('respBody').hidden = name!=='body'; $('respHeaders').hidden = name!=='headers'; $('respHistory').hidden = name!=='history';
+        if (name === 'history') loadHistory();
+    }
+    function timeago(iso) {
+        const s = Math.floor((Date.now() - new Date(iso).getTime())/1000);
+        if (s < 60) return s+' sn önce';
+        if (s < 3600) return Math.floor(s/60)+' dk önce';
+        if (s < 86400) return Math.floor(s/3600)+' sa önce';
+        return Math.floor(s/86400)+' gün önce';
+    }
+    function loadHistory() {
+        if (!currentId) return;
+        api(U.history.replace('REQID', currentId)).then(d => {
+            const items = d.items || [];
+            if (!items.length) { $('respHistory').innerHTML = '<p class="muted-sm" style="padding:14px;">Bu istek için henüz koşum geçmişi yok.</p>'; return; }
+            $('respHistory').innerHTML = items.map(it => {
+                const ok = !it.error && it.status < 400;
+                const color = it.error ? 'var(--danger)' : (it.status < 300 ? 'var(--accent-2)' : (it.status < 400 ? 'var(--warn)' : 'var(--danger)'));
+                const st = it.error ? 'ERR' : (it.status || '—');
+                return '<div class="hist-row" data-hid="'+it.id+'"><span style="font-weight:700;color:'+color+';min-width:40px;">'+st+'</span>'
+                    + '<span style="font-weight:700;min-width:48px;color:var(--muted);">'+it.method+'</span>'
+                    + '<span class="muted-sm" style="flex:1;">'+it.durationMs+' ms · '+it.size+' B'+(it.env ? ' · '+it.env : '')+'</span>'
+                    + '<span class="muted-sm">'+timeago(it.createdAt)+'</span></div>';
+            }).join('');
+            $('respHistory').querySelectorAll('.hist-row').forEach(r => r.onclick = () => showHistory(r.dataset.hid));
+        });
+    }
+    function showHistory(id) {
+        api(U.historyDetail.replace('HID', id)).then(d => {
+            rtab('body');
+            if (d.error) {
+                $('respStatus').textContent = 'Hata'; $('respStatus').style.color = 'var(--danger)';
+                $('respMeta').textContent = ''; $('respBody').textContent = d.error; $('respHeaders').textContent = ''; return;
+            }
+            const sc = d.status;
+            $('respStatus').textContent = sc; $('respStatus').style.color = sc < 300 ? 'var(--accent-2)' : (sc < 400 ? 'var(--warn)' : 'var(--danger)');
+            $('respMeta').textContent = d.durationMs + ' ms · ' + d.size + ' B' + (d.env ? ' · ' + d.env : '') + ' (geçmiş)';
+            let body = d.body || ''; try { body = JSON.stringify(JSON.parse(body), null, 2); } catch(e) {}
+            $('respBody').textContent = body;
+            $('respHeaders').textContent = Object.entries(d.headers || {}).map(([k,v]) => k+': '+v).join('\n');
+        });
+    }
+    function flash(msg) {
+        const f = document.createElement('div'); f.textContent = msg;
+        f.style.cssText = 'position:fixed;bottom:18px;right:18px;background:var(--accent-2);color:#fff;padding:8px 14px;border-radius:8px;font-size:13px;box-shadow:var(--shadow);z-index:50;';
+        document.body.appendChild(f); setTimeout(()=>f.remove(), 1500);
+    }
+
+    // ---- Code generation ----
+    function openCode() { if (!currentId) return; $('codeModal').hidden = false; renderCode(); }
+    function closeCode() { $('codeModal').hidden = true; }
+    function effectiveReq() {
+        const p = payload();
+        let url = p.url;
+        const headers = (p.headers || []).map(h => ({name: h.name, value: h.value}));
+        const auth = p.auth || {type: 'none'};
+        if (auth.type === 'bearer' && auth.token) headers.push({name: 'Authorization', value: 'Bearer ' + auth.token});
+        else if (auth.type === 'basic') headers.push({name: 'Authorization', value: 'Basic ' + btoa((auth.username || '') + ':' + (auth.password || ''))});
+        else if (auth.type === 'apikey' && auth.key) {
+            if (auth.addTo === 'query') url += (url.includes('?') ? '&' : '?') + auth.key + '=' + (auth.value || '');
+            else headers.push({name: auth.key, value: auth.value || ''});
+        }
+        const hasCT = headers.some(h => h.name.toLowerCase() === 'content-type');
+        if (p.body && !hasCT && p.bodyMode === 'json') headers.push({name: 'Content-Type', value: 'application/json'});
+        if (p.body && !hasCT && p.bodyMode === 'form') headers.push({name: 'Content-Type', value: 'application/x-www-form-urlencoded'});
+        return {method: p.method, url, headers, body: p.bodyMode !== 'none' ? (p.body || '') : ''};
+    }
+    function renderCode() {
+        const r = effectiveReq(), lang = $('codeLang').value;
+        $('codeOut').textContent = lang === 'curl' ? genCurl(r) : (lang === 'fetch' ? genFetch(r) : genPhp(r));
+    }
+    function sq(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
+    function phpStr(s) { return "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'"; }
+    function genCurl(r) {
+        let out = 'curl -X ' + r.method + ' ' + sq(r.url);
+        r.headers.forEach(h => out += " \\\n  -H " + sq(h.name + ': ' + h.value));
+        if (r.body) out += " \\\n  --data " + sq(r.body);
+        return out;
+    }
+    function genFetch(r) {
+        const h = {}; r.headers.forEach(x => h[x.name] = x.value);
+        const opts = {method: r.method};
+        if (Object.keys(h).length) opts.headers = h;
+        if (r.body) opts.body = r.body;
+        return 'fetch(' + JSON.stringify(r.url) + ', ' + JSON.stringify(opts, null, 2) + ')\n  .then(r => r.json())\n  .then(console.log);';
+    }
+    function genPhp(r) {
+        let s = '$ch = curl_init(' + phpStr(r.url) + ');\n';
+        s += 'curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n';
+        s += 'curl_setopt($ch, CURLOPT_CUSTOMREQUEST, ' + phpStr(r.method) + ');\n';
+        if (r.headers.length) s += 'curl_setopt($ch, CURLOPT_HTTPHEADER, [\n' + r.headers.map(h => '    ' + phpStr(h.name + ': ' + h.value)).join(',\n') + ',\n]);\n';
+        if (r.body) s += 'curl_setopt($ch, CURLOPT_POSTFIELDS, ' + phpStr(r.body) + ');\n';
+        s += '$response = curl_exec($ch);\ncurl_close($ch);\necho $response;';
+        return s;
+    }
+    function copyCode() { navigator.clipboard.writeText($('codeOut').textContent).then(() => flash('Kopyalandı')); }
+
+    // ---- Undefined-variable highlighting ----
+    function currentEnvVars() { return ENV_VARS[$('wbEnv').value] || new Set(); }
+    function isDefined(name) { return name.charAt(0) === '$' || currentEnvVars().has(name); }
+    function varsIn(text) { return text ? [...String(text).matchAll(/\{\{\s*(\$?[\w.\-]+)\s*\}\}/g)].map(m => m[1]) : []; }
+    function collectVarsUsed() {
+        const p = payload(), texts = [p.url, p.body];
+        (p.headers || []).forEach(h => { texts.push(h.name, h.value); });
+        (p.params || []).forEach(h => { texts.push(h.name, h.value); });
+        const a = p.auth || {}; ['token','username','password','key','value'].forEach(k => { if (a[k]) texts.push(a[k]); });
+        const set = new Set(); texts.forEach(t => varsIn(t).forEach(n => set.add(n)));
+        return [...set];
+    }
+    function renderVarBar() {
+        const vars = collectVarsUsed(), bar = $('varBar');
+        if (!vars.length) { bar.hidden = true; bar.innerHTML = ''; return; }
+        bar.hidden = false;
+        const undef = vars.filter(v => !isDefined(v)).length;
+        bar.innerHTML = '<span class="muted-sm" style="margin-right:2px;">Değişkenler' + (undef ? ' · ' + undef + ' tanımsız' : '') + ':</span>'
+            + vars.map(v => '<span class="var-chip ' + (isDefined(v) ? 'ok' : 'bad') + '" title="' + (isDefined(v) ? 'tanımlı' : 'tanımsız (seçili environment\'ta yok)') + '">{{' + esc(v) + '}}</span>').join('');
+    }
+    function varClass(name) { return name.charAt(0) === '$' ? 'v-dyn' : (currentEnvVars().has(name) ? 'v-ok' : 'v-bad'); }
+    function varSpanInner(s) {
+        return esc(s).replace(/\{\{\s*(\$?[\w.\-]+)\s*\}\}/g,
+            (m, n) => '<span class="' + varClass(n) + '">' + esc(m) + '</span>');
+    }
+    function highlightJson(text) {
+        const re = /(\/\/[^\n]*|\/\*[\s\S]*?\*\/)|("(?:\\.|[^"\\])*")|(\{\{\s*\$?[\w.\-]+\s*\}\})|(-?\d+\.?\d*(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([{}\[\],:])/g;
+        let out = '', last = 0, m;
+        while ((m = re.exec(text)) !== null) {
+            out += esc(text.slice(last, m.index));
+            if (m[1]) {
+                out += '<span class="j-com">' + esc(m[1]) + '</span>';
+            } else if (m[2]) {
+                const isKey = /^\s*:/.test(text.slice(re.lastIndex));
+                out += '<span class="j-' + (isKey ? 'key' : 'str') + '">' + varSpanInner(m[2]) + '</span>';
+            } else if (m[3]) {
+                const n = m[3].replace(/[{}\s]/g, '');
+                out += '<span class="' + varClass(n) + '">' + esc(m[3]) + '</span>';
+            } else if (m[4]) { out += '<span class="j-num">' + esc(m[4]) + '</span>'; }
+            else if (m[5]) { out += '<span class="j-kw">' + esc(m[5]) + '</span>'; }
+            else { out += '<span class="j-pun">' + esc(m[6]) + '</span>'; }
+            last = re.lastIndex;
+        }
+        return out + esc(text.slice(last));
+    }
+    function renderBodyHighlight() {
+        const txt = $('reqBody').value;
+        const html = ($('bodyMode').value === 'json') ? highlightJson(txt) : varSpanInner(txt);
+        $('bodyBackdrop').innerHTML = html + '\n';
+        renderLineNumbers(txt);
+    }
+    function renderLineNumbers(txt) {
+        const ln = $('lineNums'); if (!ln) return;
+        const count = (txt.match(/\n/g) || []).length + 1;
+        let s = '';
+        for (let i = 1; i <= count; i++) s += i + '\n';
+        ln.textContent = s;
+        ln.scrollTop = $('reqBody').scrollTop;
+    }
+    const METHOD_COLOR = {GET:'#16a34a',POST:'#b35900',PUT:'#2563eb',PATCH:'#8250df',DELETE:'#dc2626',HEAD:'#6b7079',OPTIONS:'#6b7079'};
+    function colorMethod() { $('reqMethod').style.color = METHOD_COLOR[$('reqMethod').value] || 'var(--ink)'; }
+    function refreshVars() { renderBodyHighlight(); updateTabCounts(); colorMethod(); }
+    function updateTabCounts() {
+        var p = collectPairs($('paramsRows')).length, h = collectPairs($('headersRows')).length;
+        $('tabnParams').textContent = p ? '(' + p + ')' : '';
+        $('tabnHeaders').textContent = h ? '(' + h + ')' : '';
+        $('tabdAuth').className = 'tab-dot' + (($('authType').value && $('authType').value !== 'none') ? ' on' : '');
+        $('tabdBody').className = 'tab-dot' + (($('bodyMode').value !== 'none' && $('reqBody').value.trim()) ? ' on' : '');
+    }
+
+    // ---- Variable autocomplete ({{ … }}) ----
+    const DYN_VARS = ['$guid','$randomUUID','$timestamp','$isoTimestamp','$isoDate','$randomInt','$randomFirstName','$randomLastName','$randomFullName','$randomUserName','$randomEmail','$randomPhoneNumber','$randomCompanyName','$randomCity','$randomCountry','$randomColor','$randomBoolean','$randomWord','$randomWords','$randomIP','$randomPrice'];
+    const AC = (function () {
+        let el = null, ctx = null, items = [], sel = 0;
+        const box = () => $('ac');
+        function ctxAt(t) {
+            const pos = t.selectionStart, before = t.value.slice(0, pos), open = before.lastIndexOf('{{');
+            if (open === -1) return null;
+            const between = before.slice(open + 2);
+            if (between.indexOf('}}') !== -1 || between.indexOf('\n') !== -1) return null;
+            if (!/^\s*\$?[\w.\-]*$/.test(between)) return null;
+            return { start: open + 2, partial: between.trim() };
+        }
+        function suggestions(p) {
+            p = p.toLowerCase();
+            const env = [...currentEnvVars()].map(n => ({ name: n, kind: 'env' }));
+            const all = env.concat(DYN_VARS.map(n => ({ name: n, kind: 'dyn' })));
+            return all.filter(s => s.name.toLowerCase().indexOf(p) !== -1).slice(0, 12);
+        }
+        function caretXY(t, pos) {
+            const d = document.createElement('div'), cs = getComputedStyle(t);
+            ['fontFamily','fontSize','fontWeight','lineHeight','letterSpacing','paddingTop','paddingRight','paddingBottom','paddingLeft','borderTopWidth','borderLeftWidth'].forEach(p => d.style[p] = cs[p]);
+            d.style.position = 'absolute'; d.style.visibility = 'hidden'; d.style.whiteSpace = 'pre-wrap'; d.style.wordWrap = 'break-word'; d.style.width = t.clientWidth + 'px';
+            d.textContent = t.value.slice(0, pos);
+            const s = document.createElement('span'); s.textContent = '|'; d.appendChild(s);
+            document.body.appendChild(d);
+            const r = t.getBoundingClientRect();
+            const x = r.left + s.offsetLeft - t.scrollLeft, y = r.top + s.offsetTop - t.scrollTop, lh = parseFloat(cs.lineHeight) || 18;
+            document.body.removeChild(d);
+            return { x, y, lh };
+        }
+        function render() {
+            box().innerHTML = items.map((s, i) => '<div class="ac-item' + (i === sel ? ' sel' : '') + '" data-i="' + i + '"><span class="ac-tag ' + s.kind + '">' + (s.kind === 'dyn' ? '$' : 'ENV') + '</span><span class="ac-name">' + esc(s.name) + '</span></div>').join('');
+            box().querySelectorAll('.ac-item').forEach(it => it.onmousedown = e => { e.preventDefault(); choose(+it.dataset.i); });
+        }
+        function place() {
+            const b = box();
+            if (el.tagName === 'TEXTAREA') { const xy = caretXY(el, el.selectionStart); b.style.left = Math.min(xy.x, window.innerWidth - 250) + 'px'; b.style.top = (xy.y + xy.lh + 3) + 'px'; }
+            else { const r = el.getBoundingClientRect(); b.style.left = r.left + 'px'; b.style.top = (r.bottom + 4) + 'px'; }
+        }
+        function open(t) {
+            el = t; ctx = ctxAt(t);
+            if (!ctx) return close();
+            items = suggestions(ctx.partial);
+            if (!items.length) return close();
+            sel = 0; box().hidden = false; render(); place();
+        }
+        function close() { box().hidden = true; el = null; ctx = null; items = []; }
+        function isOpen() { return !box().hidden; }
+        function choose(i) {
+            if (!el || !ctx || !items[i]) return;
+            const t = el, name = items[i].name, before = t.value.slice(0, ctx.start);
+            let rest = t.value.slice(t.selectionStart); const m = rest.match(/^\s*\}\}/); if (m) rest = rest.slice(m[0].length);
+            const val = before + name + '}}'; t.value = val + rest;
+            const c = val.length; t.setSelectionRange(c, c);
+            close(); t.dispatchEvent(new Event('input', { bubbles: true })); t.focus();
+        }
+        function onKey(e) {
+            if (!isOpen()) return;
+            if (e.key === 'ArrowDown') { e.preventDefault(); sel = (sel + 1) % items.length; render(); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); sel = (sel - 1 + items.length) % items.length; render(); }
+            else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); choose(sel); }
+            else if (e.key === 'Escape') { close(); }
+        }
+        function attach(t) {
+            t.addEventListener('input', () => open(t));
+            t.addEventListener('keydown', onKey);
+            t.addEventListener('click', () => open(t));
+            t.addEventListener('blur', () => setTimeout(close, 150));
+        }
+        return { attach, close, isOpen };
+    })();
+
+    // ---- Folders + drag & drop ----
+    function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function newFolder() {
+        const name = prompt('Klasör adı:', 'Yeni klasör'); if (name === null) return;
+        api(U.folderCreate, 'POST', {name}).then(r => {
+            if (!r.ok) return;
+            const div = document.createElement('div'); div.className = 'tree-folder'; div.dataset.folderId = r.folder.id;
+            div.innerHTML = '<div class="lbl"><span class="chev">▾</span><span class="ficon">📂</span><span class="fname">' + esc(r.folder.name) + '</span></div>'
+                + '<div class="folder-body" data-folder-id="' + r.folder.id + '"></div>';
+            $('tree').appendChild(div);
+        });
+    }
+    function clearDragTargets() { document.querySelectorAll('.drag-target').forEach(el => el.classList.remove('drag-target')); }
+    function filterTree(q) {
+        q = q.trim().toLowerCase();
+        document.querySelectorAll('.tree-req').forEach(function (r) {
+            var n = (r.querySelector('.t-name') || {}).textContent || '';
+            var hide = q !== '' && n.toLowerCase().indexOf(q) === -1;
+            r.classList.toggle('hide', hide);
+            var exl = document.querySelector('.ex-list[data-ex-for="' + r.dataset.id + '"]');
+            if (exl) exl.classList.toggle('hide', hide);
+        });
+        document.querySelectorAll('.tree-folder').forEach(function (f) {
+            var visible = f.querySelector('.tree-req:not(.hide)');
+            f.classList.toggle('hide', q !== '' && !visible);
+            if (q !== '') f.classList.remove('collapsed');
+        });
+    }
+    function containerFor(target) {
+        const body = target.closest('.folder-body');
+        if (body) return body;
+        const folder = target.closest('.tree-folder');
+        if (folder) return folder.querySelector(':scope > .folder-body');
+        return $('tree');
+    }
+    function reorderContainer(container) {
+        const folderId = container.dataset.folderId || '';
+        const order = [...container.querySelectorAll(':scope > .tree-req')].map(el => el.dataset.id);
+        api(U.reorder, 'POST', {folderId, order}).then(() => flash('Taşındı'));
+    }
+    function onDrop(e) {
+        e.preventDefault(); clearDragTargets();
+        if (!draggedEl) return;
+        const onReq = e.target.closest('.tree-req');
+        let container, before = null;
+        if (onReq && onReq !== draggedEl) { container = onReq.parentElement; before = onReq; }
+        else { container = containerFor(e.target); }
+        if (!container) return;
+        if (before) container.insertBefore(draggedEl, before); else container.appendChild(draggedEl);
+        // keep the dragged request's example list attached right beneath it
+        const exl = document.querySelector('.ex-list[data-ex-for="' + draggedEl.dataset.id + '"]');
+        if (exl) draggedEl.after(exl);
+        reorderContainer(container);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.tree-req').forEach(el => el.onclick = () => select(el.dataset.id));
+        // ?request=ID (e.g. from the flow canvas "tam düzenle") preselects that request.
+        var wanted = new URLSearchParams(location.search).get('request');
+        var target = wanted && document.querySelector('.tree-req[data-id="' + wanted + '"]');
+        if (target) { target.scrollIntoView({block: 'center'}); select(wanted); }
+        else { var firstReq = document.querySelector('.tree-req'); if (firstReq) select(firstReq.dataset.id); }
+        $('reqUrl').addEventListener('keydown', e => { if(e.key==='Enter' && !AC.isOpen()){ e.preventDefault(); send(); }});
+        $('reqUrl').addEventListener('input', urlToParams);
+        $('paramsRows').addEventListener('input', paramsToUrl);
+        $('builder').addEventListener('input', refreshVars);
+        AC.attach($('reqBody'));
+        AC.attach($('reqUrl'));
+
+        // Global environment (top-right) — remembered per workspace, applied to all requests.
+        var env = $('wbEnv'), key = 'wb_env_' + CFG.wsId, saved = localStorage.getItem(key);
+        if (saved !== null) { for (var i = 0; i < env.options.length; i++) { if (env.options[i].value === saved) { env.value = saved; break; } } }
+        env.addEventListener('change', function () { localStorage.setItem(key, env.value); refreshVars(); });
+        $('reqBody').addEventListener('scroll', () => {
+            const b = $('bodyBackdrop'); b.scrollTop = $('reqBody').scrollTop; b.scrollLeft = $('reqBody').scrollLeft;
+            $('lineNums').scrollTop = $('reqBody').scrollTop;
+        });
+
+        // Pull the response area up/down (Postman-style) — drag to resize, single click to drop it
+        // all the way down (maximize the editor); click again to snap back to the previous height.
+        (function () {
+            const resizer = $('wbResizer'), resp = $('response');
+            const rkey = 'wb_resp_h_' + CFG.wsId, savedH = parseInt(localStorage.getItem(rkey) || '', 10);
+            const DEFAULT_H = 260;
+            if (savedH > 0) resp.style.height = savedH + 'px';
+            // collapsed height = just the response header strip
+            const collapsedH = () => { const h = resp.querySelector('.resp-head'); return h ? h.offsetHeight : 44; };
+            let startY = 0, startH = 0, dragging = false, moved = 0, prevH = savedH > 0 ? savedH : DEFAULT_H;
+            const animate = (on) => { resp.style.transition = on ? 'height .18s ease' : ''; };
+            const isCollapsed = () => Math.round(resp.getBoundingClientRect().height) <= collapsedH() + 2;
+            const onMove = (e) => {
+                if (!dragging) return;
+                const dy = e.clientY - startY; moved += Math.abs(dy);
+                const max = $('builder').parentElement.clientHeight - 160;
+                const h = Math.max(collapsedH(), Math.min(max, startH - dy));
+                resp.style.height = h + 'px';
+            };
+            const onUp = () => {
+                if (!dragging) return;
+                dragging = false; document.body.style.cursor = ''; document.body.style.userSelect = '';
+                window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp);
+                if (moved < 4) {
+                    // treated as a click → toggle drop/restore
+                    animate(true);
+                    if (isCollapsed()) { resp.style.height = (prevH > collapsedH() ? prevH : DEFAULT_H) + 'px'; }
+                    else { prevH = Math.round(resp.getBoundingClientRect().height); resp.style.height = collapsedH() + 'px'; }
+                    setTimeout(() => animate(false), 200);
+                }
+                const finalH = Math.round(resp.getBoundingClientRect().height);
+                if (finalH > collapsedH() + 2) localStorage.setItem(rkey, finalH);
+                else localStorage.removeItem(rkey);
+            };
+            resizer.addEventListener('mousedown', (e) => {
+                e.preventDefault(); dragging = true; moved = 0; startY = e.clientY; startH = resp.getBoundingClientRect().height;
+                document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none';
+                window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+            });
+        })();
+
+        const tree = $('tree');
+        // Folder collapse/expand on label click; example rows open the saved example.
+        tree.addEventListener('click', function (e) {
+            var ex = e.target.closest('.ex-row');
+            if (ex) { e.stopPropagation(); showExample(ex.dataset.exId); return; }
+            var lbl = e.target.closest('.lbl');
+            if (lbl && lbl.parentElement.classList.contains('tree-folder')) lbl.parentElement.classList.toggle('collapsed');
+        });
+        // Filter
+        var search = document.getElementById('treeSearch');
+        if (search) search.addEventListener('input', function () { filterTree(search.value); });
+        tree.addEventListener('dragstart', e => { const r = e.target.closest('.tree-req'); if (r) { draggedEl = r; r.classList.add('dragging'); e.dataTransfer.effectAllowed = 'move'; } });
+        tree.addEventListener('dragend', () => { if (draggedEl) draggedEl.classList.remove('dragging'); draggedEl = null; clearDragTargets(); });
+        tree.addEventListener('dragover', e => {
+            if (!draggedEl) return;
+            e.preventDefault();
+            clearDragTargets();
+            const folder = e.target.closest('.tree-folder');
+            if (folder) folder.classList.add('drag-target'); else tree.classList.add('drag-target');
+        });
+        tree.addEventListener('drop', onDrop);
+    });
+    return {select, send, save, del, newRequest, newFolder, tab, rtab, validateBody, formatBody, renderAuth, loadHistory, showHistory, showExample, saveExample, deleteExample, openCode, closeCode, renderCode, copyCode};
+})();
+</script>
+{% endverbatim %}
+{% endblock %}

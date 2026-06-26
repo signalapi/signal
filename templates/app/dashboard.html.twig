@@ -1,0 +1,20 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Hoş geldiniz · {{ merchant.name }}{% endblock %}
+
+{% block panel %}
+<div class="hero">
+    <div class="dots"></div>
+    <h1>Hoş geldiniz, {{ app.user.name }}</h1>
+    <p class="lead">{{ merchant.name }} · Başlamak için ilk workspace'inizi oluşturun. Collection'lar, environment'lar ve test akışları workspace içinde yaşar.</p>
+    <div class="actions">
+        <a class="btn" href="{{ path('app_workspace_new') }}">+ İlk Workspace'i Oluştur</a>
+    </div>
+</div>
+
+<div class="quick-grid">
+    <div class="quick"><div class="ic">📁</div><div><div class="t">Postman import</div><div class="s">Collection & environment</div></div></div>
+    <div class="quick"><div class="ic">🔗</div><div><div class="t">Zincirleme testler</div><div class="s">Adımları birbirine bağla</div></div></div>
+    <div class="quick"><div class="ic">🗄️</div><div><div class="t">DB doğrulama</div><div class="s">Postgres · MySQL · Redis · Mongo</div></div></div>
+</div>
+{% endblock %}

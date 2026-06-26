@@ -1,0 +1,24 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Yeni Collection{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← Collection'lar</a>
+<div class="pagehead">
+    <div>
+        <h1>Yeni collection</h1>
+        <p class="subtitle">{{ workspace.name }}</p>
+    </div>
+</div>
+
+<div class="formcard" style="max-width:560px;">
+    {{ form_start(form) }}
+        <div class="field">{{ form_label(form.name) }}{{ form_widget(form.name) }}</div>
+        <div class="field">{{ form_label(form.description) }}{{ form_widget(form.description, {'attr': {'rows': 3}}) }}</div>
+        <div class="form-actions">
+            <button class="btn" type="submit">Oluştur →</button>
+            <a class="btn ghost" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">Vazgeç</a>
+        </div>
+    {{ form_end(form) }}
+</div>
+{% endblock %}

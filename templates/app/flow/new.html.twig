@@ -1,0 +1,41 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Yeni Test Akışı{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← Test akışları</a>
+<div class="pagehead">
+    <div>
+        <h1>Yeni test akışı</h1>
+        <p class="subtitle">{{ workspace.name }}</p>
+    </div>
+</div>
+
+<div class="formcard" style="max-width:560px;">
+    <form method="post">
+        <input type="hidden" name="_token" value="{{ csrf_token('new-flow') }}">
+        <div class="field">
+            <label>Akış adı</label>
+            <input type="text" name="name" placeholder="örn. Signup → Subscription doğrulama" required autofocus>
+        </div>
+        <div class="field">
+            <label>Açıklama</label>
+            <textarea name="description" rows="2" placeholder="Bu akış neyi doğruluyor?"></textarea>
+        </div>
+        <div class="field">
+            <label>Varsayılan environment</label>
+            <select name="environment">
+                <option value="">— yok —</option>
+                {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="field">
+            <label class="inline-lbl"><input type="checkbox" name="stopOnFailure" value="1" checked style="width:auto;"> İlk başarısız adımda dur</label>
+        </div>
+        <div class="form-actions">
+            <button class="btn" type="submit">Oluştur →</button>
+            <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">Vazgeç</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,32 @@
+{% extends 'admin/_layout.html.twig' %}
+
+{% block title %}Yeni Merchant · Süper Admin{% endblock %}
+
+{% block panel %}
+<h1>Yeni Merchant</h1>
+<p class="subtitle">Merchant ve onun ilk yetkili (merchant admin) kullanıcısını oluşturun.</p>
+
+<div class="formcard">
+    {{ form_start(form) }}
+        <div class="field">
+            {{ form_label(form.name) }}
+            {{ form_widget(form.name) }}
+        </div>
+        <hr style="border:none;border-top:1px solid var(--border);margin:20px 0;">
+        <div class="field">
+            {{ form_label(form.adminName) }}
+            {{ form_widget(form.adminName) }}
+        </div>
+        <div class="field">
+            {{ form_label(form.adminEmail) }}
+            {{ form_widget(form.adminEmail) }}
+        </div>
+        <div class="field">
+            {{ form_label(form.adminPassword) }}
+            {{ form_widget(form.adminPassword) }}
+        </div>
+        <button class="btn" type="submit">Oluştur</button>
+        <a class="btn ghost" href="{{ path('admin_merchant_index') }}">Vazgeç</a>
+    {{ form_end(form) }}
+</div>
+{% endblock %}

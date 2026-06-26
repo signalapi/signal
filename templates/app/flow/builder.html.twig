@@ -1,0 +1,606 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}{{ flow.name }} · Tuval{% endblock %}
+
+{% block panel %}
+<style>
+    .fb { display: flex; flex-direction: column; height: calc(100vh - 48px); margin: -8px 0; }
+    .fb-bar { display: flex; align-items: center; gap: 12px; padding: 0 0 12px; flex-wrap: wrap; }
+    .fb-bar h1 { margin: 0; font-size: 19px; letter-spacing: -.02em; }
+    .fb-bar .spacer { flex: 1; }
+    .fb-bar select { background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px; padding: 8px 10px; color: var(--text); font-size: 13px; }
+    .fb-save { font-size: 12px; color: var(--muted); min-width: 90px; }
+    .fb-save.on { color: var(--pass); }
+
+    .fb-main { flex: 1; display: flex; min-height: 0; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; background: var(--panel); }
+
+    /* Palette */
+    .fb-pal { width: 240px; flex-shrink: 0; border-right: 1px solid var(--border); display: flex; flex-direction: column; background: var(--panel); }
+    .fb-pal-head { padding: 12px 14px 8px; }
+    .fb-pal-head .eyebrow { font-size: 10px; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+    .fb-pal input.search { width: 100%; box-sizing: border-box; margin-top: 8px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; color: var(--text); font-size: 12.5px; }
+    .fb-pal-list { flex: 1; overflow: auto; padding: 4px 10px 12px; }
+    .fb-chip { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border: 1px solid var(--border); border-radius: 9px; margin-bottom: 6px; cursor: grab; background: var(--panel); font-size: 12.5px; }
+    .fb-chip:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .fb-chip.hide { display: none; }
+    .fb-chip .m { font-family: var(--font-mono); font-weight: 700; font-size: 9px; flex-shrink: 0; }
+    .fb-chip .n { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fb-util { display: flex; gap: 6px; padding: 10px; border-top: 1px solid var(--border); }
+    .fb-util button { flex: 1; font-size: 11px; padding: 7px 4px; border: 1px dashed var(--border); border-radius: 8px; background: var(--panel); color: var(--muted); cursor: pointer; }
+    .fb-util button:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* Canvas */
+    .fb-canvas { flex: 1; position: relative; overflow: auto; background:
+        radial-gradient(circle, var(--border) 1px, transparent 1px) 0 0 / 22px 22px, var(--panel-2); }
+    .fb-canvas.drop-ok { box-shadow: inset 0 0 0 2px var(--accent); }
+    .fb-surface { position: relative; width: 4000px; height: 3000px; }
+    .fb-edges { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1; }
+    .fb-edges path { fill: none; stroke: #b9bec9; stroke-width: 2; }
+    .fb-edges path.run { stroke: var(--pass); }
+
+    .fb-node { position: absolute; width: 220px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+        box-shadow: var(--shadow); z-index: 2; user-select: none; }
+    .fb-node.sel { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .fb-node.st-running { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .fb-node.st-passed  { border-color: var(--pass); }
+    .fb-node.st-failed, .fb-node.st-error { border-color: var(--fail); }
+    .fb-node.st-skipped { border-color: var(--warn); }
+    .fb-nhead { display: flex; align-items: center; gap: 8px; padding: 9px 11px; cursor: grab; border-bottom: 1px solid var(--border); }
+    .fb-nhead .badge { font-family: var(--font-mono); font-weight: 700; font-size: 9px; letter-spacing: .04em; padding: 2px 5px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
+    .fb-nhead .badge.m-get { background:#e6f4ec;color:#16a34a } .fb-nhead .badge.m-post{ background:#f8efe0;color:#b35900 }
+    .fb-nhead .badge.m-put{ background:#e7eefc;color:#2563eb } .fb-nhead .badge.m-patch{ background:#f0e9fb;color:#8250df }
+    .fb-nhead .badge.m-delete{ background:var(--fail-soft);color:#dc2626 }
+    .fb-nhead .nm { flex: 1; min-width: 0; font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fb-nhead .pos { font-family: var(--font-mono); font-size: 10px; color: var(--muted); }
+    .fb-nhead .x { cursor: pointer; color: var(--muted); font-size: 13px; opacity: 0; }
+    .fb-node:hover .fb-nhead .x { opacity: 1; }
+    .fb-nhead .x:hover { color: var(--fail); }
+    .fb-nbody { padding: 8px 11px 10px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .fb-nmeta { padding: 0 11px 9px; font-size: 10.5px; color: var(--muted); }
+    .fb-live { padding: 0 11px 9px; font-family: var(--font-mono); font-size: 11px; display: none; }
+
+    .fb-port { position: absolute; width: 14px; height: 14px; border-radius: 50%; background: var(--panel); border: 2px solid #b9bec9; left: 50%; transform: translateX(-50%); z-index: 3; }
+    .fb-port.in { top: -8px; } .fb-port.out { bottom: -8px; cursor: crosshair; }
+    .fb-port.out:hover { border-color: var(--accent); background: var(--accent); }
+    .fb-empty-hint { position: absolute; top: 40px; left: 0; right: 0; text-align: center; color: var(--muted); font-size: 13px; z-index: 1; }
+    .fb-nhead .cog { cursor: pointer; color: var(--muted); font-size: 12px; opacity: 0; }
+    .fb-node:hover .fb-nhead .cog { opacity: 1; }
+    .fb-nhead .cog:hover { color: var(--accent); }
+
+    /* Mapping drawer */
+    .fb-drawer { position: absolute; top: 0; right: 0; bottom: 0; width: 380px; max-width: 92%; background: var(--panel);
+        border-left: 1px solid var(--border); box-shadow: -8px 0 24px rgba(0,0,0,.08); z-index: 20; display: flex; flex-direction: column; }
+    .fb-drawer[hidden] { display: none; }
+    .dw-h { display: flex; align-items: center; gap: 8px; padding: 12px 14px; border-bottom: 1px solid var(--border); }
+    .dw-h .nm { flex: 1; font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dw-h a { font-size: 11px; } .dw-h .x { cursor: pointer; color: var(--muted); font-size: 15px; }
+    .dw-tabs { display: flex; gap: 4px; padding: 8px 14px 0; border-bottom: 1px solid var(--border); }
+    .dw-tab { padding: 7px 12px; font-size: 12.5px; cursor: pointer; color: var(--muted); border-bottom: 2px solid transparent; }
+    .dw-tab.active { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+    .dw-pane { flex: 1; overflow: auto; padding: 14px; }
+    .dw-pane[hidden] { display: none; }
+    .dw-sec { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
+    .dw-sec.mt { margin-top: 18px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; background: var(--accent-soft); color: var(--accent); border: 1px solid rgba(69,52,214,.2);
+        border-radius: 999px; padding: 4px 9px; font-size: 12px; font-family: var(--font-mono); cursor: grab; }
+    .chip:hover { filter: brightness(.97); }
+    .chip.dyn { background: #e6f4f1; color: #0f7b6c; border-color: rgba(15,123,108,.2); }
+    .chip .src { font-family: var(--font-sans); font-size: 9px; opacity: .7; }
+    .dw-field { margin-bottom: 11px; }
+    .dw-field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .dw-field input, .dw-field textarea { width: 100%; box-sizing: border-box; background: var(--panel-2); border: 1px solid var(--border);
+        border-radius: 8px; padding: 8px 10px; color: var(--text); font-size: 12.5px; font-family: var(--font-mono); }
+    .dw-field input.drop-target, .dw-field textarea.drop-target { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .dw-kv { display: flex; gap: 6px; margin-bottom: 5px; }
+    .dw-kv input { flex: 1; }
+    .dw-save { width: 100%; justify-content: center; margin-top: 6px; }
+
+    .tree { font-family: var(--font-mono); font-size: 12px; line-height: 1.7; }
+    .tree .row { display: flex; align-items: center; gap: 6px; }
+    .tree .key { color: #8250df; } .tree .val { color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tree .val.str { color: #1f9d55; } .tree .val.num { color: #b35900; }
+    .tree .add { margin-left: auto; font-size: 10px; color: var(--accent); cursor: pointer; opacity: 0; flex-shrink: 0; }
+    .tree .row:hover .add { opacity: 1; }
+    .tree .nest { margin-left: 14px; border-left: 1px solid var(--border); padding-left: 8px; }
+    .extr-row { display: flex; align-items: center; gap: 8px; font-family: var(--font-mono); font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); }
+    .extr-row .v { color: var(--accent); font-weight: 600; } .extr-row .p { color: var(--muted); flex: 1; }
+    .extr-row .x { cursor: pointer; color: var(--muted); } .extr-row .x:hover { color: var(--fail); }
+</style></style>
+
+<div class="fb">
+    <div class="fb-bar">
+        <a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}" style="margin:0;">← {{ flow.name }}</a>
+        <h1>🔗 {{ flow.name }}</h1>
+        <span class="fb-save" id="fbSave"></span>
+        <div class="spacer"></div>
+        <select id="fbEnv" title="Çalıştırma environment'ı">
+            <option value="">{{ flow.defaultEnvironment ? '(varsayılan: ' ~ flow.defaultEnvironment.name ~ ')' : '— env yok —' }}</option>
+            {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+        </select>
+        <button class="btn" id="fbRun">▶ Çalıştır</button>
+    </div>
+
+    <div class="fb-main">
+        <div class="fb-pal">
+            <div class="fb-pal-head">
+                <span class="eyebrow">İstekler · sürükleyip bırak</span>
+                <input class="search" id="fbSearch" placeholder="İstek ara…">
+            </div>
+            <div class="fb-pal-list" id="fbPalList"></div>
+            <div class="fb-util">
+                <button data-kind="db" id="fbAddDb">+ DB</button>
+                <button data-kind="setvar">+ Set</button>
+                <button data-kind="delay">+ Bekle</button>
+            </div>
+        </div>
+
+        <div class="fb-canvas" id="fbCanvas">
+            <div class="fb-surface" id="fbSurface">
+                <svg class="fb-edges" id="fbEdges"></svg>
+                <div class="fb-empty-hint" id="fbHint">Soldan bir isteği tuvale sürükle · node'ları alttaki noktadan birbirine bağla · ⚙ ile veri eşle</div>
+            </div>
+
+            <div class="fb-drawer" id="fbDrawer" hidden>
+                <div class="dw-h">
+                    <span class="nm" id="dwName"></span>
+                    <a href="#" id="dwEdit" class="muted-sm">tam düzenle ↗</a>
+                    <span class="x" id="dwClose">✕</span>
+                </div>
+                <div class="dw-tabs">
+                    <div class="dw-tab active" data-pane="in">⬇ Girdi</div>
+                    <div class="dw-tab" data-pane="out">⬆ Çıktı</div>
+                </div>
+                <div class="dw-pane" data-pane="in" id="dwIn"></div>
+                <div class="dw-pane" data-pane="out" id="dwOut" hidden></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script type="application/json" id="fb-config">{{ {
+    csrf: csrf_token('flow-builder' ~ flow.id),
+    runToken: csrf_token('run-flow' ~ flow.id),
+    urls: {
+        add: path('app_flow_builder_add', {workspace: workspace.id, flow: flow.id}),
+        layout: path('app_flow_builder_layout', {workspace: workspace.id, flow: flow.id}),
+        del: path('app_flow_builder_delete', {workspace: workspace.id, flow: flow.id, step: 'STEPID'}),
+        mapping: path('app_flow_builder_mapping', {workspace: workspace.id, flow: flow.id, step: 'STEPID'}),
+        saveExtr: path('app_flow_builder_extractions', {workspace: workspace.id, flow: flow.id, step: 'STEPID'}),
+        saveReq: path('app_flow_builder_request', {workspace: workspace.id, flow: flow.id, step: 'STEPID'}),
+        exampleGet: path('wb_example_get', {workspace: workspace.id, example: 'EXID'}),
+        runAsync: path('app_flow_run_async', {workspace: workspace.id, flow: flow.id})
+    },
+    dbConnections: dbConnections,
+    palette: palette,
+    nodes: nodes,
+    edges: edges
+}|json_encode|raw }}</script>
+
+{% verbatim %}
+<script>
+const FB = (() => {
+    const CFG = JSON.parse(document.getElementById('fb-config').textContent);
+    const $ = id => document.getElementById(id);
+    const surface = $('fbSurface'), canvas = $('fbCanvas'), svg = $('fbEdges');
+    const NS = 'http://www.w3.org/2000/svg';
+    let nodes = {};          // id -> {data, el}
+    let edges = CFG.edges.map(e => ({from: e[0] || e.from, to: e[1] || e.to}));
+    let saveTimer = null, dragNode = null, dragOff = null, linkFrom = null, tempPath = null;
+
+    const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const api = (url, method='POST', body=null) => fetch(url, {
+        method, headers: {'Content-Type':'application/json','X-CSRF-Token':CFG.csrf},
+        body: body ? JSON.stringify(body) : null
+    }).then(r => r.json());
+
+    function setSaved(state) {
+        const el = $('fbSave');
+        if (state === 'saving') { el.textContent = 'kaydediliyor…'; el.className = 'fb-save'; }
+        else if (state === 'saved') { el.textContent = '✓ kaydedildi'; el.className = 'fb-save on'; }
+        else { el.textContent = ''; el.className = 'fb-save'; }
+    }
+    function scheduleSave() {
+        setSaved('saving');
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(saveLayout, 700);
+    }
+    function saveLayout() {
+        const positions = {};
+        Object.values(nodes).forEach(n => positions[n.data.id] = {x: n.data.x, y: n.data.y});
+        return api(CFG.urls.layout, 'POST', {positions, edges: edges})
+            .then(r => { if (r.order) Object.entries(r.order).forEach(([id, p]) => { if (nodes[id]) { nodes[id].data.position = p; paintPos(id); } }); setSaved('saved'); return r; });
+    }
+
+    // ---- node rendering ----
+    function methodClass(m) { return m ? 'm-' + m.toLowerCase() : ''; }
+    function badgeFor(d) {
+        if (d.type === 'db') return 'DB'; if (d.type === 'setvar') return 'SET'; if (d.type === 'delay') return 'WAIT';
+        return d.method || 'HTTP';
+    }
+    function createNode(d) {
+        const el = document.createElement('div');
+        el.className = 'fb-node'; el.style.left = d.x + 'px'; el.style.top = d.y + 'px'; el.dataset.id = d.id;
+        el.innerHTML =
+            '<div class="fb-port in"></div>'
+          + '<div class="fb-nhead"><span class="badge ' + methodClass(d.method) + '">' + esc(badgeFor(d)) + '</span>'
+          + '<span class="nm">' + esc(d.name) + '</span><span class="pos"></span><span class="cog" title="Veri eşle">⚙</span><span class="x" title="Sil">✕</span></div>'
+          + '<div class="fb-nbody">' + esc(d.detail || '—') + '</div>'
+          + (d.type === 'http' || d.type === 'db' ? '<div class="fb-nmeta">' + d.extractions + ' extraction · ' + d.assertions + ' assertion</div>' : '')
+          + '<div class="fb-live"></div>'
+          + '<div class="fb-port out" title="Bağla: alttan tutup başka node\'a sürükle"></div>';
+        surface.appendChild(el);
+        nodes[d.id] = {data: d, el};
+        paintPos(d.id);
+
+        // drag to move (from header)
+        el.querySelector('.fb-nhead').addEventListener('mousedown', e => {
+            if (e.target.classList.contains('x')) return;
+            dragNode = nodes[d.id];
+            const r = el.getBoundingClientRect();
+            dragOff = {x: e.clientX - r.left, y: e.clientY - r.top};
+            el.style.zIndex = 5; e.preventDefault();
+        });
+        // open mapping drawer
+        el.querySelector('.cog').addEventListener('click', e => { e.stopPropagation(); openDrawer(d.id); });
+        el.querySelector('.fb-nhead').addEventListener('dblclick', () => openDrawer(d.id));
+        // delete
+        el.querySelector('.x').addEventListener('click', () => deleteNode(d.id));
+        // start linking from out-port
+        el.querySelector('.fb-port.out').addEventListener('mousedown', e => {
+            e.stopPropagation(); e.preventDefault();
+            linkFrom = d.id;
+            tempPath = document.createElementNS(NS, 'path'); tempPath.setAttribute('stroke', '#4534d6'); tempPath.setAttribute('stroke-dasharray', '4 3');
+            svg.appendChild(tempPath);
+        });
+        return el;
+    }
+    function paintPos(id) {
+        const n = nodes[id]; if (!n) return;
+        n.el.querySelector('.pos').textContent = (n.data.position != null ? '#' + (n.data.position + 1) : '');
+    }
+
+    function deleteNode(id) {
+        if (!confirm('Bu node silinecek.')) return;
+        api(CFG.urls.del.replace('STEPID', id)).then(r => {
+            if (!r.ok) return;
+            nodes[id].el.remove(); delete nodes[id];
+            edges = edges.filter(e => e.from !== id && e.to !== id);
+            drawEdges();
+        });
+    }
+
+    // ---- edges ----
+    function center(el, side) {
+        // position of a node's port relative to the surface (account for scroll via offsetLeft/Top)
+        const x = el.offsetLeft + el.offsetWidth / 2;
+        const y = side === 'out' ? el.offsetTop + el.offsetHeight : el.offsetTop;
+        return {x, y};
+    }
+    function pathD(a, b) {
+        const dy = Math.max(40, Math.abs(b.y - a.y) / 2);
+        return 'M ' + a.x + ' ' + a.y + ' C ' + a.x + ' ' + (a.y + dy) + ' ' + b.x + ' ' + (b.y - dy) + ' ' + b.x + ' ' + b.y;
+    }
+    function drawEdges() {
+        [...svg.querySelectorAll('path:not(.temp)')].forEach(p => p.remove());
+        edges.forEach(e => {
+            const f = nodes[e.from], t = nodes[e.to]; if (!f || !t) return;
+            const p = document.createElementNS(NS, 'path');
+            p.setAttribute('d', pathD(center(f.el, 'out'), center(t.el, 'in')));
+            if (e.run) p.classList.add('run');
+            svg.appendChild(p);
+        });
+        $('fbHint').style.display = Object.keys(nodes).length ? 'none' : '';
+    }
+
+    // ---- global mouse for drag + link ----
+    function surfacePoint(e) {
+        const r = surface.getBoundingClientRect();
+        return {x: e.clientX - r.left, y: e.clientY - r.top};
+    }
+    document.addEventListener('mousemove', e => {
+        if (dragNode) {
+            const p = surfacePoint(e);
+            let x = Math.max(0, p.x - dragOff.x), y = Math.max(0, p.y - dragOff.y);
+            dragNode.data.x = Math.round(x); dragNode.data.y = Math.round(y);
+            dragNode.el.style.left = x + 'px'; dragNode.el.style.top = y + 'px';
+            drawEdges();
+        } else if (linkFrom && tempPath) {
+            const a = center(nodes[linkFrom].el, 'out'), b = surfacePoint(e);
+            tempPath.setAttribute('d', pathD(a, b));
+        }
+    });
+    document.addEventListener('mouseup', e => {
+        if (dragNode) { dragNode.el.style.zIndex = 2; dragNode = null; scheduleSave(); }
+        if (linkFrom) {
+            const targetEl = e.target.closest('.fb-node');
+            if (targetEl && targetEl.dataset.id !== linkFrom) {
+                const to = targetEl.dataset.id;
+                edges = edges.filter(x => x.from !== linkFrom); // single out-edge: replace
+                if (!edges.some(x => x.from === linkFrom && x.to === to)) edges.push({from: linkFrom, to});
+                drawEdges(); scheduleSave();
+            }
+            if (tempPath) tempPath.remove();
+            tempPath = null; linkFrom = null;
+        }
+    });
+
+    // ---- palette: drag request onto canvas ----
+    function renderPalette() {
+        const q = ($('fbSearch').value || '').toLowerCase();
+        $('fbPalList').innerHTML = (CFG.palette || window.__PAL || []).filter(p =>
+            !q || (p.name + ' ' + p.method + ' ' + p.collection).toLowerCase().includes(q)
+        ).map(p => '<div class="fb-chip" draggable="true" data-rid="' + p.id + '">'
+            + '<span class="m" style="color:' + methodColor(p.method) + '">' + esc(p.method) + '</span>'
+            + '<span class="n" title="' + esc(p.collection + ' / ' + p.name) + '">' + esc(p.name) + '</span></div>').join('');
+    }
+    const METHOD_COLOR = {GET:'#16a34a',POST:'#b35900',PUT:'#2563eb',PATCH:'#8250df',DELETE:'#dc2626'};
+    function methodColor(m) { return METHOD_COLOR[m] || 'var(--muted)'; }
+
+    let dragReqId = null;
+    $('fbPalList').addEventListener('dragstart', e => { const c = e.target.closest('.fb-chip'); if (c) dragReqId = c.dataset.rid; });
+    canvas.addEventListener('dragover', e => { if (dragReqId) { e.preventDefault(); canvas.classList.add('drop-ok'); } });
+    canvas.addEventListener('dragleave', () => canvas.classList.remove('drop-ok'));
+    canvas.addEventListener('drop', e => {
+        canvas.classList.remove('drop-ok');
+        if (!dragReqId) return;
+        e.preventDefault();
+        const p = surfacePoint(e);
+        addNode({kind: 'http', requestId: dragReqId, x: Math.round(p.x - 110), y: Math.round(p.y - 24)});
+        dragReqId = null;
+    });
+
+    function addNode(payload) {
+        api(CFG.urls.add, 'POST', payload).then(r => {
+            if (r.ok) { createNode(r.node); drawEdges(); scheduleSave(); }
+            else if (r.error) alert(r.error);
+        });
+    }
+
+    // utility node buttons
+    document.querySelectorAll('.fb-util button').forEach(b => b.addEventListener('click', () => {
+        const kind = b.dataset.kind;
+        const c = surface.scrollWidth; // place near current view
+        const x = canvas.scrollLeft + 120, y = canvas.scrollTop + 120;
+        if (kind === 'db') {
+            if (!(CFG.dbConnections || []).length) { alert('Önce bir DB bağlantısı ekleyin.'); return; }
+            const conn = CFG.dbConnections[0];
+            addNode({kind: 'db', connectionId: conn.id, x, y});
+        } else {
+            addNode({kind, x, y});
+        }
+    }));
+
+    // ---- run + live highlight ----
+    function setNodeStatus(id, status) {
+        const n = nodes[id]; if (!n) return;
+        n.el.className = 'fb-node' + (status ? ' st-' + status : '');
+        const live = n.el.querySelector('.fb-live');
+        if (status === 'passed') { live.style.display = 'block'; live.style.color = 'var(--pass)'; live.textContent = '✓ geçti'; }
+        else if (status === 'failed' || status === 'error') { live.style.display = 'block'; live.style.color = 'var(--fail)'; live.textContent = '✗ başarısız'; }
+        else if (status === 'running') { live.style.display = 'block'; live.style.color = 'var(--accent)'; live.textContent = '● çalışıyor'; }
+        else if (status === 'skipped') { live.style.display = 'block'; live.style.color = 'var(--warn)'; live.textContent = '– atlandı'; }
+        else { live.style.display = 'none'; }
+    }
+    function nodeByPosition(pos) {
+        return Object.values(nodes).find(n => n.data.position === pos);
+    }
+    function clearRun() {
+        Object.keys(nodes).forEach(id => setNodeStatus(id, null));
+        edges.forEach(e => e.run = false); drawEdges();
+    }
+    function poll(statusUrl) {
+        fetch(statusUrl, {headers: {'X-Requested-With': 'XMLHttpRequest'}}).then(r => r.json()).then(d => {
+            (d.steps || []).forEach(s => { const n = nodeByPosition(s.position); if (n) setNodeStatus(n.data.id, s.status); });
+            // colour edges whose source step passed
+            edges.forEach(e => { const f = nodes[e.from]; e.run = f && f.el.classList.contains('st-passed'); });
+            drawEdges();
+            if (d.finished) {
+                $('fbRun').disabled = false; $('fbRun').textContent = '▶ Çalıştır';
+                $('fbSave').textContent = d.status === 'passed' ? '✓ tüm adımlar geçti' : 'koşum: ' + d.status;
+                $('fbSave').className = 'fb-save' + (d.status === 'passed' ? ' on' : '');
+                return;
+            }
+            setTimeout(() => poll(statusUrl), 900);
+        }).catch(() => setTimeout(() => poll(statusUrl), 2000));
+    }
+    $('fbRun').addEventListener('click', () => {
+        if (!Object.keys(nodes).length) { alert('Önce en az bir node ekleyin.'); return; }
+        $('fbRun').disabled = true; $('fbRun').textContent = 'Kaydediliyor…';
+        saveLayout().then(() => {
+            clearRun();
+            $('fbRun').textContent = 'Başlatılıyor…';
+            const b = new URLSearchParams(); b.set('_token', CFG.runToken); b.set('environment', $('fbEnv').value);
+            return fetch(CFG.urls.runAsync, {method: 'POST', headers: {'X-Requested-With': 'XMLHttpRequest', 'Content-Type': 'application/x-www-form-urlencoded'}, body: b.toString()});
+        }).then(r => r.json()).then(d => {
+            if (!d.statusUrl) { $('fbRun').disabled = false; $('fbRun').textContent = '▶ Çalıştır'; alert('Başlatılamadı'); return; }
+            $('fbRun').textContent = '● çalışıyor';
+            poll(d.statusUrl);
+        }).catch(() => { $('fbRun').disabled = false; $('fbRun').textContent = '▶ Çalıştır'; });
+    });
+
+    // ---- mapping drawer (value mapping) ----
+    let mapping = null, drawerStep = null, lastField = null, workingExtr = [];
+
+    function openDrawer(id) {
+        drawerStep = id;
+        fetch(CFG.urls.mapping.replace('STEPID', id)).then(r => r.json()).then(m => {
+            mapping = m; workingExtr = (m.extractions || []).slice();
+            $('dwName').textContent = m.step.name;
+            const node = nodes[id];
+            $('dwEdit').href = node ? node.data.editUrl : '#';
+            renderInput(); renderOutput();
+            $('fbDrawer').hidden = false;
+            switchPane('in');
+            Object.values(nodes).forEach(n => n.el.classList.toggle('sel', n.data.id === id));
+        });
+    }
+    function closeDrawer() { $('fbDrawer').hidden = true; drawerStep = null; Object.values(nodes).forEach(n => n.el.classList.remove('sel')); }
+    function switchPane(p) {
+        document.querySelectorAll('.dw-tab').forEach(t => t.classList.toggle('active', t.dataset.pane === p));
+        $('dwIn').hidden = p !== 'in'; $('dwOut').hidden = p !== 'out';
+    }
+
+    function varChips() {
+        const up = (mapping.available || []).map(a =>
+            '<span class="chip" draggable="true" data-token="' + esc(a.var) + '">{{' + esc(a.var) + '}}<span class="src">' + esc(a.from) + '</span></span>').join('');
+        const dyn = (mapping.dynamicVars || []).map(v =>
+            '<span class="chip dyn" draggable="true" data-token="' + esc(v) + '">{{' + esc(v) + '}}</span>').join('');
+        return (up || '<span class="muted-sm">Üst node\'lardan değişken yok — önce onların çıktısını tanımla.</span>') + dyn;
+    }
+    function renderInput() {
+        const m = mapping;
+        let h = '<div class="dw-sec">Kullanılabilir değişkenler · odaktaki alana tıkla ya da sürükle</div><div class="chips" id="dwVars">' + varChips() + '</div>';
+        if (m.step.isDb || m.step.type === 'setvar') {
+            h += '<div class="dw-sec mt">' + (m.step.isDb ? 'Sorgu' : 'Atamalar') + '</div>'
+              + '<div class="dw-field"><textarea id="dwQuery" rows="6">' + esc(m.dbQuery || '') + '</textarea></div>'
+              + '<button class="btn dw-save" id="dwSaveIn">Kaydet</button>';
+        } else if (m.request) {
+            h += '<div class="dw-sec mt">İstek</div>'
+              + '<div class="dw-field"><label>URL</label><input id="dwUrl" value="' + esc(m.request.url) + '"></div>'
+              + '<div class="dw-field"><label>Query parametreleri</label><div id="dwParams"></div></div>'
+              + '<div class="dw-field"><label>Header\'lar</label><div id="dwHeaders"></div></div>'
+              + '<div class="dw-field"><label>Gövde (' + esc(m.request.bodyMode) + ')</label><textarea id="dwBody" rows="6">' + esc(m.request.body || '') + '</textarea></div>'
+              + '<button class="btn dw-save" id="dwSaveIn">İsteği kaydet</button>';
+        } else {
+            h += '<p class="muted-sm" style="margin-top:14px;">Bu node tipi için düzenlenecek istek alanı yok.</p>';
+        }
+        $('dwIn').innerHTML = h;
+        if (m.request && !m.step.isDb && m.step.type !== 'setvar') {
+            makeKv($('dwParams'), m.request.params); makeKv($('dwHeaders'), m.request.headers);
+        }
+        // focus tracking + chip insertion + drop targets
+        $('dwIn').querySelectorAll('input, textarea').forEach(f => {
+            f.addEventListener('focus', () => lastField = f);
+            f.addEventListener('dragover', e => { e.preventDefault(); f.classList.add('drop-target'); });
+            f.addEventListener('dragleave', () => f.classList.remove('drop-target'));
+            f.addEventListener('drop', e => { e.preventDefault(); f.classList.remove('drop-target'); insertVar(f, e.dataTransfer.getData('text/plain')); });
+        });
+        $('dwVars').querySelectorAll('.chip').forEach(c => {
+            c.addEventListener('click', () => insertVar(lastField, c.dataset.token));
+            c.addEventListener('dragstart', e => e.dataTransfer.setData('text/plain', c.dataset.token));
+        });
+        const sv = $('dwSaveIn'); if (sv) sv.addEventListener('click', saveInput);
+    }
+    function insertVar(field, token) {
+        if (!field || !token) return;
+        const t = '{{' + token + '}}';
+        const s = field.selectionStart ?? field.value.length, e = field.selectionEnd ?? field.value.length;
+        field.value = field.value.slice(0, s) + t + field.value.slice(e);
+        field.focus(); field.selectionStart = field.selectionEnd = s + t.length;
+    }
+    function makeKv(box, pairs) {
+        box.innerHTML = '';
+        const data = (pairs || []).concat([{name:'',value:''}]);
+        data.forEach(p => addKv(box, p.name, p.value));
+    }
+    function addKv(box, name, value) {
+        const row = document.createElement('div'); row.className = 'dw-kv';
+        row.innerHTML = '<input placeholder="ad"><input placeholder="değer">';
+        const [n, v] = row.querySelectorAll('input'); n.value = name || ''; v.value = value || '';
+        const trail = () => {
+            const rows = [...box.querySelectorAll('.dw-kv')], last = rows[rows.length-1], li = last.querySelectorAll('input');
+            if (li[0].value || li[1].value) addKv(box, '', '');
+        };
+        [n, v].forEach(inp => { inp.addEventListener('focus', () => lastField = inp); inp.addEventListener('input', trail); });
+        box.appendChild(row);
+    }
+    function collectKv(box) {
+        return [...box.querySelectorAll('.dw-kv')].map(r => { const i = r.querySelectorAll('input'); return {name: i[0].value.trim(), value: i[1].value}; }).filter(p => p.name);
+    }
+    function saveInput() {
+        const m = mapping; let payload;
+        if (m.step.isDb || m.step.type === 'setvar') payload = {query: ($('dwQuery')||{}).value || ''};
+        else payload = {url: ($('dwUrl')||{}).value || '', params: collectKv($('dwParams')), headers: collectKv($('dwHeaders')), bodyMode: m.request.bodyMode, body: ($('dwBody')||{}).value || ''};
+        api(CFG.urls.saveReq.replace('STEPID', drawerStep), 'POST', payload).then(r => {
+            if (r.ok) { const n = nodes[drawerStep]; setSaved('saved'); flashDw('Kaydedildi'); }
+        });
+    }
+    function flashDw(t) { const s = $('fbSave'); s.textContent = '✓ ' + t; s.className = 'fb-save on'; }
+
+    function renderOutput() {
+        const m = mapping;
+        let h = '';
+        if ((m.examples || []).length) {
+            h += '<div class="dw-sec">Örnek yanıt — alana tıklayıp “+ çıktı” ile değişken yap</div>'
+              + '<select id="dwExample" style="width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:7px;color:var(--text);font-size:12.5px;margin-bottom:10px;">'
+              + m.examples.map(e => '<option value="' + e.id + '">' + esc(e.name) + (e.status ? ' (' + e.status + ')' : '') + '</option>').join('')
+              + '</select><div class="tree" id="dwTree"><span class="muted-sm">yükleniyor…</span></div>';
+        } else {
+            h += '<p class="muted-sm">Henüz örnek yanıt yok. İsteği workbench\'ten bir kez gönder (otomatik örnek oluşur), sonra burada alanları çıktı yapabilirsin.</p>';
+        }
+        h += '<div class="dw-sec mt">Bu adımın çıktıları</div><div id="dwExtr"></div>';
+        $('dwOut').innerHTML = h;
+        renderExtractions();
+        const sel = $('dwExample');
+        if (sel) { sel.addEventListener('change', () => loadExampleTree(sel.value)); loadExampleTree(sel.value); }
+    }
+    function loadExampleTree(exId) {
+        fetch(CFG.urls.exampleGet.replace('EXID', exId)).then(r => r.json()).then(d => {
+            let obj; try { obj = JSON.parse(d.body || ''); } catch(e) { obj = null; }
+            const tree = $('dwTree');
+            if (obj && typeof obj === 'object') { tree.innerHTML = ''; tree.appendChild(buildTree(obj, '')); }
+            else tree.innerHTML = '<span class="muted-sm">Yanıt gövdesi JSON değil; çıktı için JSON gerekir.</span>';
+        });
+    }
+    function buildTree(obj, prefix) {
+        const wrap = document.createElement('div');
+        const entries = Array.isArray(obj) ? obj.map((v, i) => [i, v]) : Object.entries(obj);
+        entries.forEach(([k, v]) => {
+            const path = prefix ? prefix + '.' + k : String(k);
+            const row = document.createElement('div'); row.className = 'row';
+            if (v !== null && typeof v === 'object') {
+                row.innerHTML = '<span class="key">' + esc(k) + '</span><span class="val">' + (Array.isArray(v) ? '[' + v.length + ']' : '{…}') + '</span>';
+                wrap.appendChild(row);
+                const nest = document.createElement('div'); nest.className = 'nest'; nest.appendChild(buildTree(v, path)); wrap.appendChild(nest);
+            } else {
+                const cls = typeof v === 'number' ? 'num' : (typeof v === 'string' ? 'str' : '');
+                row.innerHTML = '<span class="key">' + esc(k) + '</span><span class="val ' + cls + '">' + esc(JSON.stringify(v)) + '</span><span class="add">+ çıktı</span>';
+                row.querySelector('.add').addEventListener('click', () => addExtraction(suggestVar(k), path));
+                wrap.appendChild(row);
+            }
+        });
+        return wrap;
+    }
+    function suggestVar(k) { return String(k).replace(/[^a-zA-Z0-9_]/g, '_'); }
+    function addExtraction(varName, path) {
+        const name = prompt('Değişken adı:', varName);
+        if (name === null) return;
+        workingExtr = workingExtr.filter(e => e.path !== path);
+        workingExtr.push({var: name.trim() || varName, path});
+        persistExtr();
+    }
+    function removeExtraction(i) { workingExtr.splice(i, 1); persistExtr(); }
+    function persistExtr() {
+        api(CFG.urls.saveExtr.replace('STEPID', drawerStep), 'POST', {extractions: workingExtr}).then(r => {
+            if (r.ok) { workingExtr = r.extractions; mapping.available = r.available; renderExtractions(); flashDw('Çıktı kaydedildi'); }
+        });
+    }
+    function renderExtractions() {
+        const box = $('dwExtr');
+        if (!workingExtr.length) { box.innerHTML = '<span class="muted-sm">Henüz çıktı yok.</span>'; return; }
+        box.innerHTML = '';
+        workingExtr.forEach((e, i) => {
+            const row = document.createElement('div'); row.className = 'extr-row';
+            row.innerHTML = '<span class="v">{{' + esc(e.var) + '}}</span><span class="p">← ' + esc(e.path) + '</span><span class="x">✕</span>';
+            row.querySelector('.x').addEventListener('click', () => removeExtraction(i));
+            box.appendChild(row);
+        });
+    }
+
+    $('dwClose').addEventListener('click', closeDrawer);
+    document.querySelectorAll('.dw-tab').forEach(t => t.addEventListener('click', () => switchPane(t.dataset.pane)));
+
+    // ---- init ----
+    window.__PAL = CFG.palette;
+    $('fbSearch').addEventListener('input', renderPalette);
+    renderPalette();
+    (CFG.nodes || []).forEach(createNode);
+    drawEdges();
+    canvas.addEventListener('scroll', () => {/* edges use offset coords, no redraw needed */});
+
+    return {};
+})();
+</script>
+{% endverbatim %}
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Koşum · {{ flow.name }}{% endblock %}
+
+{% block panel %}
+<style>
+    .ru-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+    .ru-head h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -.02em; }
+    .ru-sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
+    @media (max-width: 720px) { .ru-sum { grid-template-columns: repeat(2, 1fr); } }
+    .ru-stat { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
+    .ru-stat .n { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
+    .ru-stat .l { color: var(--muted); font-size: 12px; margin-top: 4px; }
+
+    .live { display: flex; align-items: center; gap: 12px; background: var(--accent-soft); border: 1px solid rgba(69,52,214,.25);
+        border-radius: 12px; padding: 13px 16px; margin-bottom: 18px; }
+    .live .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; flex-shrink: 0; }
+    .live .t { font-weight: 600; color: var(--accent); }
+
+    .rt-row { display: flex; gap: 14px; align-items: stretch; }
+    .rt-rail { position: relative; width: 36px; flex-shrink: 0; display: flex; justify-content: center; }
+    .rt-rail::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--border); z-index: 0; }
+    .rt-row:first-child .rt-rail::before { top: 21px; }
+    .rt-row:last-child  .rt-rail::before { bottom: calc(100% - 21px); }
+    .rt-row.s-passed .rt-rail::before { background: var(--pass); }
+    .rt-row.s-failed .rt-rail::before, .rt-row.s-error .rt-rail::before { background: var(--fail); }
+    .rt-node { position: relative; z-index: 1; width: 30px; height: 30px; margin-top: 6px; border-radius: 50%; flex-shrink: 0;
+        display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+        color: var(--muted); background: var(--panel); border: 2px solid var(--border); box-shadow: 0 0 0 4px var(--panel); }
+    .rt-node.s-passed { color: #fff; background: var(--pass); border-color: var(--pass); }
+    .rt-node.s-failed, .rt-node.s-error { color: #fff; background: var(--fail); border-color: var(--fail); }
+    .rt-node.s-running { color: #fff; background: var(--accent); border-color: var(--accent); animation: pulse 1s infinite; }
+    .rt-node.s-skipped { color: var(--warn); background: var(--warn-soft); border-color: var(--warn); }
+
+    .rt-card { flex: 1; min-width: 0; margin-bottom: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
+    .rt-row:last-child .rt-card { margin-bottom: 0; }
+    .rt-card.s-passed { border-left: 3px solid var(--pass); }
+    .rt-card.s-failed, .rt-card.s-error { border-left: 3px solid var(--fail); }
+    .rt-card.s-skipped { border-left: 3px solid var(--warn); }
+    .rt-chead { display: flex; align-items: center; gap: 10px; }
+    .rt-chead .name { font-weight: 600; font-size: 14.5px; flex: 1; min-width: 0; }
+    .rt-req { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 7px; word-break: break-all; }
+    .rt-req b { color: var(--ink); }
+    .blk { margin-top: 11px; }
+    .blk .cap { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
+    .kvline { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; }
+    .kvline .ok { color: var(--pass); } .kvline .no { color: var(--fail); } .kvline .v { color: var(--accent); }
+    .rt-card details { margin-top: 11px; }
+    .rt-card summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
+    .rt-card pre { background: var(--ink); color: #e8e8e2; border-radius: 9px; padding: 12px; overflow: auto; max-height: 320px; font-size: 12px; margin: 8px 0 0; }
+    .errbox { background: var(--fail-soft); color: var(--fail); border: 1px solid rgba(229,72,77,.25); border-radius: 9px; padding: 9px 12px; font-size: 13px; margin-top: 10px; }
+</style>
+
+{% set sc = run.status %}
+{% set sdot = sc == 'passed' ? 'var(--pass)' : (sc == 'running' ? 'var(--accent)' : (sc == 'cancelled' ? 'var(--warn)' : 'var(--fail)')) %}
+
+{% set inGroup = run.trigger == 'group' and run.batchId and run.flow.flowGroup %}
+{% set backUrl = inGroup
+    ? path('app_flow_group_run_show', {workspace: workspace.id, group: run.flow.flowGroup.id, batchId: run.batchId})
+    : path('app_flow_show', {workspace: workspace.id, flow: flow.id}) %}
+<div class="ru-head">
+    <div>
+        <a class="backlink" href="{{ backUrl }}">← {{ inGroup ? '🧩 ' ~ run.flow.flowGroup.name ~ ' koşumu' : flow.name }}</a>
+        <h1>Koşum detayı · {{ flow.name }}</h1>
+        <p class="subtitle" style="margin:0;">{{ run.createdAt|date('d.m.Y H:i:s') }}
+            {%- if inGroup %} · <span class="pill" style="background:var(--accent-soft);color:var(--accent);">🧩 {{ run.flow.flowGroup.name }}</span>
+            {%- elseif run.batchId %} · <span class="pill" style="background:var(--accent-soft);color:var(--accent);">data #{{ run.iteration + 1 }}</span>{% endif %}</p>
+    </div>
+    <a class="btn ghost" href="{{ backUrl }}">{{ inGroup ? '← Suite koşumuna dön' : 'Akışa dön' }}</a>
+</div>
+
+<div class="ru-sum">
+    <div class="ru-stat"><div class="n" style="color:{{ sdot }};">{{ include('app/flow/_status.html.twig', {status: sc}) }}</div><div class="l">Durum</div></div>
+    <div class="ru-stat"><div class="n">{{ run.passedSteps }}/{{ run.totalSteps }}</div><div class="l">Geçen adım</div></div>
+    <div class="ru-stat"><div class="n">{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</div><div class="l">Toplam süre</div></div>
+    <div class="ru-stat"><div class="n" style="font-size:16px;">{{ run.environmentName ?: '—' }}</div><div class="l">Environment</div></div>
+</div>
+
+{% if sc == 'running' %}
+<div class="live">
+    <span class="dot"></span>
+    <span class="t">Çalışıyor</span>
+    <span class="subtitle" id="liveProgress" style="margin:0;">{{ run.passedSteps }}/{{ run.totalSteps }} adım</span>
+    <div style="flex:1"></div>
+    <form method="post" action="{{ path('app_flow_run_cancel', {workspace: workspace.id, flow: flow.id, run: run.id}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('cancel-run' ~ run.id) }}">
+        <button class="btn danger" type="submit">İptal et</button>
+    </form>
+</div>
+{% endif %}
+
+<div class="runtrack">
+{% for r in run.stepResults %}
+    <div class="rt-row s-{{ r.status }}">
+        <div class="rt-rail"><div class="rt-node s-{{ r.status }}">{% if r.status == 'passed' %}✓{% elseif r.status in ['failed','error'] %}✗{% elseif r.status == 'skipped' %}–{% else %}{{ r.position + 1 }}{% endif %}</div></div>
+        <div class="rt-card s-{{ r.status }}">
+            <div class="rt-chead">
+                <span class="name">{{ r.label }}</span>
+                {{ include('app/flow/_status.html.twig', {status: r.status}) }}
+            </div>
+
+            {% if r.status == 'skipped' %}
+                <div class="rt-req">Önceki adım başarısız olduğu için atlandı.</div>
+            {% else %}
+                <div class="rt-req">
+                    <b>{{ r.requestMethod }}</b> {{ r.requestUrl }}
+                    {% if r.responseStatus %}→ <b>{{ r.responseStatus }}</b> ({{ r.durationMs }} ms){% endif %}
+                    {% if r.attempts > 1 %}· <span style="color:var(--accent);">↻ {{ r.attempts }} deneme</span>{% endif %}
+                </div>
+
+                {% if r.error %}<div class="errbox">{{ r.error }}</div>{% endif %}
+
+                {% if r.extractedVars is not empty %}
+                    <div class="blk">
+                        <div class="cap">Extraction'lar</div>
+                        <div class="kvline">{% for k, v in r.extractedVars %}{{ k }} = <span class="v">{{ v }}</span><br>{% endfor %}</div>
+                    </div>
+                {% endif %}
+
+                {% if r.assertionResults is not empty %}
+                    <div class="blk">
+                        <div class="cap">Assertion'lar</div>
+                        <div class="kvline">
+                        {% for a in r.assertionResults %}
+                            {% if a.ok %}<span class="ok">✓</span>{% else %}<span class="no">✗</span>{% endif %} {{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— gelen: {{ a.actual }}</span>{% endif %}<br>
+                        {% endfor %}
+                        </div>
+                    </div>
+                {% endif %}
+
+                {% if r.responseBody %}
+                    <details>
+                        <summary>Yanıt gövdesi</summary>
+                        <pre>{{ r.responseBody }}</pre>
+                    </details>
+                {% endif %}
+            {% endif %}
+        </div>
+    </div>
+{% endfor %}
+</div>
+
+{% if sc == 'running' %}
+<script>
+(function () {
+    var url = "{{ path('app_flow_run_status', {workspace: workspace.id, flow: flow.id, run: run.id}) }}";
+    function poll() {
+        fetch(url).then(function (r) { return r.json(); }).then(function (d) {
+            var el = document.getElementById('liveProgress');
+            if (el) el.textContent = d.passedSteps + '/' + d.totalSteps + ' adım' + (d.cancelRequested ? ' · iptal isteniyor…' : '');
+            if (d.finished) { location.reload(); return; }
+            setTimeout(poll, 1500);
+        }).catch(function () { setTimeout(poll, 3000); });
+    }
+    setTimeout(poll, 1500);
+})();
+</script>
+{% endif %}
+{% endblock %}

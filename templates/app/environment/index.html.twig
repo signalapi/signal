@@ -1,0 +1,51 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Environment'lar · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+<div class="pagehead">
+    <div>
+        <h1>Environment'lar</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ environments|length }} environment</p>
+    </div>
+</div>
+
+<form class="addbar" method="post" action="{{ path('app_environment_new', {workspace: workspace.id}) }}">
+    <input type="text" name="name" placeholder="Yeni environment adı (örn. staging)">
+    <input type="hidden" name="_token" value="{{ csrf_token('new-environment') }}">
+    <button class="btn small" type="submit">+ Boş oluştur</button>
+</form>
+<form class="addbar" method="post" action="{{ path('app_environment_import', {workspace: workspace.id}) }}" enctype="multipart/form-data">
+    <span class="hint">⬆ Postman environment yükle</span>
+    <input type="file" name="environment" accept="application/json,.json">
+    <input type="hidden" name="_token" value="{{ csrf_token('env-import') }}">
+    <button class="btn small ghost" type="submit">İçe aktar</button>
+</form>
+<p class="subtitle" style="font-size:12px;margin:0 0 18px;">Postman'de: Environments → ⋯ → <em>Export</em>. Collection sonradan da olsa environment'ı buradan ekleyebilirsiniz.</p>
+
+{% if environments is empty %}
+    <div class="empty" style="text-align:left;padding:24px;">Henüz environment yok. Yukarıdan oluşturun ya da Postman'den içe aktarın.</div>
+{% else %}
+<div class="res-grid stagger">
+    {% for env in environments %}
+        <div class="res-card">
+            <div class="rc-top">
+                <div class="ic">🌐</div>
+                <div class="rc-name">
+                    <a href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ env.name }}</a>
+                    <div class="s">{{ env.variables|length }} değişken</div>
+                </div>
+            </div>
+            <div class="rc-foot">
+                <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">Düzenle</a>
+                <form method="post" action="{{ path('app_environment_delete', {workspace: workspace.id, environment: env.id}) }}" onsubmit="return confirm('Environment silinecek. Emin misiniz?');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ env.id) }}">
+                    <button class="btn danger" type="submit">Sil</button>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

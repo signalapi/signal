@@ -1,0 +1,39 @@
+{% extends 'app/_layout.html.twig' %}
+{% import 'app/collection/_tree.html.twig' as tree %}
+
+{% block title %}{{ collection.name }}{% endblock %}
+
+{% block panel %}
+<div class="toolbar">
+    <div>
+        <h1>{{ collection.name }}</h1>
+        <p class="subtitle" style="margin:0;">{{ collection.requests|length }} istek · {{ workspace.name }}</p>
+    </div>
+    <a class="btn ghost" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← Collection'lar</a>
+</div>
+
+{% if collection.description %}
+    <div class="card" style="margin-bottom:18px;">{{ collection.description }}</div>
+{% endif %}
+
+<div class="card" style="margin-bottom:18px;">
+    <form method="post" action="{{ path('app_request_new', {workspace: workspace.id, collection: collection.id}) }}" style="display:flex;gap:8px;align-items:center;">
+        <input type="text" name="name" placeholder="Yeni istek adı" style="flex:1;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);">
+        <input type="hidden" name="_token" value="{{ csrf_token('new-request') }}">
+        <button class="btn small" type="submit">+ İstek Ekle</button>
+    </form>
+</div>
+
+{% if collection.rootFolders is empty and collection.rootRequests is empty %}
+    <div class="empty">Bu collection boş.</div>
+{% else %}
+    <div class="card">
+        {% for folder in collection.rootFolders %}
+            {{ tree.folder_node(folder, workspace) }}
+        {% endfor %}
+        {% for request in collection.rootRequests %}
+            {{ tree.request_row(request, workspace) }}
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}

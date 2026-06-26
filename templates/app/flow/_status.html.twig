@@ -1,0 +1,9 @@
+{% set map = {
+    'passed': ['on', 'PASSED'],
+    'failed': ['off', 'FAILED'],
+    'error':  ['off', 'ERROR'],
+    'running':['', 'RUNNING'],
+    'skipped':['', 'SKIPPED'],
+} %}
+{% set s = map[status] ?? ['', status|upper] %}
+<span class="pill {{ s[0] }}" style="{{ s[0] == '' ? 'background:var(--panel-2);color:var(--muted);' }}">{{ s[1] }}</span>

@@ -1,0 +1,40 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Data-driven koşum · {{ flow.name }}{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ flow.name }}</a>
+<div class="pagehead">
+    <div>
+        <h1>Data-driven koşum</h1>
+        <p class="subtitle">{{ total }} iterasyon · her veri satırı için bir koşum</p>
+    </div>
+</div>
+
+{% set rate = total > 0 ? (passed / total * 100)|round : 0 %}
+<div class="ru-sum" style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:20px;">
+    <div class="ru-stat" style="background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);"><div style="font-size:24px;font-weight:700;">{{ total }}</div><div style="color:var(--muted);font-size:12px;margin-top:4px;">İterasyon</div></div>
+    <div class="ru-stat" style="background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);"><div style="font-size:24px;font-weight:700;color:var(--pass);">{{ passed }}</div><div style="color:var(--muted);font-size:12px;margin-top:4px;">Geçen</div></div>
+    <div class="ru-stat" style="background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;box-shadow:var(--shadow);"><div style="font-size:24px;font-weight:700;color:{{ passed == total ? 'var(--pass)' : 'var(--fail)' }};">{{ total - passed }}</div><div style="color:var(--muted);font-size:12px;margin-top:4px;">Başarısız</div></div>
+</div>
+
+{% if runs is empty %}
+    <div class="empty" style="text-align:left;padding:24px;">İterasyon bulunamadı.</div>
+{% else %}
+    <table>
+        <thead><tr><th style="width:50px;">#</th><th>Durum</th><th>Adım</th><th>Veri</th><th>Süre</th><th></th></tr></thead>
+        <tbody>
+        {% for run in runs %}
+            <tr>
+                <td style="font-family:var(--font-mono);color:var(--muted);">{{ run.iteration + 1 }}</td>
+                <td>{{ include('app/flow/_status.html.twig', {status: run.status}) }}</td>
+                <td>{{ run.passedSteps }}/{{ run.totalSteps }}</td>
+                <td style="font-family:var(--font-mono);font-size:12px;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);" title="{{ run.iterationData|json_encode }}">{{ run.iterationData|json_encode }}</td>
+                <td>{{ run.durationMs is not null ? run.durationMs ~ ' ms' : '—' }}</td>
+                <td style="text-align:right;"><a class="btn ghost small" href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: flow.id, run: run.id}) }}">Detay →</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}

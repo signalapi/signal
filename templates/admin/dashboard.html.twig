@@ -1,0 +1,50 @@
+{% extends 'admin/_layout.html.twig' %}
+
+{% block title %}Genel Bakış · Süper Admin{% endblock %}
+
+{% block panel %}
+<div class="hero">
+    <div class="dots"></div>
+    <h1>Genel Bakış</h1>
+    <p class="lead">Platform geneli durum: merchant'lar, workspace'ler ve kullanıcılar.</p>
+    <div class="actions">
+        <a class="btn" href="{{ path('admin_merchant_new') }}">+ Yeni Merchant</a>
+        <a class="btn ghost" href="{{ path('admin_merchant_index') }}">Merchant'ları yönet</a>
+    </div>
+</div>
+
+<div class="metric-grid">
+    <a class="metric" href="{{ path('admin_merchant_index') }}">
+        <div class="ic">🏢</div><div class="num">{{ merchant_count }}</div>
+        <div class="cap"><span>Merchant</span><span class="go">→</span></div>
+    </a>
+    <div class="metric">
+        <div class="ic">🧩</div><div class="num">{{ workspace_count }}</div>
+        <div class="cap"><span>Workspace</span></div>
+    </div>
+    <div class="metric">
+        <div class="ic">👤</div><div class="num">{{ user_count }}</div>
+        <div class="cap"><span>Kullanıcı</span></div>
+    </div>
+</div>
+
+<div class="section-title">Son eklenen merchant'lar</div>
+{% if recent_merchants is empty %}
+    <div class="empty">Henüz merchant yok.</div>
+{% else %}
+    <table>
+        <thead><tr><th>Ad</th><th>Slug</th><th>Durum</th><th>Workspace</th><th>Oluşturulma</th></tr></thead>
+        <tbody>
+        {% for m in recent_merchants %}
+            <tr>
+                <td>{{ m.name }}</td>
+                <td><code>{{ m.slug }}</code></td>
+                <td>{% if m.active %}<span class="pill on">aktif</span>{% else %}<span class="pill off">pasif</span>{% endif %}</td>
+                <td>{{ m.workspaces|length }}</td>
+                <td>{{ m.createdAt|date('d.m.Y H:i') }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,91 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+<style>
+    .auth-wrap { display: flex; min-height: 100vh; background: var(--bg); }
+
+    /* ---- Brand panel: charcoal with an indigo signal-glow + the runline signature ---- */
+    .auth-brand {
+        flex: 1; position: relative; overflow: hidden; color: #fff;
+        background:
+            radial-gradient(900px 500px at -5% -10%, rgba(69,52,214,.55) 0%, transparent 55%),
+            radial-gradient(700px 600px at 110% 120%, rgba(69,52,214,.30) 0%, transparent 50%),
+            #14151b;
+        padding: 56px; display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .auth-brand .signal-grid { position: absolute; inset: 0; pointer-events: none; opacity: .5;
+        background-image: linear-gradient(rgba(255,255,255,.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.05) 1px, transparent 1px);
+        background-size: 26px 26px; -webkit-mask-image: radial-gradient(circle at 30% 20%, #000, transparent 75%); mask-image: radial-gradient(circle at 30% 20%, #000, transparent 75%); }
+    .auth-brand > * { position: relative; }
+    .auth-brand .logo { font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; letter-spacing: -.01em; }
+    .auth-brand h2 { font-size: 31px; line-height: 1.22; margin: 0 0 14px; max-width: 460px; font-weight: 700; letter-spacing: -.02em; }
+    .auth-brand p.lead { font-size: 14.5px; color: #b8bdd4; margin: 0 0 26px; max-width: 440px; line-height: 1.6; }
+    .auth-brand ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+    .auth-brand li { display: flex; gap: 11px; align-items: center; font-size: 14px; color: #e3e5f3; }
+    .auth-brand li .ic { width: 22px; height: 22px; border-radius: 7px; background: rgba(69,52,214,.35); color: #c7c0ff;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 11px; font-weight: 700; }
+    .auth-brand .foot { font-size: 12px; color: #6f7490; }
+
+    /* the runline motif, rendered in light on the dark panel */
+    .auth-runline { display: flex; align-items: center; margin: 0 0 22px; }
+    .auth-runline .n { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; background: rgba(255,255,255,.18);
+        box-shadow: 0 0 0 4px #14151b; }
+    .auth-runline .n.on { background: #6f5cff; box-shadow: 0 0 0 4px #14151b, 0 0 14px rgba(111,92,255,.7); }
+    .auth-runline .l { width: 34px; height: 2px; background: rgba(255,255,255,.14); }
+    .auth-runline .l.on { background: linear-gradient(90deg, #6f5cff, rgba(111,92,255,.3)); }
+    @media (prefers-reduced-motion: no-preference) {
+        .auth-runline .n.anim { animation: auth-lite 2.4s ease-in-out infinite; }
+        .auth-runline .n:nth-child(3){animation-delay:.3s}.auth-runline .n:nth-child(5){animation-delay:.6s}.auth-runline .n:nth-child(7){animation-delay:.9s}
+        @keyframes auth-lite { 0%,100% { background: rgba(255,255,255,.18); box-shadow: 0 0 0 4px #14151b; } 45% { background: #6f5cff; box-shadow: 0 0 0 4px #14151b, 0 0 14px rgba(111,92,255,.7); } }
+    }
+
+    /* ---- Form panel ---- */
+    .auth-form { width: 480px; max-width: 100%; display: flex; align-items: center; justify-content: center; padding: 40px; }
+    .auth-card { width: 100%; max-width: 364px; }
+    .auth-card .eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); margin: 0 0 8px; }
+    .auth-card h1 { font-size: 25px; margin: 0 0 6px; letter-spacing: -.02em; }
+    .auth-card .sub { color: var(--muted); font-size: 14px; margin: 0 0 26px; }
+    .auth-card label { display: block; font-size: 13px; font-weight: 500; color: var(--text); margin: 0 0 6px; }
+    .auth-card .field { margin-bottom: 16px; }
+    .auth-card input { width: 100%; height: 46px; background: var(--panel); border: 1px solid var(--border);
+        border-radius: 11px; padding: 0 14px; color: var(--text); font-size: 14px; box-sizing: border-box; transition: border-color .15s, box-shadow .15s; }
+    .auth-card input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .auth-card .btn-primary { width: 100%; height: 46px; border: none; border-radius: 11px; background: var(--accent);
+        color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; transition: filter .15s, transform .05s; }
+    .auth-card .btn-primary:hover { filter: brightness(1.07); }
+    .auth-card .btn-primary:active { transform: translateY(1px); }
+    .auth-card .alt { text-align: center; font-size: 13px; color: var(--muted); margin: 18px 0 0; }
+    .auth-card .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 880px) {
+        .auth-brand { display: none; }
+        .auth-form { width: 100%; }
+    }
+</style>
+<div class="auth-wrap">
+    <div class="auth-brand">
+        <div class="signal-grid"></div>
+        <div class="logo">🧪 Signal: Test Platform</div>
+        <div>
+            <div class="auth-runline">
+                <span class="n on"></span><span class="l on"></span>
+                <span class="n anim"></span><span class="l"></span>
+                <span class="n anim"></span><span class="l"></span>
+                <span class="n anim"></span>
+            </div>
+            <h2>{% block brand_title %}API'lerinizi test edin, sonucu veritabanından doğrulayın.{% endblock %}</h2>
+            <p class="lead">Postman collection'larınızı içe aktarın, zincirleme test akışları kurun, PostgreSQL · MySQL · Redis · MongoDB üzerinde doğrulayın — hepsi tek yerde.</p>
+            <ul>
+                <li><span class="ic">✓</span> Postman uyumlu collection & environment içe aktarma</li>
+                <li><span class="ic">✓</span> Zincirleme test akışları + canlı DB doğrulama</li>
+                <li><span class="ic">✓</span> CI/cron tetikleme ve Claude (MCP) entegrasyonu</li>
+            </ul>
+        </div>
+        <div class="foot">© Signal: Test Platform</div>
+    </div>
+    <div class="auth-form">
+        <div class="auth-card">
+            {% block auth_card %}{% endblock %}
+        </div>
+    </div>
+</div>
+{% endblock %}

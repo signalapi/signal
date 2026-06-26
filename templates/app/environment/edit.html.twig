@@ -1,0 +1,68 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}{{ environment.name }} · Environment{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">← Environment'lar</a>
+<div class="pagehead">
+    <div>
+        <h1>Environment düzenle</h1>
+        <p class="subtitle">{{ workspace.name }}</p>
+    </div>
+</div>
+
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('edit-environment' ~ environment.id) }}">
+    <div class="field" style="max-width:480px;">
+        <label>Environment adı</label>
+        <input type="text" name="name" value="{{ environment.name }}">
+    </div>
+
+    <div class="fgroup">
+        <div class="fgroup-title">Değişkenler</div>
+        <table id="vars">
+            <thead><tr><th style="width:32%;">Ad</th><th>Değer</th><th style="width:70px;text-align:center;">Gizli</th></tr></thead>
+            <tbody>
+            {% set idx = 0 %}
+            {% for v in environment.variables %}
+                <tr>
+                    <td><input type="text" name="var_name[{{ idx }}]" value="{{ v.name }}" class="var-in"></td>
+                    <td><input type="text" name="var_value[{{ idx }}]" value="{{ v.value }}" class="var-in"></td>
+                    <td style="text-align:center;"><input type="checkbox" name="var_secret[{{ idx }}]" value="1" {{ v.secret ? 'checked' }}></td>
+                </tr>
+                {% set idx = idx + 1 %}
+            {% endfor %}
+            {% for i in 1..3 %}
+                <tr>
+                    <td><input type="text" name="var_name[{{ idx }}]" value="" class="var-in"></td>
+                    <td><input type="text" name="var_value[{{ idx }}]" value="" class="var-in"></td>
+                    <td style="text-align:center;"><input type="checkbox" name="var_secret[{{ idx }}]" value="1"></td>
+                </tr>
+                {% set idx = idx + 1 %}
+            {% endfor %}
+            </tbody>
+        </table>
+        <p class="fhint">Boş satırlar yok sayılır. Gizli değişkenler arayüzde maskelenir.</p>
+        <button type="button" class="btn ghost small" onclick="addRow()" style="margin-top:10px;">+ Satır ekle</button>
+    </div>
+
+    <div class="form-actions">
+        <button class="btn" type="submit">Kaydet</button>
+        <a class="btn ghost" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">Vazgeç</a>
+    </div>
+</form>
+
+<style>.var-in{width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--text);font-family:var(--font-mono);font-size:13px;}.var-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}#vars td{padding:6px 8px;}</style>
+<script>
+function addRow() {
+    var tb = document.querySelector('#vars tbody');
+    var i = tb.rows.length;
+    var tr = document.createElement('tr');
+    tr.innerHTML =
+        '<td><input type="text" name="var_name[' + i + ']" class="var-in"></td>' +
+        '<td><input type="text" name="var_value[' + i + ']" class="var-in"></td>' +
+        '<td style="text-align:center;"><input type="checkbox" name="var_secret[' + i + ']" value="1"></td>';
+    tb.appendChild(tr);
+}
+</script>
+{% endblock %}

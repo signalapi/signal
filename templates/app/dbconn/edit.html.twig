@@ -1,0 +1,61 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}{{ connection ? 'Bağlantı düzenle' : 'Yeni bağlantı' }}{% endblock %}
+
+{% block panel %}
+{% set action = connection ? path('app_dbconn_edit', {workspace: workspace.id, connection: connection.id}) : path('app_dbconn_new', {workspace: workspace.id}) %}
+{% set csrf_id = connection ? 'dbconn-edit' ~ connection.id : 'dbconn-new' %}
+
+<a class="backlink" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">← Bağlantılar</a>
+<div class="pagehead">
+    <div>
+        <h1>{{ connection ? 'Bağlantı düzenle' : 'Yeni veritabanı bağlantısı' }}</h1>
+        <p class="subtitle">{{ workspace.name }}</p>
+    </div>
+</div>
+
+<div class="formcard" style="max-width:600px;">
+    <form method="post" action="{{ action }}">
+        <input type="hidden" name="_token" value="{{ csrf_token(csrf_id) }}">
+        <div class="grid2">
+            <div class="field"><label>Ad</label><input type="text" name="name" value="{{ connection ? connection.name }}" placeholder="örn. pg-staging" required></div>
+            <div class="field">
+                <label>Tip</label>
+                <select name="type" id="type" onchange="syncPort()">
+                    {% for t in ['postgres','mysql','redis','mongo'] %}<option value="{{ t }}" {{ connection and connection.type == t ? 'selected' }}>{{ t }}</option>{% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="grid2" style="grid-template-columns:2fr 1fr;">
+            <div class="field"><label>Host</label><input type="text" id="host" name="host" value="{{ connection ? connection.host }}" placeholder="database / redis / mongo" required></div>
+            <div class="field"><label>Port</label><input type="number" id="port" name="port" value="{{ connection ? connection.port : 5432 }}"></div>
+        </div>
+        <div class="field"><label>Veritabanı adı</label><input type="text" name="databaseName" value="{{ connection ? connection.databaseName }}" placeholder="(redis için boş bırakılabilir)"></div>
+        <div class="grid2">
+            <div class="field"><label>Kullanıcı</label><input type="text" name="username" value="{{ connection ? connection.username }}"></div>
+            <div class="field"><label>Şifre</label><input type="password" name="password" placeholder="{{ connection and connection.hasPassword ? '•••• (değiştirmek için yazın)' : '' }}"></div>
+        </div>
+        <div class="grid2">
+            <div class="field"><label>authSource (mongo)</label><input type="text" name="authSource" value="{{ connection ? connection.options.authSource ?? '' }}" placeholder="admin"></div>
+            <div class="field"><label>DB index (redis)</label><input type="number" name="redisDb" value="{{ connection ? connection.options.db ?? '' }}" placeholder="0"></div>
+        </div>
+        <div class="form-actions">
+            <button class="btn" type="submit">Kaydet</button>
+            <a class="btn ghost" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">Vazgeç</a>
+        </div>
+    </form>
+</div>
+
+<p class="fhint" style="max-width:600px;margin-top:14px;">
+    🔒 Şifreler veritabanında libsodium ile şifrelenerek saklanır; arayüze düz metin olarak hiç dönmez. Önerilen: hedef veritabanında <strong>salt-okunur</strong> bir kullanıcı kullanın.
+</p>
+
+<script>
+const DEFAULT_PORTS = {postgres:5432, mysql:3306, redis:6379, mongo:27017};
+function syncPort() {
+    const t = document.getElementById('type').value;
+    const p = document.getElementById('port');
+    if (!p.value || Object.values(DEFAULT_PORTS).includes(parseInt(p.value))) { p.value = DEFAULT_PORTS[t]; }
+}
+</script>
+{% endblock %}

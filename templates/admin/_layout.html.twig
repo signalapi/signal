@@ -1,0 +1,26 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+<div class="layout">
+    <aside class="sidebar">
+        <div class="brand">🧪 API Test<small>Süper Admin</small></div>
+        <nav class="nav">
+            <a href="{{ path('admin_dashboard') }}" class="{{ app.request.attributes.get('_route') == 'admin_dashboard' ? 'active' }}">Genel Bakış</a>
+            <a href="{{ path('admin_merchant_index') }}" class="{{ app.request.attributes.get('_route') starts with 'admin_merchant' ? 'active' }}">Merchant'lar</a>
+        </nav>
+        <div class="userbox">
+            <div class="name">{{ app.user.name }}</div>
+            <div>{{ app.user.email }}</div>
+            <div style="margin-top:8px;"><a href="{{ path('admin_logout') }}">Çıkış yap</a></div>
+        </div>
+    </aside>
+    <main class="content">
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="flash {{ label }}">{{ message }}</div>
+            {% endfor %}
+        {% endfor %}
+        {% block panel %}{% endblock %}
+    </main>
+</div>
+{% endblock %}

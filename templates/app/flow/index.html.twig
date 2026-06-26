@@ -1,0 +1,93 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Akışlar · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+<style>
+    .fl-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
+    .fl-head h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; }
+    .fl-head .subtitle { margin: 6px 0 0; }
+    .fl-list { margin-top: 22px; }
+
+    /* suite-style stacked row cards */
+    .fl-row { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px;
+        box-shadow: var(--shadow); margin-bottom: 10px; transition: border-color .16s; }
+    .fl-row:hover { border-color: #d3d3ca; }
+    .fl-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .fl-status { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--border); }
+    .fl-status.passed { background: var(--pass); } .fl-status.running { background: var(--accent); animation: pulse 1s infinite; }
+    .fl-status.failed, .fl-status.error { background: var(--fail); } .fl-status.cancelled { background: var(--warn); }
+    .fl-name { font-weight: 600; font-size: 15.5px; color: var(--ink); text-decoration: none; }
+    .fl-name:hover { color: var(--accent); }
+    .fl-sched { font-family: var(--font-mono); font-size: 10px; color: var(--pass); background: var(--pass-soft); border-radius: 6px; padding: 2px 7px; }
+    .fl-top .grow { flex: 1; }
+    .fl-top form { display: inline; }
+    .fl-assign select { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; color: var(--muted); font-size: 12px; }
+
+    .fl-meta { display: flex; align-items: center; gap: 14px; margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+    .fl-meta b { color: var(--ink); font-weight: 600; }
+    .fl-runs { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+    .fl-runs .lbl { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
+    .fl-runs .rdot { width: 10px; height: 10px; border-radius: 3px; background: var(--border); display: block; }
+    .fl-runs .rdot.passed { background: var(--pass); } .fl-runs .rdot.running { background: var(--accent); animation: pulse 1s infinite; }
+    .fl-runs .rdot.failed, .fl-runs .rdot.error { background: var(--fail); } .fl-runs .rdot.cancelled { background: var(--warn); }
+
+    .fl-empty { color: var(--muted); padding: 30px; text-align: center; border: 1px dashed var(--border); border-radius: 14px; }
+</style>
+
+<div class="fl-head">
+    <div>
+        <h1>Akışlar</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ flows|length }} akış · suite'leri ve geçmişi soldaki menüden gör</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <a class="btn" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">+ Yeni akış</a>
+        <a class="btn ghost" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+    </div>
+</div>
+
+<div class="fl-list stagger">
+    {% if flows is empty %}
+        <div class="fl-empty">Henüz akış yok. <a href="{{ path('app_flow_new', {workspace: workspace.id}) }}">Yeni akış</a> oluştur.</div>
+    {% endif %}
+    {% for flow in flows %}
+        {% set last = flow.runs|first %}
+        {% set recent = flow.runs|slice(0, 8) %}
+        <div class="fl-row">
+            <div class="fl-top">
+                <span class="fl-status {{ last ? last.status }}"></span>
+                <a class="fl-name" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">{{ flow.name }}</a>
+                {% if flow.scheduleEnabled %}<span class="fl-sched" title="{{ flow.cronExpression }}">⏱ {{ flow.cronExpression }}</span>{% endif %}
+                <div class="grow"></div>
+                <form class="fl-assign" method="post" action="{{ path('app_flow_group_assign', {workspace: workspace.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
+                    <input type="hidden" name="flow" value="{{ flow.id }}">
+                    <select name="group" onchange="this.form.submit()" title="Suite'e ata">
+                        <option value="">— suite yok —</option>
+                        {% for g in groups %}<option value="{{ g.id }}" {{ flow.flowGroup and flow.flowGroup.id == g.id ? 'selected' }}>🧩 {{ g.name }}</option>{% endfor %}
+                    </select>
+                </form>
+                <a class="btn ghost small" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">Aç →</a>
+                <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('Akış ve koşum geçmişi silinecek. Emin misiniz?');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ flow.id) }}">
+                    <button class="btn danger" type="submit">Sil</button>
+                </form>
+            </div>
+            <div class="fl-meta">
+                <span><b>{{ flow.steps|length }}</b> adım</span>
+                <span><b>{{ flow.runs|length }}</b> koşum</span>
+                {% if flow.flowGroup %}<span>🧩 {{ flow.flowGroup.name }}</span>{% endif %}
+                <span>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name : 'env yok' }}</span>
+                {% if recent is not empty %}
+                    <span class="fl-runs"><span class="lbl">Son</span>
+                        {% for run in recent|reverse %}
+                            <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
+                               title="{{ run.status }} · {{ run.passedSteps }}/{{ run.totalSteps }} · {{ run.createdAt|date('d.m H:i') }}"><span class="rdot {{ run.status }}"></span></a>
+                        {% endfor %}
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

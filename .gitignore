@@ -1,0 +1,20 @@
+
+###> symfony/framework-bundle ###
+/.env.local
+/.env.local.php
+/.env.*.local
+/config/secrets/prod/prod.decrypt.private.php
+/public/bundles/
+/var/
+/vendor/
+###< symfony/framework-bundle ###
+
+###> app ###
+# Local-only Docker overrides (per-developer host mappings, TLS relax, etc.)
+/docker-compose.override.yml
+# IDE / OS noise
+/.idea/
+/.superpowers/
+.DS_Store
+*.log
+###< app ###

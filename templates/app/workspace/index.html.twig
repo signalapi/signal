@@ -1,0 +1,42 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Workspace'ler{% endblock %}
+
+{% block panel %}
+<div class="pagehead">
+    <div>
+        <h1>Workspace'ler</h1>
+        <p class="subtitle">{{ workspaces|length }} workspace · istediğiniz kadar oluşturabilirsiniz</p>
+    </div>
+    <div class="actions">
+        <a class="btn" href="{{ path('app_workspace_new') }}">+ Yeni workspace</a>
+    </div>
+</div>
+
+<div class="res-grid stagger">
+    {% for w in workspaces %}
+        <div class="res-card">
+            <div class="rc-top">
+                <div class="ic">🗂</div>
+                <div class="rc-name">
+                    <a href="{{ path('app_workspace_show', {id: w.id}) }}">{{ w.name }}</a>
+                    <div class="s"><code>{{ w.slug }}</code></div>
+                </div>
+            </div>
+            {% if w.description %}<p class="subtitle" style="margin:12px 0 0;font-size:13px;">{{ w.description }}</p>{% endif %}
+            <div class="rc-foot">
+                <a class="btn grow" style="justify-content:center;" href="{{ path('app_workspace_show', {id: w.id}) }}">Aç →</a>
+                <form method="post" action="{{ path('app_workspace_delete', {id: w.id}) }}" onsubmit="return confirm('Workspace silinecek. Emin misiniz?');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ w.id) }}">
+                    <button class="btn danger" type="submit">Sil</button>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+    <a class="res-new" href="{{ path('app_workspace_new') }}">
+        <span class="plus">+</span>
+        <span style="font-weight:600;">Yeni workspace</span>
+        <span style="font-size:12px;">Collection, akış ve DB'leri ayır</span>
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,34 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+{% set ws = workspace %}
+{% set route = app.request.attributes.get('_route') %}
+<style>
+    .rail { width: 60px; background: var(--panel); border-right: 1px solid var(--border);
+        display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px; }
+    .rail .logo { font-size: 22px; margin-bottom: 10px; text-decoration: none; }
+    .rail a.item { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+        border-radius: 10px; font-size: 18px; color: var(--muted); text-decoration: none; }
+    .rail a.item:hover { background: var(--panel-2); }
+    .rail a.item.active { background: var(--accent); color: #fff; }
+    .rail .spacer { flex: 1; }
+    .wb { display: flex; height: 100vh; overflow: hidden; }
+    .wb-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+</style>
+<div class="wb">
+    <nav class="rail">
+        <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="logo" title="API Test">🧪</a>
+        <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="item" title="Genel Bakış">🏠</a>
+        <a href="{{ path('app_collection_index', {workspace: ws.id}) }}" class="item active" title="Collection'lar">📁</a>
+        <a href="{{ path('app_environment_index', {workspace: ws.id}) }}" class="item" title="Environment'lar">🌐</a>
+        <a href="{{ path('app_flow_index', {workspace: ws.id}) }}" class="item" title="Test Akışları">▶️</a>
+        <a href="{{ path('app_trends', {workspace: ws.id}) }}" class="item" title="Trendler">📈</a>
+        <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="item" title="DB Bağlantıları">🗄️</a>
+        <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="item" title="API Token'ları">🔑</a>
+        <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="item" title="Cookie'ler">🍪</a>
+        <div class="spacer"></div>
+        <a href="{{ path('app_logout') }}" class="item" title="Çıkış">⎋</a>
+    </nav>
+    {% block workbench %}{% endblock %}
+</div>
+{% endblock %}

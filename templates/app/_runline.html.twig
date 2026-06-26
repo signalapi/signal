@@ -1,0 +1,12 @@
+{# Renders a flow run as a track of step nodes — the product's signature motif. #}
+{% macro line(run) %}
+    <span class="runline">
+        {% set prev = null %}
+        {% for r in run.stepResults %}
+            {% if not loop.first %}<span class="link {{ prev == 'passed' ? 'passed' }}"></span>{% endif %}
+            <span class="node {{ r.status }}" title="{{ r.label }}: {{ r.status }}"></span>
+            {% set prev = r.status %}
+        {% endfor %}
+        {% if run.stepResults is empty %}<span class="node"></span>{% endif %}
+    </span>
+{% endmacro %}

@@ -1,0 +1,92 @@
+name: signal
+
+services:
+  php:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: signal_php
+    volumes:
+      - ./:/var/www:cached
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
+      REDIS_URL: "redis://redis:6379"
+      APP_SECRET_KEY: "${APP_SECRET_KEY:-REMOVED-FROM-HISTORY}"
+      HTTP_INSECURE_SSL: "${HTTP_INSECURE_SSL:-0}"
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  worker:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: signal_worker
+    volumes:
+      - ./:/var/www:cached
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
+      REDIS_URL: "redis://redis:6379"
+      APP_SECRET_KEY: "${APP_SECRET_KEY:-REMOVED-FROM-HISTORY}"
+      SKIP_DB_INIT: "1"
+      HTTP_INSECURE_SSL: "${HTTP_INSECURE_SSL:-0}"
+    command: php bin/console messenger:consume async failed --time-limit=3600 -v
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: signal_nginx
+    ports:
+      - "8080:80"
+    volumes:
+      - ./:/var/www:cached
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - php
+
+  database:
+    image: postgres:16-alpine
+    container_name: signal_postgres
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: app
+    ports:
+      - "5433:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d app"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: signal_redis
+    ports:
+      - "6380:6379"
+
+  mongo:
+    image: mongo:7
+    container_name: signal_mongo
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: root
+    ports:
+      - "27018:27017"
+    volumes:
+      - mongo_data:/data/db
+
+volumes:
+  db_data:
+  mongo_data:

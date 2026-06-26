@@ -1,0 +1,23 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Yeni Workspace{% endblock %}
+
+{% block panel %}
+<h1>Yeni Workspace</h1>
+<p class="subtitle">Bir test alanı oluşturun. Collection'lar, environment'lar ve test akışları buraya bağlanacak.</p>
+
+<div class="formcard">
+    {{ form_start(form) }}
+        <div class="field">
+            {{ form_label(form.name) }}
+            {{ form_widget(form.name) }}
+        </div>
+        <div class="field">
+            {{ form_label(form.description) }}
+            {{ form_widget(form.description, {'attr': {'rows': 3}}) }}
+        </div>
+        <button class="btn" type="submit">Oluştur</button>
+        <a class="btn ghost" href="{{ path('app_workspace_index') }}">Vazgeç</a>
+    {{ form_end(form) }}
+</div>
+{% endblock %}

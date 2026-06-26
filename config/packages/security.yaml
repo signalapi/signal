@@ -1,0 +1,73 @@
+security:
+    password_hashers:
+        Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
+
+    providers:
+        app_users:
+            entity:
+                class: App\Entity\User
+                property: email
+
+    firewalls:
+        dev:
+            pattern: ^/(_(profiler|wdt)|css|images|js)/
+            security: false
+
+        # Programmatic API + MCP server — stateless, bearer-token authenticated.
+        api:
+            pattern: ^/(api|mcp)
+            stateless: true
+            provider: app_users
+            custom_authenticators:
+                - App\Security\ApiTokenAuthenticator
+
+        # Super admin area — fully separate login from the merchant area.
+        admin:
+            pattern: ^/admin
+            lazy: true
+            provider: app_users
+            context: admin
+            form_login:
+                login_path: admin_login
+                check_path: admin_login
+                default_target_path: admin_dashboard
+                enable_csrf: true
+            logout:
+                path: admin_logout
+                target: admin_login
+
+        # Merchant area.
+        main:
+            lazy: true
+            provider: app_users
+            context: main
+            form_login:
+                login_path: app_login
+                check_path: app_login
+                default_target_path: app_dashboard
+                enable_csrf: true
+            logout:
+                path: app_logout
+                target: app_login
+
+    # Panels are independent: a super admin does not implicitly get merchant access.
+    role_hierarchy:
+        ROLE_MERCHANT_ADMIN: [ROLE_MERCHANT]
+
+    access_control:
+        - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/mcp, roles: IS_AUTHENTICATED_FULLY }
+        - { path: ^/admin/login, roles: PUBLIC_ACCESS }
+        - { path: ^/admin, roles: ROLE_SUPER_ADMIN }
+        - { path: ^/login, roles: PUBLIC_ACCESS }
+        - { path: ^/register, roles: PUBLIC_ACCESS }
+        - { path: ^/app, roles: ROLE_MERCHANT }
+
+when@test:
+    security:
+        password_hashers:
+            Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface:
+                algorithm: auto
+                cost: 4
+                time_cost: 3
+                memory_cost: 10

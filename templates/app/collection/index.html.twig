@@ -1,0 +1,43 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Collection'lar · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+<div class="pagehead">
+    <div>
+        <h1>Collection'lar</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ collections|length }} collection</p>
+    </div>
+    <div class="actions">
+        <a class="btn" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">⬆ Postman içe aktar</a>
+        <a class="btn ghost" href="{{ path('app_collection_new', {workspace: workspace.id}) }}">+ Boş collection</a>
+    </div>
+</div>
+
+<div class="res-grid stagger">
+    {% for c in collections %}
+        <div class="res-card">
+            <div class="rc-top">
+                <div class="ic">🧪</div>
+                <div class="rc-name">
+                    <a href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">{{ c.name }}</a>
+                    <div class="s">{{ c.requests|length }} istek · {{ c.createdAt|date('d.m.Y') }}</div>
+                </div>
+            </div>
+            <div class="rc-foot">
+                <a class="btn grow" style="justify-content:center;" href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">Workbench'i aç →</a>
+                <form method="post" action="{{ path('app_collection_delete', {workspace: workspace.id, collection: c.id}) }}" onsubmit="return confirm('Collection ve tüm istekleri silinecek. Emin misiniz?');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ c.id) }}">
+                    <button class="btn danger" type="submit">Sil</button>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+    <a class="res-new" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">
+        <span class="plus">⬆</span>
+        <span style="font-weight:600;">Postman içe aktar</span>
+        <span style="font-size:12px;">veya boş bir collection oluştur</span>
+    </a>
+</div>
+{% endblock %}

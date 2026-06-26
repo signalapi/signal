@@ -1,0 +1,157 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Adım düzenle · {{ flow.name }}{% endblock %}
+
+{% block panel %}
+{% set kind = step.isDelay ? 'Bekleme' : (step.isSetvar ? 'Değişken set' : (step.isDb ? 'DB sorgusu' : 'HTTP isteği')) %}
+{% set badge = step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : 'HTTP')) %}
+
+<a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ flow.name }}</a>
+<div class="pagehead">
+    <div>
+        <h1>Adım düzenle</h1>
+        <p class="subtitle"><span class="pill" style="background:var(--accent-soft);color:var(--accent);">{{ badge }}</span> {{ kind }}</p>
+    </div>
+</div>
+
+<form method="post">
+    <input type="hidden" name="_token" value="{{ csrf_token('edit-step' ~ step.id) }}">
+    <div class="field" style="max-width:480px;">
+        <label>Adım adı</label>
+        <input type="text" name="name" value="{{ step.name }}">
+    </div>
+
+    {% if step.isDelay %}
+        <div class="fgroup" style="max-width:380px;">
+            <div class="fgroup-title">Bekleme</div>
+            <div class="field" style="margin:0;">
+                <label>Süre (ms)</label>
+                <input type="number" name="query" value="{{ step.query }}" min="0" max="60000" step="100">
+                <p class="fhint">Adım, belirtilen süre kadar bekler (maks. 60000 ms). Asenkron işlemler arası gecikme için.</p>
+            </div>
+        </div>
+    {% elseif step.isSetvar %}
+        <div class="fgroup">
+            <div class="fgroup-title">Değişken atamaları</div>
+            <div class="field" style="margin:0;">
+                <label>Her satır <code>ad = değer</code></label>
+                <textarea name="query" rows="5" style="font-family:var(--font-mono);" placeholder="orderId = {{ '{{data.id}}' }}&#10;label = sabit-değer">{{ step.query }}</textarea>
+                <p class="fhint">Değer kısmında <code>{{ '{{değişken}}' }}</code> ve <code>{{ '{{$randomEmail}}' }}</code> gibi ifadeler çözülür; sonuç sonraki adımlara aktarılır.</p>
+            </div>
+        </div>
+    {% elseif step.isDb %}
+        <div class="fgroup">
+            <div class="fgroup-title">Veritabanı sorgusu</div>
+            <div class="field">
+                <label>Bağlantı</label>
+                <select name="connection">
+                    {% for c in connections %}<option value="{{ c.id }}" {{ step.dbConnection and step.dbConnection.id == c.id ? 'selected' }}>{{ c.name }} ({{ c.type }})</option>{% endfor %}
+                </select>
+            </div>
+            <div class="field" style="margin:0;">
+                <label>Sorgu (<code>{{ '{{değişken}}' }}</code> desteklenir)</label>
+                <textarea name="query" rows="4" style="font-family:var(--font-mono);" placeholder="SELECT status FROM subscriptions WHERE user_id = {{ '{{userId}}' }}">{{ step.query }}</textarea>
+                <p class="fhint">SQL: normal sorgu · Redis: <code>GET key</code> · Mongo: <code>{{ '{"collection":"x","filter":{...}}' }}</code></p>
+            </div>
+        </div>
+    {% else %}
+        <div class="fgroup">
+            <div class="fgroup-title">İstek · bu flow'a özel</div>
+            <p class="fhint" style="margin:0 0 12px;">Bu istek yalnızca bu adıma aittir; collection'daki orijinali ve diğer flow'ları etkilemez.{% if step.apiRequest %} Kaynak: <code>{{ step.apiRequest.collection.name }} / {{ step.apiRequest.name }}</code>{% endif %}</p>
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <select name="method" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-family:var(--font-mono);font-weight:700;">
+                    {% for m in constant('App\\Entity\\ApiRequest::METHODS') %}<option {{ step.reqMethod == m ? 'selected' }}>{{ m }}</option>{% endfor %}
+                </select>
+                <input type="text" name="url" value="{{ step.reqUrl }}" placeholder="https://… ({{ '{{API_URL}}' }}, {{ '{{token}}' }} kullanılabilir)" style="flex:1;font-family:var(--font-mono);">
+            </div>
+            <div class="grid2">
+                <div class="field">
+                    <label>Query parametreleri</label>
+                    <div id="paramRows">
+                        {% for p in step.reqParams %}<div class="kvrow"><input name="param_name[]" value="{{ p.name }}" placeholder="ad"><input name="param_value[]" value="{{ p.value }}" placeholder="değer"></div>{% endfor %}
+                        <div class="kvrow"><input name="param_name[]" placeholder="ad"><input name="param_value[]" placeholder="değer"></div>
+                    </div>
+                    <button type="button" class="btn ghost small" onclick="addKv('paramRows','param')">+ satır</button>
+                </div>
+                <div class="field">
+                    <label>Header'lar</label>
+                    <div id="headerRows">
+                        {% for h in step.reqHeaders %}<div class="kvrow"><input name="header_name[]" value="{{ h.name }}" placeholder="ad"><input name="header_value[]" value="{{ h.value }}" placeholder="değer"></div>{% endfor %}
+                        <div class="kvrow"><input name="header_name[]" placeholder="ad"><input name="header_value[]" placeholder="değer"></div>
+                    </div>
+                    <button type="button" class="btn ghost small" onclick="addKv('headerRows','header')">+ satır</button>
+                </div>
+            </div>
+            <div class="field">
+                <label>Gövde</label>
+                <select name="bodyMode" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);margin-bottom:8px;">
+                    {% for m in ['none','raw','json','form'] %}<option {{ step.reqBodyMode == m ? 'selected' }}>{{ m }}</option>{% endfor %}
+                </select>
+                <textarea name="body" rows="6" style="font-family:var(--font-mono);" placeholder='{"amount": 100, "token": "{{ '{{token}}' }}"}'>{{ step.reqBody }}</textarea>
+            </div>
+            <div class="field" style="margin-bottom:0;">
+                <label>Kimlik doğrulama</label>
+                {% set auth = step.reqAuth %}
+                <select name="authType" id="authType" onchange="authToggle()" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);">
+                    {% for t in ['none','bearer','basic','apikey'] %}<option value="{{ t }}" {{ (auth.type ?? 'none') == t ? 'selected' }}>{{ t }}</option>{% endfor %}
+                </select>
+                <div data-auth="bearer" style="margin-top:8px;"><input type="text" name="authToken" value="{{ auth.token ?? '' }}" placeholder="Bearer token ({{ '{{token}}' }})" style="font-family:var(--font-mono);"></div>
+                <div data-auth="basic" style="margin-top:8px;display:flex;gap:8px;"><input type="text" name="authUser" value="{{ auth.username ?? '' }}" placeholder="kullanıcı"><input type="text" name="authPass" value="{{ auth.password ?? '' }}" placeholder="şifre"></div>
+                <div data-auth="apikey" style="margin-top:8px;display:flex;gap:8px;"><input type="text" name="authKey" value="{{ auth.key ?? '' }}" placeholder="anahtar adı"><input type="text" name="authVal" value="{{ auth.value ?? '' }}" placeholder="değer"><select name="authAddTo" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);"><option value="header" {{ (auth.addTo ?? 'header') == 'header' ? 'selected' }}>header</option><option value="query" {{ (auth.addTo ?? '') == 'query' ? 'selected' }}>query</option></select></div>
+            </div>
+        </div>
+    {% endif %}
+
+    {% if not step.isSetvar and not step.isDelay %}
+    <div class="grid2">
+        <div class="field">
+            <label>Extraction'lar (her satır <code>değişken = path</code>)</label>
+            <textarea name="extractions" rows="6" style="font-family:var(--font-mono);" placeholder="{{ step.isDb ? 'status = rows.0.status' : 'token = data.access_token' }}">{{ extractions_text }}</textarea>
+            <p class="fhint">{% if step.isDb %}SQL: <code>rows.0.kolon</code>, <code>rowCount</code> · Redis: <code>value</code> · Mongo: <code>documents.0.alan</code>, <code>count</code>{% else %}Yanıt JSON'ından; sonraki adımlarda <code>{{ '{{değişken}}' }}</code>.{% endif %}</p>
+        </div>
+        <div class="field">
+            <label>Assertion'lar (her satır bir kural)</label>
+            <textarea name="assertions" rows="6" style="font-family:var(--font-mono);" placeholder="{{ step.isDb ? 'rowCount == 1&#10;rows.0.status == active' : 'status == 200&#10;data.user.id exists' }}">{{ assertions_text }}</textarea>
+            <p class="fhint">Operatörler: <code>== != &gt; &lt; &gt;= &lt;= contains matches exists empty notEmpty</code><br>{% if step.isDb %}örn: <code>rowCount &gt;= 1</code>, <code>rows.0.status == active</code>{% else %}örn: <code>status == 200</code>, <code>responseTime &lt; 800</code>, <code>data.id matches ^[0-9]+$</code>{% endif %}</p>
+        </div>
+    </div>
+
+    <div class="fgroup">
+        <label class="inline-lbl" style="font-weight:600;font-size:14px;"><input type="checkbox" name="retryEnabled" value="1" {{ step.retryEnabled ? 'checked' }} style="width:auto;"> ↻ Assertion'lar geçene kadar tekrar dene (poll)</label>
+        <p class="fhint" style="margin:6px 0 12px;">Asenkron işlemler için: adım, assertion'lar geçene kadar belirli aralıklarla tekrar çalışır. (Yalnızca assertion tanımlıysa etkindir.)</p>
+        <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;">
+            <label style="font-size:13px;color:var(--muted);">Maks. deneme
+                <input type="number" name="retryMax" value="{{ step.retryMax }}" min="1" max="20" style="width:70px;margin-left:6px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);">
+            </label>
+            <label style="font-size:13px;color:var(--muted);">Aralık (ms)
+                <input type="number" name="retryDelayMs" value="{{ step.retryDelayMs }}" min="0" max="10000" step="100" style="width:90px;margin-left:6px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);">
+            </label>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="form-actions">
+        <button class="btn" type="submit">Kaydet</button>
+        <a class="btn ghost" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">Vazgeç</a>
+    </div>
+</form>
+
+<style>
+    .kvrow { display: flex; gap: 6px; margin-bottom: 5px; }
+    .kvrow input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 7px 9px; color: var(--text); font-family: var(--font-mono); font-size: 12.5px; }
+    [data-auth] { display: none; }
+</style>
+<script>
+    function addKv(containerId, prefix) {
+        var box = document.getElementById(containerId);
+        var row = document.createElement('div'); row.className = 'kvrow';
+        row.innerHTML = '<input name="' + prefix + '_name[]" placeholder="ad"><input name="' + prefix + '_value[]" placeholder="değer">';
+        box.appendChild(row);
+    }
+    function authToggle() {
+        var t = document.getElementById('authType').value;
+        document.querySelectorAll('[data-auth]').forEach(function (el) { el.style.display = el.dataset.auth === t ? (el.dataset.auth === 'bearer' ? 'block' : 'flex') : 'none'; });
+    }
+    document.addEventListener('DOMContentLoaded', authToggle);
+</script>
+{% endblock %}

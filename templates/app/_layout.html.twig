@@ -1,0 +1,79 @@
+{% extends 'base.html.twig' %}
+
+{% block body %}
+{% set ws = workspace is defined and workspace ? workspace : current_workspace() %}
+{% set route = app.request.attributes.get('_route') %}
+{% set glyph %}<svg class="glyph" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="none" stroke="var(--accent)" stroke-width="6"/><circle cx="32" cy="32" r="10" fill="var(--accent)"/></svg>{% endset %}
+<div class="layout">
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            {{ glyph }}<span>Signal</span>
+            <button class="collapse-btn" id="collapseBtn" title="Daralt/genişlet" aria-label="Menüyü daralt">«</button>
+        </div>
+
+        <div class="ws-switch">
+            <select onchange="if(this.value)location.href=this.value;" aria-label="Workspace seç">
+                {% for w in merchant_workspaces() %}
+                    <option value="{{ path('app_workspace_show', {id: w.id}) }}" {{ ws and ws.id == w.id ? 'selected' }}>{{ w.name }}</option>
+                {% else %}
+                    <option value="">— workspace yok —</option>
+                {% endfor %}
+                <option value="{{ path('app_workspace_new') }}">+ Yeni workspace…</option>
+            </select>
+        </div>
+
+        <nav class="nav">
+            {% if ws %}
+                <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="{{ route == 'app_workspace_show' ? 'active' }}"><span class="ico">◇</span><span class="label">Genel Bakış</span></a>
+
+                <div class="nav-group">Çalışma</div>
+                <a href="{{ path('app_collection_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_collection' or route starts with 'app_request' or route starts with 'wb_' ? 'active' }}"><span class="ico">🧪</span><span class="label">Collection'lar</span></a>
+                <a href="{{ path('app_environment_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_environment' ? 'active' }}"><span class="ico">🌐</span><span class="label">Environment'lar</span></a>
+
+                <div class="nav-group">Test</div>
+                <a href="{{ path('app_flow_index', {workspace: ws.id}) }}" class="{{ (route starts with 'app_flow' and not route starts with 'app_flow_group') ? 'active' }}"><span class="ico">▶</span><span class="label">Akışlar</span></a>
+                <a href="{{ path('app_flow_suite_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_flow_group' ? 'active' }}"><span class="ico">🧩</span><span class="label">Suite'ler</span></a>
+                <a href="{{ path('app_history_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_history' ? 'active' }}"><span class="ico">🕘</span><span class="label">Geçmiş</span></a>
+                <a href="{{ path('app_trends', {workspace: ws.id}) }}" class="{{ route starts with 'app_trends' ? 'active' }}"><span class="ico">📈</span><span class="label">Trendler</span></a>
+
+                <div class="nav-group">Altyapı</div>
+                <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_dbconn' ? 'active' }}"><span class="ico">🗄</span><span class="label">DB Bağlantıları</span></a>
+                <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_apitoken' ? 'active' }}"><span class="ico">🔑</span><span class="label">API & MCP</span></a>
+                <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_cookie' ? 'active' }}"><span class="ico">🍪</span><span class="label">Cookie'ler</span></a>
+            {% endif %}
+            <div style="flex:1"></div>
+            <a href="{{ path('app_workspace_index') }}" class="{{ route == 'app_workspace_index' ? 'active' }}"><span class="ico">⚙</span><span class="label nav-foot-label">Workspace'leri yönet</span></a>
+        </nav>
+
+        <div class="userbox">
+            <div class="name">{{ app.user.name }}</div>
+            <div class="email">{{ app.user.email }}</div>
+            <div style="margin-top:8px;"><a href="{{ path('app_logout') }}" class="label">Çıkış yap</a></div>
+        </div>
+    </aside>
+
+    <main class="content">
+        {% for label, messages in app.flashes %}
+            {% for message in messages %}
+                <div class="flash {{ label }}">{{ message }}</div>
+            {% endfor %}
+        {% endfor %}
+        {% block panel %}{% endblock %}
+    </main>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+(function () {
+    var sb = document.getElementById('sidebar');
+    if (!sb) return;
+    if (localStorage.getItem('sb_collapsed') === '1') sb.classList.add('collapsed');
+    var b = document.getElementById('collapseBtn');
+    if (b) b.addEventListener('click', function () {
+        sb.classList.toggle('collapsed');
+        localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
+    });
+})();
+</script>
+{% endblock %}
