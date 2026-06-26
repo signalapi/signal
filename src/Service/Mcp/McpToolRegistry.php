@@ -3,14 +3,19 @@
 namespace App\Service\Mcp;
 
 use App\Entity\Environment;
+use App\Entity\FlowGroup;
+use App\Entity\FlowGroupRun;
 use App\Entity\FlowRun;
 use App\Entity\FlowStep;
 use App\Entity\TestFlow;
 use App\Entity\Workspace;
+use App\Message\RunFlowGroupMessage;
 use App\Message\RunFlowMessage;
 use App\Repository\ApiRequestRepository;
 use App\Repository\DbConnectionRepository;
 use App\Repository\EnvironmentRepository;
+use App\Repository\FlowGroupRepository;
+use App\Repository\FlowGroupRunRepository;
 use App\Repository\FlowRunRepository;
 use App\Repository\FlowStepRepository;
 use App\Repository\TestFlowRepository;
@@ -18,6 +23,7 @@ use App\Service\FlowExpressionParser;
 use App\Service\FlowRunner;
 use App\Service\FlowRunReporter;
 use Symfony\Component\Messenger\MessageBusInterface;
+use Symfony\Component\Uid\Uuid;
 
 /**
  * Defines and executes the MCP tools exposed to Claude. Everything is scoped to
@@ -34,6 +40,8 @@ class McpToolRegistry
         private readonly TestFlowRepository $flows,
         private readonly FlowStepRepository $steps,
         private readonly FlowRunRepository $runs,
+        private readonly FlowGroupRepository $groups,
+        private readonly FlowGroupRunRepository $groupRuns,
         private readonly FlowRunner $runner,
         private readonly FlowExpressionParser $parser,
         private readonly FlowRunReporter $reporter,
@@ -133,6 +141,59 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
             ['name' => 'delete_step', 'description' => 'Bir akış adımını siler.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => ['stepId' => ['type' => 'string']]]],
+
+            // ---- request building & wiring (chain requests without the panel) ----
+            ['name' => 'add_request_step', 'description' => 'Akışa SIFIRDAN bir HTTP isteği adımı ekler (collection\'a gerek yok). headers/params: [{"name":"x","value":"y"}]. body\'de ve alanlarda {{değişken}} kullanılır. extractions ile yanıttan değer çıkar (sonraki adımlar kullanır), assertions ile doğrula. stepId döner.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'method', 'url'], 'properties' => [
+                    'flowId' => ['type' => 'string'],
+                    'name' => ['type' => 'string'],
+                    'method' => ['type' => 'string', 'description' => 'GET|POST|PUT|PATCH|DELETE'],
+                    'url' => ['type' => 'string', 'description' => '{{API_URL}}/... gibi değişkenler kullanılabilir'],
+                    'headers' => ['type' => 'array', 'items' => ['type' => 'object']],
+                    'params' => ['type' => 'array', 'items' => ['type' => 'object']],
+                    'bodyMode' => ['type' => 'string', 'description' => 'none|raw|json|form'],
+                    'body' => ['type' => 'string'],
+                    'auth' => ['type' => 'object', 'description' => '{type:bearer, token:"{{token}}"} vb.'],
+                    'extractions' => $strArray,
+                    'assertions' => $strArray,
+                ]]],
+            ['name' => 'set_step_request', 'description' => 'Bir adımın kendi (flow\'a özel) istek alanlarını günceller — bağlama için: önceki adımın çıktısını {{var}} olarak gövdeye/URL\'e/header\'a koy. Sadece verilen alanlar değişir.',
+                'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
+                    'stepId' => ['type' => 'string'],
+                    'method' => ['type' => 'string'], 'url' => ['type' => 'string'],
+                    'headers' => ['type' => 'array', 'items' => ['type' => 'object']],
+                    'params' => ['type' => 'array', 'items' => ['type' => 'object']],
+                    'bodyMode' => ['type' => 'string'], 'body' => ['type' => 'string'],
+                    'auth' => ['type' => 'object'],
+                ]]],
+            ['name' => 'add_extraction', 'description' => 'Bir adımın yanıtından değer çıkarır (var ← json path). Böylece sonraki adımlar {{var}} ile bu değeri kullanır = istekleri birbirine bağlamanın yolu. Örn: var="token", path="result.profile.lastTransactionId".',
+                'inputSchema' => ['type' => 'object', 'required' => ['stepId', 'var', 'path'], 'properties' => [
+                    'stepId' => ['type' => 'string'], 'var' => ['type' => 'string'], 'path' => ['type' => 'string'],
+                ]]],
+            ['name' => 'set_step_checks', 'description' => 'Bir adımın extraction ve/veya assertion\'larını topluca ayarlar (verilmeyen değişmez).',
+                'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
+                    'stepId' => ['type' => 'string'], 'extractions' => $strArray, 'assertions' => $strArray,
+                ]]],
+            ['name' => 'set_flow_order', 'description' => 'Adımların çalışma sırasını (ve tuval bağlantılarını) belirler. stepIds: çalışacakları sırayla adım id\'leri.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'stepIds'], 'properties' => [
+                    'flowId' => ['type' => 'string'], 'stepIds' => $strArray,
+                ]]],
+
+            // ---- suites (run many flows together) ----
+            ['name' => 'list_suites', 'description' => 'Suite\'leri (akış gruplarını), içlerindeki akışları ve son koşum durumlarını listeler.',
+                'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'create_suite', 'description' => 'Yeni bir suite (akış grubu) oluşturur; suiteId döner.',
+                'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => ['name' => ['type' => 'string'], 'description' => ['type' => 'string']]]],
+            ['name' => 'add_flow_to_suite', 'description' => 'Bir akışı suite\'e ekler (sona). Sıra, ekleme sırasıdır.',
+                'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'flowId'], 'properties' => ['suiteId' => ['type' => 'string'], 'flowId' => ['type' => 'string']]]],
+            ['name' => 'remove_flow_from_suite', 'description' => 'Bir akışı suite\'ten çıkarır (akış silinmez).',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
+            ['name' => 'run_suite', 'description' => 'Suite\'teki tüm akışları ARKA PLANDA sırayla çalıştırır; batchId döner. Durumu get_suite_run ile izleyin.',
+                'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string'], 'environmentName' => ['type' => 'string']]]],
+            ['name' => 'get_suite_run', 'description' => 'Bir suite koşumunun durumunu (her akışın geçti/başarısız/çalışıyor) döner.',
+                'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'batchId'], 'properties' => ['suiteId' => ['type' => 'string'], 'batchId' => ['type' => 'string']]]],
+            ['name' => 'delete_suite', 'description' => 'Bir suite\'i (akış grubunu) siler. İçindeki akışlar silinmez, sadece gruptan çıkar.',
+                'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string']]]],
         ];
     }
 
@@ -163,6 +224,18 @@ class McpToolRegistry
             'get_run' => $this->getRun($ws, $args),
             'delete_flow' => $this->deleteFlow($ws, $args),
             'delete_step' => $this->deleteStep($ws, $args),
+            'add_request_step' => $this->addRequestStep($ws, $args),
+            'set_step_request' => $this->setStepRequest($ws, $args),
+            'add_extraction' => $this->addExtraction($ws, $args),
+            'set_step_checks' => $this->setStepChecks($ws, $args),
+            'set_flow_order' => $this->setFlowOrder($ws, $args),
+            'list_suites' => $this->listSuites($ws),
+            'create_suite' => $this->createSuite($ws, $args),
+            'add_flow_to_suite' => $this->addFlowToSuite($ws, $args),
+            'remove_flow_from_suite' => $this->removeFlowFromSuite($ws, $args),
+            'run_suite' => $this->runSuite($ws, $args),
+            'get_suite_run' => $this->getSuiteRun($ws, $args),
+            'delete_suite' => $this->deleteSuite($ws, $args),
             default => throw new \InvalidArgumentException("Bilinmeyen araç: $name"),
         };
     }
@@ -557,6 +630,251 @@ class McpToolRegistry
         return ['deleted' => true];
     }
 
+    // ---- request building & wiring ----
+
+    private function addRequestStep(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $step = new FlowStep();
+        $step->setFlow($flow);
+        $step->setType(FlowStep::TYPE_HTTP);
+        $step->setName((string) ($args['name'] ?? (strtoupper((string) ($args['method'] ?? 'GET')) . ' isteği')));
+        $step->setPosition($this->nextPosition($flow));
+        $step->setReqMethod(strtoupper((string) ($args['method'] ?? 'GET')));
+        $step->setReqUrl((string) ($args['url'] ?? ''));
+        $step->setReqHeaders($this->pairs($args['headers'] ?? []));
+        $step->setReqParams($this->pairs($args['params'] ?? []));
+        $mode = (string) ($args['bodyMode'] ?? (isset($args['body']) ? 'json' : 'none'));
+        $step->setReqBodyMode(\in_array($mode, ['none', 'raw', 'json', 'form'], true) ? $mode : 'none');
+        $step->setReqBody(isset($args['body']) ? (string) $args['body'] : null);
+        $step->setReqAuth($this->sanitizeAuth($args['auth'] ?? []));
+        $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'] ?? [])));
+        $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'] ?? [])));
+        $this->steps->save($step);
+
+        return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition()];
+    }
+
+    private function setStepRequest(Workspace $ws, array $args): array
+    {
+        $step = $this->requireStep($ws, (string) ($args['stepId'] ?? ''));
+        if (FlowStep::TYPE_HTTP !== $step->getType()) {
+            throw new \InvalidArgumentException('Yalnızca HTTP adımının isteği düzenlenir.');
+        }
+        if (isset($args['method'])) {
+            $step->setReqMethod(strtoupper((string) $args['method']));
+        }
+        if (isset($args['url'])) {
+            $step->setReqUrl((string) $args['url']);
+        }
+        if (isset($args['headers'])) {
+            $step->setReqHeaders($this->pairs($args['headers']));
+        }
+        if (isset($args['params'])) {
+            $step->setReqParams($this->pairs($args['params']));
+        }
+        if (isset($args['bodyMode'])) {
+            $mode = (string) $args['bodyMode'];
+            $step->setReqBodyMode(\in_array($mode, ['none', 'raw', 'json', 'form'], true) ? $mode : 'none');
+        }
+        if (\array_key_exists('body', $args)) {
+            $step->setReqBody(null === $args['body'] ? null : (string) $args['body']);
+        }
+        if (isset($args['auth'])) {
+            $step->setReqAuth($this->sanitizeAuth($args['auth']));
+        }
+        $this->steps->save($step);
+
+        return ['ok' => true, 'stepId' => (string) $step->getId()];
+    }
+
+    private function addExtraction(Workspace $ws, array $args): array
+    {
+        $step = $this->requireStep($ws, (string) ($args['stepId'] ?? ''));
+        $var = trim((string) ($args['var'] ?? ''));
+        $path = trim((string) ($args['path'] ?? ''));
+        if ('' === $var || '' === $path) {
+            throw new \InvalidArgumentException('var ve path zorunlu.');
+        }
+        $ex = array_values(array_filter($step->getExtractions(), static fn (array $e): bool => ($e['var'] ?? null) !== $var));
+        $ex[] = ['var' => $var, 'path' => $path];
+        $step->setExtractions($ex);
+        $this->steps->save($step);
+
+        return ['ok' => true, 'extractions' => $step->getExtractions()];
+    }
+
+    private function setStepChecks(Workspace $ws, array $args): array
+    {
+        $step = $this->requireStep($ws, (string) ($args['stepId'] ?? ''));
+        if (isset($args['extractions'])) {
+            $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'])));
+        }
+        if (isset($args['assertions'])) {
+            $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'])));
+        }
+        $this->steps->save($step);
+
+        return ['ok' => true, 'extractions' => $step->getExtractions(), 'assertions' => $step->getAssertions()];
+    }
+
+    private function setFlowOrder(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $byId = [];
+        foreach ($flow->getSteps() as $s) {
+            $byId[(string) $s->getId()] = $s;
+        }
+        $order = [];
+        $pos = 0;
+        $edges = [];
+        $prev = null;
+        foreach ((array) ($args['stepIds'] ?? []) as $sid) {
+            $sid = (string) $sid;
+            if (!isset($byId[$sid])) {
+                throw new \InvalidArgumentException("Adım bu akışta değil: $sid");
+            }
+            $byId[$sid]->setPosition($pos++);
+            $order[] = $sid;
+            if (null !== $prev) {
+                $edges[] = [$prev, $sid];
+            }
+            $prev = $sid;
+        }
+        $flow->setCanvasEdges($edges);
+        $this->flows->save($flow);
+
+        return ['ok' => true, 'order' => $order];
+    }
+
+    // ---- suites (flow groups) ----
+
+    private function listSuites(Workspace $ws): array
+    {
+        $out = [];
+        foreach ($this->groups->findByWorkspace($ws) as $g) {
+            $flows = [];
+            foreach ($g->getFlows() as $f) {
+                $flows[] = ['id' => (string) $f->getId(), 'name' => $f->getName()];
+            }
+            $recent = $this->groupRuns->recentForGroup($g, 1);
+            $last = $recent[0] ?? null;
+            $out[] = [
+                'id' => (string) $g->getId(),
+                'name' => $g->getName(),
+                'flows' => $flows,
+                'lastRun' => null === $last ? null : ['batchId' => $last->getBatchId(), 'status' => $last->getStatus(), 'at' => $last->getCreatedAt()->format(\DateTimeInterface::ATOM)],
+            ];
+        }
+
+        return ['suites' => $out];
+    }
+
+    private function createSuite(Workspace $ws, array $args): array
+    {
+        if (empty($args['name'])) {
+            throw new \InvalidArgumentException('name zorunlu.');
+        }
+        $group = new FlowGroup();
+        $group->setWorkspace($ws);
+        $group->setName((string) $args['name']);
+        $group->setDescription(isset($args['description']) ? (string) $args['description'] : null);
+        $this->groups->save($group);
+
+        return ['suiteId' => (string) $group->getId(), 'name' => $group->getName()];
+    }
+
+    private function addFlowToSuite(Workspace $ws, array $args): array
+    {
+        $suite = $this->requireSuite($ws, (string) ($args['suiteId'] ?? ''));
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $max = -1;
+        foreach ($suite->getFlows() as $f) {
+            $max = max($max, $f->getGroupPosition());
+        }
+        $flow->setFlowGroup($suite);
+        $flow->setGroupPosition($max + 1);
+        $this->flows->save($flow);
+
+        return ['ok' => true, 'suite' => $suite->getName(), 'flowCount' => $suite->getFlows()->count()];
+    }
+
+    private function removeFlowFromSuite(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $flow->setFlowGroup(null);
+        $this->flows->save($flow);
+
+        return ['ok' => true];
+    }
+
+    private function runSuite(Workspace $ws, array $args): array
+    {
+        $suite = $this->requireSuite($ws, (string) ($args['suiteId'] ?? ''));
+        if ($suite->getFlows()->isEmpty()) {
+            throw new \InvalidArgumentException('Suite\'te akış yok.');
+        }
+        $envId = null;
+        if (!empty($args['environmentName'])) {
+            $env = $this->findEnvironmentByName($ws, (string) $args['environmentName']);
+            $envId = $env ? (string) $env->getId() : null;
+        }
+
+        $batchId = Uuid::v4()->toRfc4122();
+        $groupRun = new FlowGroupRun();
+        $groupRun->setFlowGroup($suite);
+        $groupRun->setBatchId($batchId);
+        $groupRun->setTotal($suite->getFlows()->count());
+        $this->groupRuns->save($groupRun);
+
+        $this->bus->dispatch(new RunFlowGroupMessage((string) $suite->getId(), $batchId, $envId));
+
+        return ['batchId' => $batchId, 'status' => 'running', 'total' => $suite->getFlows()->count(),
+            'hint' => 'Arka planda başladı. Durumu get_suite_run ile izleyin.'];
+    }
+
+    private function getSuiteRun(Workspace $ws, array $args): array
+    {
+        $suite = $this->requireSuite($ws, (string) ($args['suiteId'] ?? ''));
+        $batchId = (string) ($args['batchId'] ?? '');
+        $groupRun = $this->groupRuns->findOneByBatch($batchId);
+        $flows = [];
+        $done = 0;
+        foreach ($this->runs->findByBatch($batchId) as $r) {
+            if ($r->getFlow()->getFlowGroup()?->getId()?->toRfc4122() !== $suite->getId()?->toRfc4122()) {
+                continue;
+            }
+            if ('running' !== $r->getStatus()) {
+                ++$done;
+            }
+            $flows[] = [
+                'flow' => $r->getFlow()->getName(),
+                'status' => $r->getStatus(),
+                'passed' => $r->getPassedSteps(),
+                'total' => $r->getTotalSteps(),
+                'runId' => (string) $r->getId(),
+            ];
+        }
+
+        return [
+            'suite' => $suite->getName(),
+            'status' => null === $groupRun ? 'unknown' : $groupRun->getStatus(),
+            'total' => null === $groupRun ? \count($flows) : $groupRun->getTotal(),
+            'done' => $done,
+            'flows' => $flows,
+        ];
+    }
+
+    private function deleteSuite(Workspace $ws, array $args): array
+    {
+        $suite = $this->requireSuite($ws, (string) ($args['suiteId'] ?? ''));
+        $name = $suite->getName();
+        // FK: flows are SET NULL (preserved), group runs CASCADE.
+        $this->groups->remove($suite);
+
+        return ['deleted' => true, 'suite' => $name];
+    }
+
     // ---- helpers ----
 
     /**
@@ -572,6 +890,70 @@ class McpToolRegistry
         $out = [];
         foreach ($vars as $k => $v) {
             $out[(string) $k] = \is_scalar($v) ? (string) $v : (string) json_encode($v);
+        }
+
+        return $out;
+    }
+
+    private function requireStep(Workspace $ws, string $id): FlowStep
+    {
+        $step = $this->steps->find($id);
+        if (null === $step || $step->getFlow()->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
+            throw new \InvalidArgumentException('Adım bulunamadı.');
+        }
+
+        return $step;
+    }
+
+    private function requireSuite(Workspace $ws, string $id): FlowGroup
+    {
+        $suite = $this->groups->find($id);
+        if (null === $suite || $suite->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
+            throw new \InvalidArgumentException('Suite bulunamadı.');
+        }
+
+        return $suite;
+    }
+
+    /**
+     * @param mixed $input array of {name,value} OR {name: value} object
+     *
+     * @return array<int, array{name: string, value: string}>
+     */
+    private function pairs(mixed $input): array
+    {
+        $out = [];
+        if (\is_array($input)) {
+            foreach ($input as $k => $row) {
+                if (\is_array($row)) {
+                    $name = trim((string) ($row['name'] ?? ''));
+                    if ('' !== $name) {
+                        $out[] = ['name' => $name, 'value' => (string) ($row['value'] ?? '')];
+                    }
+                } elseif (\is_string($k) && \is_scalar($row)) {
+                    $out[] = ['name' => $k, 'value' => (string) $row];
+                }
+            }
+        }
+
+        return $out;
+    }
+
+    /**
+     * @param mixed $auth
+     *
+     * @return array<string, string>
+     */
+    private function sanitizeAuth(mixed $auth): array
+    {
+        if (!\is_array($auth)) {
+            return [];
+        }
+        $out = [];
+        foreach (['type', 'token', 'username', 'password', 'key', 'value', 'addTo'] as $f) {
+            if (isset($auth[$f]) && \is_scalar($auth[$f])) {
+                $out[$f] = (string) $auth[$f];
+            }
         }
 
         return $out;
