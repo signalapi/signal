@@ -954,16 +954,24 @@ class McpToolRegistry
         if (!$res->ok) {
             throw new \InvalidArgumentException('Sorgu hatası: ' . (string) $res->error);
         }
-        $rows = $res->data['rows'] ?? [];
         $limit = max(1, (int) ($args['limit'] ?? 50));
-        $truncated = \count($rows) > $limit;
+        $data = \is_array($res->data) ? $res->data : [];
 
-        return [
-            'connection' => $conn->getName(),
-            'rowCount' => $res->data['rowCount'] ?? \count($rows),
-            'rows' => array_slice($rows, 0, $limit),
-            'truncated' => $truncated,
-        ];
+        // SQL: {rowCount, rows[]}. Mongo: {count, documents[]}. Redis: {command, value, exists}.
+        if (isset($data['rows'])) {
+            $rows = (array) $data['rows'];
+
+            return ['connection' => $conn->getName(), 'rowCount' => $data['rowCount'] ?? \count($rows),
+                'rows' => array_slice($rows, 0, $limit), 'truncated' => \count($rows) > $limit];
+        }
+        if (isset($data['documents'])) {
+            $docs = (array) $data['documents'];
+
+            return ['connection' => $conn->getName(), 'count' => $data['count'] ?? \count($docs),
+                'documents' => array_slice($docs, 0, $limit), 'truncated' => \count($docs) > $limit];
+        }
+
+        return ['connection' => $conn->getName()] + $data;
     }
 
     // ---- helpers ----
