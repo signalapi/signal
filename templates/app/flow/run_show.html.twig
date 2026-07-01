@@ -108,8 +108,50 @@
             {% if r.responseBody %}<details class="diag-body"><summary>Yanıt gövdesi</summary><pre>{{ r.responseBody|slice(0, 4000) }}</pre></details>{% endif %}
         </div>
     {% endfor %}
-    <div class="diag-foot">💡 MCP'de <code>diagnose_run</code> ile Claude bu koşumu yorumlayıp otomatik düzeltme önerebilir.</div>
+    <div class="diag-foot" style="display:flex;align-items:center;gap:12px;">
+        <button type="button" class="btn small" id="aiDiagBtn"
+                data-url="{{ path('app_flow_run_diagnose', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
+                data-token="{{ csrf_token('diagnose-run' ~ run.id) }}">🤖 AI ile teşhis et</button>
+        <span class="diag-foot-hint">Claude bu kanıtı yorumlayıp kök sebep + düzeltme önerir.</span>
+    </div>
+    <div id="aiDiagOut" class="ai-out" hidden></div>
 </div>
+
+<style>
+    .diag-foot-hint { font-size: 12px; color: var(--muted); }
+    .ai-out { margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+        padding: 14px 16px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
+    .ai-out.err { border-color: var(--fail); color: var(--fail); }
+    .ai-out .ai-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--accent);
+        background: var(--accent-soft); border-radius: 5px; padding: 2px 7px; margin-bottom: 8px; }
+</style>
+<script>
+(function () {
+    var btn = document.getElementById('aiDiagBtn'); if (!btn) return;
+    var out = document.getElementById('aiDiagOut');
+    btn.addEventListener('click', function () {
+        btn.disabled = true; var label = btn.textContent; btn.textContent = 'Teşhis ediliyor…';
+        out.hidden = false; out.className = 'ai-out'; out.textContent = '⏳ Claude analiz ediyor…';
+        var body = new URLSearchParams(); body.set('_token', btn.dataset.token);
+        fetch(btn.dataset.url, { method: 'POST', headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+                btn.disabled = false; btn.textContent = label;
+                var d = res.d;
+                if (d.configured === false) {
+                    out.className = 'ai-out'; out.textContent = 'ℹ️ AI teşhis henüz bağlı değil. Etkinleştirmek için ANTHROPIC_API_KEY ortam değişkenini ayarla (kod hazır).';
+                } else if (d.error) {
+                    out.className = 'ai-out err'; out.textContent = 'Hata: ' + d.error;
+                } else {
+                    out.className = 'ai-out';
+                    out.innerHTML = '<span class="ai-badge">🤖 CLAUDE TEŞHİSİ</span>';
+                    var p = document.createElement('div'); p.textContent = d.analysis || '(boş yanıt)'; out.appendChild(p);
+                }
+            })
+            .catch(function () { btn.disabled = false; btn.textContent = label; out.className = 'ai-out err'; out.textContent = 'İstek başarısız.'; });
+    });
+})();
+</script>
 {% endif %}
 
 {% if sc == 'running' %}

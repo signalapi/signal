@@ -45,6 +45,7 @@ class McpToolRegistry
         private readonly FlowGroupRepository $groups,
         private readonly FlowGroupRunRepository $groupRuns,
         private readonly FlowRunner $runner,
+        private readonly \App\Service\RunDiagnostics $diag,
         private readonly \App\Repository\DataFactoryRepository $dataFactories,
         private readonly \App\Service\DynamicVariableGenerator $dynamic,
         private readonly DbQueryRunner $dbQuery,
@@ -658,48 +659,12 @@ class McpToolRegistry
             throw new \InvalidArgumentException('runId veya flowId gerekli.');
         }
 
-        $failing = [];
-        foreach ($run->getStepResults() as $r) {
-            if (!\in_array($r->getStatus(), ['failed', 'error'], true)) {
-                continue;
-            }
-            $failedAssertions = array_values(array_filter(
-                $r->getAssertionResults(),
-                static fn (array $a): bool => empty($a['ok']),
-            ));
-            $body = $r->getResponseBody();
-            $failing[] = [
-                'position' => $r->getPosition(),
-                'label' => $r->getLabel(),
-                'status' => $r->getStatus(),
-                'attempts' => $r->getAttempts(),
-                'method' => $r->getRequestMethod(),
-                'target' => $r->getRequestUrl(),
-                'responseStatus' => $r->getResponseStatus(),
-                'durationMs' => $r->getDurationMs(),
-                'responseBody' => null === $body ? null : mb_substr($body, 0, 4000),
-                'failedAssertions' => $failedAssertions,
-                'extracted' => $r->getExtractedVars(),
-                'error' => $r->getError(),
-            ];
-        }
-        usort($failing, static fn (array $a, array $b): int => $a['position'] <=> $b['position']);
+        $evidence = $this->diag->evidence($run);
+        $evidence['guidance'] = [] === $evidence['failingSteps']
+            ? 'Bu koşumda başarısız adım yok (durum: ' . $run->getStatus() . ').'
+            : 'Her failingStep için responseBody ve failedAssertions.actual/expected\'i incele; neden patladığını açıkla ve gerekiyorsa update_step (koşul), set_step_request (istek) veya set_step_checks ile düzeltme öner. DB doğrulaması gerekiyorsa db_query ile o anki durumu kontrol et.';
 
-        return [
-            'run' => [
-                'id' => (string) $run->getId(),
-                'flow' => $run->getFlow()->getName(),
-                'status' => $run->getStatus(),
-                'environment' => $run->getEnvironmentName(),
-                'passedSteps' => $run->getPassedSteps(),
-                'totalSteps' => $run->getTotalSteps(),
-            ],
-            'iterationData' => $run->getIterationData(),
-            'failingSteps' => $failing,
-            'guidance' => [] === $failing
-                ? 'Bu koşumda başarısız adım yok (durum: ' . $run->getStatus() . ').'
-                : 'Her failingStep için responseBody ve failedAssertions.actual/expected\'i incele; neden patladığını açıkla ve gerekiyorsa update_step (koşul), set_step_request (istek) veya set_step_checks ile düzeltme öner. DB doğrulaması gerekiyorsa db_query ile o anki durumu kontrol et.',
-        ];
+        return $evidence;
     }
 
     private function whoami(Workspace $ws): array

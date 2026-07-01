@@ -175,6 +175,38 @@ class FlowRunController extends AbstractAppController
         ]);
     }
 
+    /**
+     * Asks Claude to explain the failure and propose a fix. Dormant until an
+     * ANTHROPIC_API_KEY is set — returns {configured:false} otherwise.
+     */
+    #[Route('/{run}/diagnose', name: 'app_flow_run_diagnose', methods: ['POST'])]
+    public function diagnose(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        #[MapEntity(mapping: ['run' => 'id'])] FlowRun $run,
+        Request $httpRequest,
+        \App\Service\AiDiagnoser $ai,
+    ): JsonResponse {
+        $this->assertWorkspace($workspace);
+        $this->assertFlow($workspace, $flow);
+        if ($run->getFlow()->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122()) {
+            throw $this->createNotFoundException();
+        }
+        if (!$this->isCsrfTokenValid('diagnose-run' . $run->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if (!$ai->isConfigured()) {
+            return new JsonResponse(['configured' => false]);
+        }
+
+        try {
+            return new JsonResponse(['configured' => true, 'analysis' => $ai->diagnose($run)]);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['configured' => true, 'error' => $e->getMessage()], 502);
+        }
+    }
+
     #[Route('/{run}/cancel', name: 'app_flow_run_cancel', methods: ['POST'])]
     public function cancel(
         Workspace $workspace,
