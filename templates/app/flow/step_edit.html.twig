@@ -3,19 +3,24 @@
 {% block title %}Adım düzenle · {{ flow.name }}{% endblock %}
 
 {% block panel %}
+{% set is_new = is_new|default(false) %}
 {% set kind = step.isDelay ? 'Bekleme' : (step.isSetvar ? 'Değişken set' : (step.isDb ? 'DB sorgusu' : 'HTTP isteği')) %}
 {% set badge = step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : 'HTTP')) %}
 
-<a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ flow.name }}</a>
+<a class="backlink" href="{{ is_new ? path('app_flow_step_new', {workspace: workspace.id, flow: flow.id}) : path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ is_new ? 'Adım türü' : flow.name }}</a>
 <div class="pagehead">
     <div>
-        <h1>Adım düzenle</h1>
-        <p class="subtitle"><span class="pill" style="background:var(--accent-soft);color:var(--accent);">{{ badge }}</span> {{ kind }}</p>
+        <h1>{{ is_new ? 'Yeni adım' : 'Adım düzenle' }}</h1>
+        <p class="subtitle"><span class="pill" style="background:var(--accent-soft);color:var(--accent);">{{ badge }}</span> {{ kind }}{% if is_new %} · <span style="color:var(--muted);">Kaydedene kadar akışa eklenmez</span>{% endif %}</p>
     </div>
 </div>
 
-<form method="post">
-    <input type="hidden" name="_token" value="{{ csrf_token('edit-step' ~ step.id) }}">
+<form method="post"{% if is_new %} action="{{ path('app_flow_step_store', {workspace: workspace.id, flow: flow.id}) }}"{% endif %}>
+    <input type="hidden" name="_token" value="{{ is_new ? csrf_token('new-step' ~ flow.id) : csrf_token('edit-step' ~ step.id) }}">
+    {% if is_new %}
+        <input type="hidden" name="stepType" value="{{ create_ctx.type }}">
+        {% if create_ctx.reqId is defined %}<input type="hidden" name="reqId" value="{{ create_ctx.reqId }}">{% endif %}
+    {% endif %}
     <div class="field" style="max-width:480px;">
         <label>Adım adı</label>
         <input type="text" name="name" value="{{ step.name }}">
@@ -104,16 +109,16 @@
 
     {% if not step.isSetvar and not step.isDelay %}
     <div class="fgroup" id="ruleBuilder"
-         data-probe="{{ path('app_flow_step_probe', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"
+         {% if not is_new %}data-probe="{{ path('app_flow_step_probe', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"{% else %}data-probe=""{% endif %}
          data-isdb="{{ step.isDb ? '1' : '0' }}">
         <script type="application/json" id="seedAssert">{{ step.assertions|json_encode|raw }}</script>
         <script type="application/json" id="seedExt">{{ step.extractions|json_encode|raw }}</script>
 
         <div class="fgroup-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
             <span>Doğrulama kuralları</span>
-            <button type="button" class="btn ghost small" id="probeBtn">↧ Yanıttan seç</button>
+            {% if not is_new %}<button type="button" class="btn ghost small" id="probeBtn">↧ Yanıttan seç</button>{% endif %}
         </div>
-        <p class="fhint" style="margin:0 0 12px;">Her kural, dönen yanıtın bir alanını beklediğin değerle karşılaştırır. <b>Yanıttan seç</b>'e basıp alanı tıkla — path yazmana gerek yok.</p>
+        <p class="fhint" style="margin:0 0 12px;">Her kural, dönen yanıtın bir alanını beklediğin değerle karşılaştırır.{% if is_new %} Adımı kaydettikten sonra <b>Yanıttan seç</b> ile alanları tıklayarak ekleyebilirsin.{% else %} <b>Yanıttan seç</b>'e basıp alanı tıkla — path yazmana gerek yok.{% endif %}</p>
 
         <div id="treePanel" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
             <div id="treeStatus" style="font-size:12.5px;color:var(--muted);margin-bottom:8px;"></div>
@@ -355,7 +360,8 @@
         var panel = document.getElementById('treePanel');
         var treeEl = document.getElementById('tree');
         var statusEl = document.getElementById('treeStatus');
-        document.getElementById('probeBtn').onclick = function () {
+        var probeBtn = document.getElementById('probeBtn');
+        if (probeBtn) probeBtn.onclick = function () {
             panel.style.display = 'block';
             statusEl.textContent = 'Yanıt çekiliyor…'; treeEl.innerHTML = '';
             var fd = new FormData(); fd.append('_token', token);

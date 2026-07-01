@@ -40,17 +40,23 @@ class FlowStepController extends AbstractAppController
         ]);
     }
 
+    /**
+     * These three "add" actions no longer persist. They build a transient step
+     * from the picked request/connection/type and render the editor in "new"
+     * mode. Nothing lands in the flow until the user saves (store()), so
+     * cancelling leaves no orphan step.
+     */
     #[Route('/add', name: 'app_flow_step_add', methods: ['POST'])]
     public function add(
         Workspace $workspace,
         #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
         Request $httpRequest,
         ApiRequestRepository $requests,
-        FlowStepRepository $steps,
+        FlowExpressionParser $parser,
+        DbConnectionRepository $connections,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertFlow($workspace, $flow);
-
         if (!$this->isCsrfTokenValid('add-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
@@ -59,12 +65,7 @@ class FlowStepController extends AbstractAppController
         if (null === $apiRequest || $apiRequest->getCollection()->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             $this->addFlash('error', 'Geçersiz istek seçimi.');
 
-            return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
-        }
-
-        $maxPos = -1;
-        foreach ($flow->getSteps() as $existing) {
-            $maxPos = max($maxPos, $existing->getPosition());
+            return $this->redirectToRoute('app_flow_step_new', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
 
         $step = new FlowStep();
@@ -72,16 +73,8 @@ class FlowStepController extends AbstractAppController
         $step->setApiRequest($apiRequest);
         $step->copyRequestFrom($apiRequest); // flow-owned copy; later edits don't touch the collection
         $step->setName($apiRequest->getName());
-        $step->setPosition($maxPos + 1);
-        $steps->save($step);
 
-        $this->addFlash('success', 'Adım eklendi.');
-
-        return $this->redirectToRoute('app_flow_step_edit', [
-            'workspace' => $workspace->getId(),
-            'flow' => $flow->getId(),
-            'step' => $step->getId(),
-        ]);
+        return $this->renderEditor($workspace, $flow, $step, $parser, $connections, true, ['type' => 'http', 'reqId' => (string) $apiRequest->getId()]);
     }
 
     #[Route('/add-db', name: 'app_flow_step_add_db', methods: ['POST'])]
@@ -90,11 +83,10 @@ class FlowStepController extends AbstractAppController
         #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
         Request $httpRequest,
         DbConnectionRepository $connections,
-        FlowStepRepository $steps,
+        FlowExpressionParser $parser,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertFlow($workspace, $flow);
-
         if (!$this->isCsrfTokenValid('add-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
@@ -103,12 +95,7 @@ class FlowStepController extends AbstractAppController
         if (null === $connection || $connection->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             $this->addFlash('error', 'Geçersiz bağlantı seçimi.');
 
-            return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
-        }
-
-        $maxPos = -1;
-        foreach ($flow->getSteps() as $existing) {
-            $maxPos = max($maxPos, $existing->getPosition());
+            return $this->redirectToRoute('app_flow_step_new', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
 
         $step = new FlowStep();
@@ -116,16 +103,8 @@ class FlowStepController extends AbstractAppController
         $step->setType(FlowStep::TYPE_DB);
         $step->setDbConnection($connection);
         $step->setName('DB: ' . $connection->getName());
-        $step->setPosition($maxPos + 1);
-        $steps->save($step);
 
-        $this->addFlash('success', 'Veritabanı adımı eklendi.');
-
-        return $this->redirectToRoute('app_flow_step_edit', [
-            'workspace' => $workspace->getId(),
-            'flow' => $flow->getId(),
-            'step' => $step->getId(),
-        ]);
+        return $this->renderEditor($workspace, $flow, $step, $parser, $connections, true, ['type' => 'db']);
     }
 
     #[Route('/add-utility', name: 'app_flow_step_add_utility', methods: ['POST'])]
@@ -133,11 +112,11 @@ class FlowStepController extends AbstractAppController
         Workspace $workspace,
         #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
         Request $httpRequest,
-        FlowStepRepository $steps,
+        FlowExpressionParser $parser,
+        DbConnectionRepository $connections,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertFlow($workspace, $flow);
-
         if (!$this->isCsrfTokenValid('add-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
@@ -146,18 +125,12 @@ class FlowStepController extends AbstractAppController
         if (!\in_array($type, [FlowStep::TYPE_SETVAR, FlowStep::TYPE_DELAY], true)) {
             $this->addFlash('error', 'Geçersiz adım türü.');
 
-            return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
-        }
-
-        $maxPos = -1;
-        foreach ($flow->getSteps() as $existing) {
-            $maxPos = max($maxPos, $existing->getPosition());
+            return $this->redirectToRoute('app_flow_step_new', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
 
         $step = new FlowStep();
         $step->setFlow($flow);
         $step->setType($type);
-        $step->setPosition($maxPos + 1);
         if (FlowStep::TYPE_DELAY === $type) {
             $step->setName('Bekle');
             $step->setQuery('1000');
@@ -165,13 +138,60 @@ class FlowStepController extends AbstractAppController
             $step->setName('Değişken set et');
             $step->setQuery('');
         }
-        $steps->save($step);
 
-        return $this->redirectToRoute('app_flow_step_edit', [
-            'workspace' => $workspace->getId(),
-            'flow' => $flow->getId(),
-            'step' => $step->getId(),
-        ]);
+        return $this->renderEditor($workspace, $flow, $step, $parser, $connections, true, ['type' => $type]);
+    }
+
+    /**
+     * Commits a brand-new step to the flow — invoked only when the user saves
+     * the "new step" editor. Rebuilds the step from the create context, appends
+     * it at the end, and persists.
+     */
+    #[Route('/store', name: 'app_flow_step_store', methods: ['POST'])]
+    public function store(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        Request $httpRequest,
+        ApiRequestRepository $requests,
+        FlowStepRepository $steps,
+        FlowExpressionParser $parser,
+        DbConnectionRepository $connections,
+    ): Response {
+        $this->assertWorkspace($workspace);
+        $this->assertFlow($workspace, $flow);
+        if (!$this->isCsrfTokenValid('new-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $type = (string) $httpRequest->request->get('stepType');
+        $step = new FlowStep();
+        $step->setFlow($flow);
+
+        if ('http' === $type) {
+            $apiRequest = $requests->find((string) $httpRequest->request->get('reqId'));
+            if (null === $apiRequest || $apiRequest->getCollection()->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
+                throw $this->createNotFoundException();
+            }
+            $step->setType(FlowStep::TYPE_HTTP);
+            $step->setApiRequest($apiRequest);
+            $step->copyRequestFrom($apiRequest);
+        } elseif (\in_array($type, [FlowStep::TYPE_DB, FlowStep::TYPE_SETVAR, FlowStep::TYPE_DELAY], true)) {
+            $step->setType($type);
+        } else {
+            throw $this->createNotFoundException();
+        }
+
+        $maxPos = -1;
+        foreach ($flow->getSteps() as $existing) {
+            $maxPos = max($maxPos, $existing->getPosition());
+        }
+        $step->setPosition($maxPos + 1);
+
+        $this->hydrateStep($step, $httpRequest, $workspace, $connections, $parser);
+        $steps->save($step);
+        $this->addFlash('success', 'Adım eklendi.');
+
+        return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
     }
 
     #[Route('/{step}/edit', name: 'app_flow_step_edit', methods: ['GET', 'POST'])]
@@ -193,43 +213,58 @@ class FlowStepController extends AbstractAppController
                 throw $this->createAccessDeniedException();
             }
 
-            $step->setName(trim((string) $httpRequest->request->get('name')) ?: $step->getName());
-            $step->setExtractions($parser->parseExtractions((string) $httpRequest->request->get('extractions')));
-            $step->setAssertions($parser->parseAssertions((string) $httpRequest->request->get('assertions')));
-
-            $step->setRetryEnabled((bool) $httpRequest->request->get('retryEnabled'));
-            $step->setRetryMax(max(1, min(20, (int) $httpRequest->request->get('retryMax', 5))));
-            $step->setRetryDelayMs(max(0, min(10000, (int) $httpRequest->request->get('retryDelayMs', 1000))));
-
-            if ($step->isDb()) {
-                $step->setQuery($this->nullable((string) $httpRequest->request->get('query')));
-                $connId = (string) $httpRequest->request->get('connection');
-                if ('' !== $connId) {
-                    $conn = $connections->find($connId);
-                    if ($conn && $conn->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122()) {
-                        $step->setDbConnection($conn);
-                    }
-                }
-            } elseif ($step->isSetvar() || $step->isDelay()) {
-                $step->setQuery($this->nullable((string) $httpRequest->request->get('query')));
-            } else {
-                // HTTP: edit this step's own flow-owned request copy.
-                $step->setReqMethod((string) $httpRequest->request->get('method', $step->getReqMethod()));
-                $step->setReqUrl((string) $httpRequest->request->get('url', ''));
-                $step->setReqParams($this->kvFromArrays($httpRequest->request->all('param_name'), $httpRequest->request->all('param_value')));
-                $step->setReqHeaders($this->kvFromArrays($httpRequest->request->all('header_name'), $httpRequest->request->all('header_value')));
-                $mode = (string) $httpRequest->request->get('bodyMode', 'none');
-                $step->setReqBodyMode(\in_array($mode, ['none', 'raw', 'json', 'form'], true) ? $mode : 'none');
-                $step->setReqBody($this->nullable((string) $httpRequest->request->get('body')));
-                $step->setReqAuth($this->authFromRequest($httpRequest));
-            }
-
+            $this->hydrateStep($step, $httpRequest, $workspace, $connections, $parser);
             $steps->save($step);
             $this->addFlash('success', 'Adım kaydedildi.');
 
             return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
 
+        return $this->renderEditor($workspace, $flow, $step, $parser, $connections, false);
+    }
+
+    /**
+     * Reads the editor form into a step. Shared by edit (update) and store (create).
+     */
+    private function hydrateStep(FlowStep $step, Request $r, Workspace $workspace, DbConnectionRepository $connections, FlowExpressionParser $parser): void
+    {
+        $step->setName(trim((string) $r->request->get('name')) ?: $step->getName());
+        $step->setExtractions($parser->parseExtractions((string) $r->request->get('extractions')));
+        $step->setAssertions($parser->parseAssertions((string) $r->request->get('assertions')));
+
+        $step->setRetryEnabled((bool) $r->request->get('retryEnabled'));
+        $step->setRetryMax(max(1, min(20, (int) $r->request->get('retryMax', 5))));
+        $step->setRetryDelayMs(max(0, min(10000, (int) $r->request->get('retryDelayMs', 1000))));
+
+        if ($step->isDb()) {
+            $step->setQuery($this->nullable((string) $r->request->get('query')));
+            $connId = (string) $r->request->get('connection');
+            if ('' !== $connId) {
+                $conn = $connections->find($connId);
+                if ($conn && $conn->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122()) {
+                    $step->setDbConnection($conn);
+                }
+            }
+        } elseif ($step->isSetvar() || $step->isDelay()) {
+            $step->setQuery($this->nullable((string) $r->request->get('query')));
+        } else {
+            // HTTP: this step's own flow-owned request copy.
+            $step->setReqMethod((string) $r->request->get('method', $step->getReqMethod()));
+            $step->setReqUrl((string) $r->request->get('url', ''));
+            $step->setReqParams($this->kvFromArrays($r->request->all('param_name'), $r->request->all('param_value')));
+            $step->setReqHeaders($this->kvFromArrays($r->request->all('header_name'), $r->request->all('header_value')));
+            $mode = (string) $r->request->get('bodyMode', 'none');
+            $step->setReqBodyMode(\in_array($mode, ['none', 'raw', 'json', 'form'], true) ? $mode : 'none');
+            $step->setReqBody($this->nullable((string) $r->request->get('body')));
+            $step->setReqAuth($this->authFromRequest($r));
+        }
+    }
+
+    /**
+     * @param array<string, string> $createCtx type + reqId when is_new
+     */
+    private function renderEditor(Workspace $workspace, TestFlow $flow, FlowStep $step, FlowExpressionParser $parser, DbConnectionRepository $connections, bool $isNew, array $createCtx = []): Response
+    {
         return $this->render('app/flow/step_edit.html.twig', [
             'workspace' => $workspace,
             'flow' => $flow,
@@ -237,6 +272,8 @@ class FlowStepController extends AbstractAppController
             'extractions_text' => $parser->renderExtractions($step->getExtractions()),
             'assertions_text' => $parser->renderAssertions($step->getAssertions()),
             'connections' => $connections->findByWorkspace($workspace),
+            'is_new' => $isNew,
+            'create_ctx' => $createCtx,
         ]);
     }
 
