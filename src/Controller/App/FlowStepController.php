@@ -22,6 +22,24 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_MERCHANT')]
 class FlowStepController extends AbstractAppController
 {
+    #[Route('/new', name: 'app_flow_step_new', methods: ['GET'])]
+    public function chooseNew(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        ApiRequestRepository $requests,
+        DbConnectionRepository $connections,
+    ): Response {
+        $this->assertWorkspace($workspace);
+        $this->assertFlow($workspace, $flow);
+
+        return $this->render('app/flow/step_new.html.twig', [
+            'workspace' => $workspace,
+            'flow' => $flow,
+            'available_requests' => $requests->findByWorkspace($workspace),
+            'db_connections' => $connections->findByWorkspace($workspace),
+        ]);
+    }
+
     #[Route('/add', name: 'app_flow_step_add', methods: ['POST'])]
     public function add(
         Workspace $workspace,

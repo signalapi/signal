@@ -73,6 +73,9 @@
     .rt-add .rt-rail .plus { margin-top: 6px; width: 30px; height: 30px; border-radius: 50%; border: 2px dashed var(--border);
         background: var(--panel); color: var(--muted); display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 1; }
     .rt-add-body { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    .addstep-btn { justify-content: center; width: 100%; background: var(--panel); color: var(--accent);
+        border: 1px dashed var(--border); font-weight: 600; padding: 11px; }
+    .addstep-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
     .add-form { display: flex; gap: 8px; align-items: center; background: var(--panel); border: 1px dashed var(--border);
         border-radius: 10px; padding: 9px 11px; }
     .add-form select { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; color: var(--text); font-size: 13px; }
@@ -138,7 +141,6 @@
             </div>
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0;">
-            <a class="btn" href="{{ path('app_flow_builder', {workspace: workspace.id, flow: flow.id}) }}">🔗 Tuval'de düzenle</a>
             <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← Akışlar</a>
             <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('Bu akış kalıcı olarak silinecek.');">
                 <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ flow.id) }}">
@@ -155,7 +157,7 @@
             <div class="section-title">Akış adımları <span class="count">{{ flow.steps|length }}</span></div>
 
             {% if flow.steps is empty %}
-                <div class="empty" style="text-align:left;padding:24px;">Henüz adım yok. Sağdaki konsoldan değil, aşağıdan bir istek seçip ilk adımı ekleyin.</div>
+                <div class="empty" style="text-align:left;padding:24px;">Henüz adım yok. Aşağıdaki <b>+ Adım ekle</b> ile ilk adımı ekleyin.</div>
             {% else %}
             <div class="runtrack" id="runtrack">
                 {% for step in flow.steps %}
@@ -202,40 +204,11 @@
             </div>
             {% endif %}
 
-            {# add controls #}
+            {# add control — opens the step-type chooser page #}
             <div class="rt-add">
                 <div class="rt-rail"><div class="plus">+</div></div>
                 <div class="rt-add-body">
-                    <form class="add-form" method="post" action="{{ path('app_flow_step_add', {workspace: workspace.id, flow: flow.id}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
-                        <select name="request" required>
-                            <option value="">— istek adımı ekle —</option>
-                            {% for r in available_requests %}<option value="{{ r.id }}">{{ r.collection.name }} / {{ r.name }} ({{ r.method }})</option>{% endfor %}
-                        </select>
-                        <button class="btn small" type="submit" {{ available_requests is empty ? 'disabled' }}>+ İstek</button>
-                    </form>
-                    <form class="add-form" method="post" action="{{ path('app_flow_step_add_db', {workspace: workspace.id, flow: flow.id}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
-                        <span class="lab">DB</span>
-                        <select name="connection" required>
-                            <option value="">— veritabanı doğrulama adımı —</option>
-                            {% for c in db_connections %}<option value="{{ c.id }}">{{ c.name }} ({{ c.type }})</option>{% endfor %}
-                        </select>
-                        <button class="btn small" type="submit" {{ db_connections is empty ? 'disabled' }}>+ DB</button>
-                    </form>
-                    <div class="add-form" style="justify-content:flex-start;">
-                        <span class="lab" style="color:var(--muted);">YARDIMCI</span>
-                        <form method="post" action="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}" style="display:inline;">
-                            <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
-                            <input type="hidden" name="type" value="setvar">
-                            <button class="btn ghost small" type="submit">+ Değişken set</button>
-                        </form>
-                        <form method="post" action="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}" style="display:inline;">
-                            <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
-                            <input type="hidden" name="type" value="delay">
-                            <button class="btn ghost small" type="submit">+ Bekle</button>
-                        </form>
-                    </div>
+                    <a class="btn addstep-btn" href="{{ path('app_flow_step_new', {workspace: workspace.id, flow: flow.id}) }}">+ Adım ekle</a>
                 </div>
             </div>
         </div>

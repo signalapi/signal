@@ -1,0 +1,103 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Yeni adım · {{ flow.name }}{% endblock %}
+
+{% block panel %}
+<style>
+    .sn-wrap { max-width: 860px; }
+    .sn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
+    @media (max-width: 720px) { .sn-grid { grid-template-columns: 1fr; } }
+
+    .sn-card { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border);
+        border-radius: 14px; padding: 20px; box-shadow: var(--shadow); transition: border-color .2s, box-shadow .2s, transform .1s; }
+    .sn-card:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .sn-ico { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+        font-size: 21px; background: var(--accent-soft); margin-bottom: 14px; }
+    .sn-card h3 { margin: 0 0 5px; font-size: 16px; letter-spacing: -.01em; }
+    .sn-card p { margin: 0 0 16px; font-size: 12.5px; color: var(--muted); line-height: 1.5; flex: 1; }
+    .sn-card select { width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px;
+        padding: 9px 11px; color: var(--text); font-size: 13px; box-sizing: border-box; margin-bottom: 10px; }
+    .sn-card .btn { width: 100%; justify-content: center; }
+    .sn-empty { font-size: 12px; color: var(--muted); background: var(--panel-2); border: 1px dashed var(--border);
+        border-radius: 9px; padding: 10px 12px; margin-bottom: 10px; }
+    .sn-empty a { font-weight: 600; }
+    .sn-util { display: flex; gap: 8px; }
+    .sn-util form { flex: 1; }
+</style>
+
+<div class="sn-wrap">
+    <a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ flow.name }}</a>
+    <div class="pagehead">
+        <div>
+            <h1>Yeni adım</h1>
+            <p class="subtitle">Bir adım türü seç. Ekledikten sonra ayarlarını düzenler, kaydedince akışta görürsün.</p>
+        </div>
+    </div>
+
+    <div class="sn-grid">
+        {# ---- HTTP request ---- #}
+        <div class="sn-card">
+            <div class="sn-ico">🌐</div>
+            <h3>HTTP isteği</h3>
+            <p>Bir API isteği gönder ve yanıtını doğrula. Collection'daki bir isteği seç — kopyası bu adıma alınır.</p>
+            {% if available_requests is empty %}
+                <div class="sn-empty">Henüz istek yok. Önce <a href="{{ path('app_collection_index', {workspace: workspace.id}) }}">Collection'larda</a> bir istek oluştur.</div>
+                <button class="btn" disabled>+ Ekle</button>
+            {% else %}
+                <form method="post" action="{{ path('app_flow_step_add', {workspace: workspace.id, flow: flow.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
+                    <select name="request" required>
+                        <option value="">— istek seç —</option>
+                        {% for r in available_requests %}<option value="{{ r.id }}">{{ r.collection.name }} / {{ r.name }} ({{ r.method }})</option>{% endfor %}
+                    </select>
+                    <button class="btn" type="submit">+ Ekle</button>
+                </form>
+            {% endif %}
+        </div>
+
+        {# ---- DB verification ---- #}
+        <div class="sn-card">
+            <div class="sn-ico">🗄️</div>
+            <h3>DB doğrulama</h3>
+            <p>Bir sorgu çalıştırıp dönen satırı beklediğin değerle karşılaştır. Örn: ödeme sonrası kayıt gerçekten oluştu mu.</p>
+            {% if db_connections is empty %}
+                <div class="sn-empty">Bağlantı yok. Önce <a href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">Veritabanı bağlantısı</a> ekle.</div>
+                <button class="btn" disabled>+ Ekle</button>
+            {% else %}
+                <form method="post" action="{{ path('app_flow_step_add_db', {workspace: workspace.id, flow: flow.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
+                    <select name="connection" required>
+                        <option value="">— bağlantı seç —</option>
+                        {% for c in db_connections %}<option value="{{ c.id }}">{{ c.name }} ({{ c.type }})</option>{% endfor %}
+                    </select>
+                    <button class="btn" type="submit">+ Ekle</button>
+                </form>
+            {% endif %}
+        </div>
+
+        {# ---- Set variable ---- #}
+        <div class="sn-card">
+            <div class="sn-ico">🔧</div>
+            <h3>Değişken ata</h3>
+            <p>Elle bir değişken set et (sabit değer veya <code>{{ '{{ifade}}' }}</code>). Sonraki adımlarda kullanılır.</p>
+            <form method="post" action="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
+                <input type="hidden" name="type" value="setvar">
+                <button class="btn" type="submit">+ Ekle</button>
+            </form>
+        </div>
+
+        {# ---- Delay ---- #}
+        <div class="sn-card">
+            <div class="sn-ico">⏱️</div>
+            <h3>Bekle</h3>
+            <p>Adımlar arasına gecikme koy. Asenkron işlemlerin (webhook, kuyruk) tamamlanmasını beklemek için.</p>
+            <form method="post" action="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
+                <input type="hidden" name="type" value="delay">
+                <button class="btn" type="submit">+ Ekle</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
