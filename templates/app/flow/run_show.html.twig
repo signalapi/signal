@@ -63,6 +63,11 @@
     .diag-body summary { cursor: pointer; color: var(--muted); font-size: 12px; }
     .diag-body pre { background: var(--ink); color: #e8e8e2; border-radius: 9px; padding: 12px; overflow: auto; max-height: 260px; font-size: 12px; margin: 8px 0 0; }
     .diag-foot { font-size: 12px; color: var(--muted); margin-top: 4px; }
+
+    .blk.drift { background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 9px; padding: 9px 11px; }
+    .blk.drift .cap { color: #8a6d00; }
+    .drift-note { font-weight: 400; color: var(--muted); }
+    .drift-line { font-family: var(--font-mono); font-size: 12px; color: var(--ink); }
     .errbox { background: var(--fail-soft); color: var(--fail); border: 1px solid rgba(229,72,77,.25); border-radius: 9px; padding: 9px 12px; font-size: 13px; margin-top: 10px; }
 </style>
 
@@ -203,6 +208,13 @@
                             {% if a.ok %}<span class="ok">✓</span>{% else %}<span class="no">✗</span>{% endif %} {{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— gelen: {{ a.actual }}</span>{% endif %}<br>
                         {% endfor %}
                         </div>
+                    </div>
+                {% endif %}
+
+                {% if r.shapeDrift is not empty %}
+                    <div class="blk drift">
+                        <div class="cap">⚠ Kontrat değişti <span class="drift-note">(yanıt şekli baseline'dan farklı)</span></div>
+                        <div class="kvline">{% for c in r.shapeDrift %}<span class="drift-line">{{ c }}</span><br>{% endfor %}</div>
                     </div>
                 {% endif %}
 

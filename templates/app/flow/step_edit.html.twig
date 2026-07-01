@@ -211,6 +211,24 @@
     </div>
 </form>
 
+{% if not is_new and not step.isDb and not step.isSetvar and not step.isDelay and not step.isCall %}
+<div class="fgroup" style="max-width:640px;margin-top:18px;">
+    <div class="fgroup-title">Kontrat izleme</div>
+    <p class="fhint" style="margin:0 0 10px;">İlk başarılı koşumda yanıtın şekli (alanlar+tipler) baseline olarak alınır; sonraki koşumlarda şekil değişirse — assertion geçse bile — koşum detayında <b>⚠ Kontrat değişti</b> uyarısı çıkar.</p>
+    {% if step.contractBaselineAt %}
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+            <span class="pill" style="background:var(--pass-soft,#e6f4ec);color:var(--pass);">baseline alındı · {{ step.contractBaselineAt|date('d.m.Y H:i') }}</span>
+            <form method="post" action="{{ path('app_flow_step_reset_baseline', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" onsubmit="return confirm('Baseline sıfırlanacak; sonraki başarılı koşumda yeni yanıt baseline olur.');">
+                <input type="hidden" name="_token" value="{{ csrf_token('reset-baseline' ~ step.id) }}">
+                <button class="btn ghost small" type="submit">↺ Baseline'ı sıfırla</button>
+            </form>
+        </div>
+    {% else %}
+        <span class="fhint">Henüz baseline yok — ilk başarılı koşumda alınacak.</span>
+    {% endif %}
+</div>
+{% endif %}
+
 <style>
     .kvrow { display: flex; gap: 6px; margin-bottom: 5px; }
     .kvrow input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 7px 9px; color: var(--text); font-family: var(--font-mono); font-size: 12.5px; }

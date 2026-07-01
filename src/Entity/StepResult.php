@@ -65,6 +65,15 @@ class StepResult
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $error = null;
 
+    /**
+     * Contract drift vs the step's baseline shape, as change lines. Empty = no
+     * drift; the response's shape matched the baseline.
+     *
+     * @var string[]
+     */
+    #[ORM\Column(type: Types::JSON)]
+    private array $shapeDrift = [];
+
     public function getId(): ?Uuid
     {
         return $this->id;
@@ -226,6 +235,20 @@ class StepResult
     public function setError(?string $error): static
     {
         $this->error = $error;
+
+        return $this;
+    }
+
+    /** @return string[] */
+    public function getShapeDrift(): array
+    {
+        return $this->shapeDrift;
+    }
+
+    /** @param string[] $shapeDrift */
+    public function setShapeDrift(array $shapeDrift): static
+    {
+        $this->shapeDrift = $shapeDrift;
 
         return $this;
     }

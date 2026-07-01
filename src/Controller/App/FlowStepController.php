@@ -453,6 +453,28 @@ class FlowStepController extends AbstractAppController
         ]);
     }
 
+    #[Route('/{step}/reset-baseline', name: 'app_flow_step_reset_baseline', methods: ['POST'])]
+    public function resetBaseline(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        #[MapEntity(mapping: ['step' => 'id'])] FlowStep $step,
+        Request $httpRequest,
+        FlowStepRepository $steps,
+    ): Response {
+        $this->assertWorkspace($workspace);
+        $this->assertFlow($workspace, $flow);
+        $this->assertStep($flow, $step);
+        if (!$this->isCsrfTokenValid('reset-baseline' . $step->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+        $step->setResponseShape(null);
+        $step->setContractBaselineAt(null);
+        $steps->save($step);
+        $this->addFlash('success', 'Kontrat baseline\'ı sıfırlandı; sonraki başarılı koşumda yeniden alınacak.');
+
+        return $this->redirectToRoute('app_flow_step_edit', ['workspace' => $workspace->getId(), 'flow' => $flow->getId(), 'step' => $step->getId()]);
+    }
+
     #[Route('/{step}/move', name: 'app_flow_step_move', methods: ['POST'])]
     public function move(
         Workspace $workspace,

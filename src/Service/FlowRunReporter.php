@@ -27,6 +27,7 @@ class FlowRunReporter
                 'durationMs' => $r->getDurationMs(),
                 'extracted' => $r->getExtractedVars(),
                 'assertions' => $r->getAssertionResults(),
+                'contractDrift' => $r->getShapeDrift(),
                 'error' => $r->getError(),
             ];
         }

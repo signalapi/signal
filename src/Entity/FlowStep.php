@@ -112,6 +112,19 @@ class FlowStep
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $loop = null;
 
+    /**
+     * Baseline response shape (keys + types) captured on the first successful
+     * run; later runs diff against it to flag contract drift. null = not yet
+     * captured / not tracked.
+     *
+     * @var array<string, mixed>|string|null
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private array|string|null $responseShape = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $contractBaselineAt = null;
+
     /** Node position on the visual flow canvas. */
     #[ORM\Column(options: ['default' => 0])]
     private int $canvasX = 0;
@@ -314,6 +327,30 @@ class FlowStep
     public function hasLoop(): bool
     {
         return null !== $this->loop && '' !== trim((string) ($this->loop['over'] ?? ''));
+    }
+
+    public function getResponseShape(): array|string|null
+    {
+        return $this->responseShape;
+    }
+
+    public function setResponseShape(array|string|null $shape): static
+    {
+        $this->responseShape = $shape;
+
+        return $this;
+    }
+
+    public function getContractBaselineAt(): ?\DateTimeImmutable
+    {
+        return $this->contractBaselineAt;
+    }
+
+    public function setContractBaselineAt(?\DateTimeImmutable $at): static
+    {
+        $this->contractBaselineAt = $at;
+
+        return $this;
     }
 
     public function getCalledFlow(): ?TestFlow

@@ -28,6 +28,7 @@ class FlowRunner
         private readonly EntityManagerInterface $em,
         private readonly DynamicVariableGenerator $dynamic,
         private readonly \App\Repository\DataFactoryRepository $factories,
+        private readonly ResponseShape $shape,
     ) {
     }
 
@@ -423,6 +424,7 @@ class FlowRunner
             } else {
                 $result->setError(null);
                 $decoded = json_decode((string) $response->body, true);
+                $this->checkContract($step, $result, $decoded);
                 $status = $this->applyExtractionsAndAssertions($step, $result, $context, $decoded, (string) $response->body, $response->statusCode, $response->durationMs, $response->headers);
             }
 
@@ -486,6 +488,28 @@ class FlowRunner
         $result->setAttempts($attempt);
 
         return $status;
+    }
+
+    /**
+     * Captures the step's baseline response shape on first success, or records
+     * how the current response's shape drifted from that baseline. Drift is
+     * informational — it does not fail the step. Non-JSON responses are skipped.
+     */
+    private function checkContract(FlowStep $step, StepResult $result, mixed $decoded): void
+    {
+        if (!\is_array($decoded)) {
+            return;
+        }
+        $shape = $this->shape->of($decoded);
+        $baseline = $step->getResponseShape();
+        if (null === $baseline) {
+            $step->setResponseShape($shape);
+            $step->setContractBaselineAt(new \DateTimeImmutable());
+            $result->setShapeDrift([]);
+
+            return;
+        }
+        $result->setShapeDrift($this->shape->diff($baseline, $shape));
     }
 
     private function runDelayStep(FlowStep $step, StepResult $result): string

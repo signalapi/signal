@@ -193,6 +193,8 @@ class McpToolRegistry
                 ]]],
             ['name' => 'get_run', 'description' => 'Bir koşumun detayını döner.',
                 'inputSchema' => ['type' => 'object', 'required' => ['runId'], 'properties' => ['runId' => ['type' => 'string']]]],
+            ['name' => 'reset_contract_baseline', 'description' => 'Bir adımın kontrat baseline\'ını (yanıt şekli) sıfırlar; sonraki başarılı koşumda yeniden alınır. API bilinçli değiştiyse drift uyarısını temizlemek için.',
+                'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => ['stepId' => ['type' => 'string']]]],
             ['name' => 'diagnose_run', 'description' => 'Başarısız bir koşumu TEŞHİS için ham kanıt döner: her başarısız adımın isteği, GERÇEK yanıt gövdesi, hangi assertion\'ın beklenen vs gerçek değeri tutmadığı, çıkarılan değişkenler ve hata. runId ver ya da flowId ile son koşumu al. Sonucu yorumlayıp neden patladığını açıkla; gerekiyorsa update_step/set_step_request/set_step_checks ile düzeltme öner, DB durumunu db_query ile kontrol et.',
                 'inputSchema' => ['type' => 'object', 'properties' => [
                     'runId' => ['type' => 'string'],
@@ -293,6 +295,7 @@ class McpToolRegistry
             'list_runs' => $this->listRuns($ws, $args),
             'get_run' => $this->getRun($ws, $args),
             'diagnose_run' => $this->diagnoseRun($ws, $args),
+            'reset_contract_baseline' => $this->resetContractBaseline($ws, $args),
             'delete_flow' => $this->deleteFlow($ws, $args),
             'delete_step' => $this->deleteStep($ws, $args),
             'add_request_step' => $this->addRequestStep($ws, $args),
@@ -665,6 +668,16 @@ class McpToolRegistry
             : 'Her failingStep için responseBody ve failedAssertions.actual/expected\'i incele; neden patladığını açıkla ve gerekiyorsa update_step (koşul), set_step_request (istek) veya set_step_checks ile düzeltme öner. DB doğrulaması gerekiyorsa db_query ile o anki durumu kontrol et.';
 
         return $evidence;
+    }
+
+    private function resetContractBaseline(Workspace $ws, array $args): array
+    {
+        $step = $this->requireStep($ws, (string) ($args['stepId'] ?? ''));
+        $step->setResponseShape(null);
+        $step->setContractBaselineAt(null);
+        $this->steps->save($step);
+
+        return ['ok' => true, 'stepId' => (string) $step->getId(), 'note' => 'Baseline sıfırlandı; sonraki başarılı koşumda yeniden alınacak.'];
     }
 
     private function whoami(Workspace $ws): array

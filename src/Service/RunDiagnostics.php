@@ -43,11 +43,21 @@ class RunDiagnostics
                 'durationMs' => $r->getDurationMs(),
                 'responseBody' => null === $body ? null : mb_substr($body, 0, self::BODY_LIMIT),
                 'failedAssertions' => $failedAssertions,
+                'contractDrift' => $r->getShapeDrift(),
                 'extracted' => $r->getExtractedVars(),
                 'error' => $r->getError(),
             ];
         }
         usort($failing, static fn (array $a, array $b): int => $a['position'] <=> $b['position']);
+
+        // Drift can also appear on steps that still passed — surface it too, so a
+        // failure can be correlated with a contract change upstream.
+        $drift = [];
+        foreach ($run->getStepResults() as $r) {
+            if ([] !== $r->getShapeDrift()) {
+                $drift[] = ['step' => $r->getLabel(), 'changes' => $r->getShapeDrift()];
+            }
+        }
 
         return [
             'run' => [
@@ -60,6 +70,7 @@ class RunDiagnostics
             ],
             'iterationData' => $run->getIterationData(),
             'failingSteps' => $failing,
+            'contractDrift' => $drift,
         ];
     }
 }
