@@ -4,126 +4,140 @@
 
 {% block panel %}
 <style>
-    .wiz { max-width: 720px; }
-    .wiz-steps { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin: 4px 0 22px; }
-    .wiz-steps .s { display: inline-flex; align-items: center; gap: 6px; }
-    .wiz-steps .n { width: 20px; height: 20px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--border);
-        display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; }
-    .wiz-steps .s.on .n { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .wiz-steps .s.on { color: var(--ink); font-weight: 600; }
-    .wiz-steps .sep { flex: 0 0 24px; height: 1px; background: var(--border); }
+    .sw { max-width: 940px; }
+    .sw-grid { display: grid; grid-template-columns: 248px 1fr; gap: 26px; margin-top: 20px; align-items: start; }
+    @media (max-width: 760px) { .sw-grid { grid-template-columns: 1fr; gap: 18px; } }
 
-    .stage { display: none; } .stage.on { display: block; }
+    /* ---- LEFT: type rail (echoes the flow runline) ---- */
+    .rail { position: relative; padding: 4px 0; }
+    .rail::before { content: ""; position: absolute; left: 21px; top: 24px; bottom: 24px; width: 2px;
+        background: var(--border); z-index: 0; }
+    .rail-item { position: relative; z-index: 1; display: flex; gap: 13px; align-items: flex-start; width: 100%;
+        text-align: left; font: inherit; color: inherit; background: transparent; border: none; cursor: pointer;
+        padding: 11px 12px 11px 0; border-radius: 12px; transition: background .12s; }
+    .rail-item:hover { background: var(--panel-2); }
+    .rail-node { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; background: var(--panel); border: 2px solid var(--border);
+        display: flex; align-items: center; justify-content: center; font-size: 21px; box-shadow: 0 0 0 4px var(--bg, var(--panel-2));
+        transition: border-color .18s, background .18s, transform .1s; }
+    .rail-item .rail-txt h3 { margin: 3px 0 3px; font-size: 14.5px; letter-spacing: -.01em; color: var(--muted); transition: color .15s; }
+    .rail-item .rail-txt p { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.4; opacity: .85; }
+    .rail-item.on .rail-node { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.04); }
+    .rail-item.on .rail-txt h3 { color: var(--ink); font-weight: 700; }
+    .rail-item.on { background: var(--panel-2); }
 
-    /* stage 1 — type tiles */
-    .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    @media (max-width: 640px) { .tiles { grid-template-columns: 1fr; } }
-    .tile { text-align: left; cursor: pointer; background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
-        padding: 18px; display: flex; gap: 14px; align-items: flex-start; transition: border-color .15s, box-shadow .15s, transform .08s; width: 100%; font: inherit; color: inherit; }
-    .tile:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    .tile:active { transform: translateY(1px); }
-    .tile .ico { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
-        font-size: 20px; background: var(--accent-soft); flex-shrink: 0; }
-    .tile h3 { margin: 0 0 4px; font-size: 15px; } .tile p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
-    .tile .arr { margin-left: auto; color: var(--muted); font-size: 18px; align-self: center; }
-    .tile[disabled] { opacity: .55; cursor: default; } .tile[disabled]:hover { border-color: var(--border); box-shadow: none; }
+    /* ---- RIGHT: contextual detail ---- */
+    .detail { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow);
+        min-height: 340px; overflow: hidden; }
+    .dt-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
+    .dt-head h2 { margin: 0 0 4px; font-size: 17px; }
+    .dt-head p { margin: 0; font-size: 12.5px; color: var(--muted); }
+    .dt-body { padding: 16px 20px 20px; }
+    .pane { display: none; } .pane.on { display: block; }
 
-    /* stage 2 — pickers */
-    .picker-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
-    .picker-head .back { cursor: pointer; border: 1px solid var(--border); background: var(--panel); border-radius: 8px;
-        padding: 6px 11px; font-size: 13px; color: var(--muted); }
-    .picker-head .back:hover { color: var(--ink); background: var(--panel-2); }
-    .picker-head h2 { margin: 0; font-size: 16px; }
+    /* request picker */
     .search { width: 100%; box-sizing: border-box; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
         padding: 11px 13px; color: var(--text); font-size: 14px; margin-bottom: 12px; }
     .search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    .plist { border: 1px solid var(--border); border-radius: 12px; overflow: hidden auto; max-height: 440px; background: var(--panel); }
+    .plist { border: 1px solid var(--border); border-radius: 12px; overflow: hidden auto; max-height: 380px; }
     .grp-head { position: sticky; top: 0; background: var(--panel-2); padding: 7px 14px; font-size: 11px; font-weight: 700;
         letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
     .prow { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; font: inherit; color: inherit;
         cursor: pointer; background: transparent; border: none; border-bottom: 1px solid var(--border); padding: 11px 14px; transition: background .1s; }
-    .prow:hover { background: var(--accent-soft); }
-    .prow:last-child { border-bottom: none; }
+    .prow:hover { background: var(--accent-soft); } .prow:last-child { border-bottom: none; }
     .mbadge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 3px 6px;
         border-radius: 5px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; min-width: 46px; text-align: center; }
     .mbadge.m-get { background: #e6f4ec; color: #16a34a; } .mbadge.m-post { background: #f8efe0; color: #b35900; }
     .mbadge.m-put { background: #e7eefc; color: #2563eb; } .mbadge.m-patch { background: #f0e9fb; color: #8250df; }
     .mbadge.m-delete { background: var(--fail-soft); color: #dc2626; }
-    .prow .nm { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .prow .path { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); }
     .prow .col { flex: 1; min-width: 0; }
-    .no-hit { padding: 22px; text-align: center; color: var(--muted); font-size: 13px; }
-    .empty-note { background: var(--panel-2); border: 1px dashed var(--border); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--muted); }
+    .prow .nm { font-weight: 600; font-size: 13.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .prow .path { font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .no-hit { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
+    .empty-note { background: var(--panel-2); border: 1px dashed var(--border); border-radius: 10px; padding: 16px; font-size: 13px; color: var(--muted); }
     .empty-note a { font-weight: 600; }
+    .util-add { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+    .util-add .big-add { padding: 12px 22px; font-size: 14.5px; }
 </style>
 
-<div class="wiz" id="wiz"
+<div class="sw" id="sw"
      data-add="{{ path('app_flow_step_add', {workspace: workspace.id, flow: flow.id}) }}"
      data-adddb="{{ path('app_flow_step_add_db', {workspace: workspace.id, flow: flow.id}) }}"
      data-addutil="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}"
      data-token="{{ csrf_token('add-step' ~ flow.id) }}">
 
     <a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ flow.name }}</a>
-    <div class="pagehead"><div><h1>Yeni adım</h1></div></div>
+    <div class="pagehead"><div><h1>Yeni adım</h1><p class="subtitle">Akışa hangi düğümü ekleyelim?</p></div></div>
 
-    <div class="wiz-steps">
-        <span class="s on" id="crumb1"><span class="n">1</span> Tür</span>
-        <span class="sep"></span>
-        <span class="s" id="crumb2"><span class="n">2</span> <span id="crumb2lbl">Seçim</span></span>
-    </div>
-
-    {# ---- STAGE 1: choose type ---- #}
-    <div class="stage on" id="stage1">
-        <div class="tiles">
-            <button type="button" class="tile" data-go="http">
-                <span class="ico">🌐</span>
-                <span><h3>HTTP isteği</h3><p>Bir API isteği gönder ve yanıtını doğrula.</p></span>
-                <span class="arr">→</span>
+    <div class="sw-grid">
+        {# ---- type rail ---- #}
+        <div class="rail" role="tablist">
+            <button type="button" class="rail-item on" data-type="http">
+                <span class="rail-node">🌐</span>
+                <span class="rail-txt"><h3>HTTP isteği</h3><p>API isteği gönder, yanıtı doğrula</p></span>
             </button>
-            <button type="button" class="tile" data-go="db">
-                <span class="ico">🗄️</span>
-                <span><h3>DB doğrulama</h3><p>Bir sorgu çalıştır, dönen satırı beklediğinle karşılaştır.</p></span>
-                <span class="arr">→</span>
+            <button type="button" class="rail-item" data-type="db">
+                <span class="rail-node">🗄️</span>
+                <span class="rail-txt"><h3>DB doğrulama</h3><p>Sorgu çalıştır, satırı karşılaştır</p></span>
             </button>
-            <button type="button" class="tile" data-submit="setvar">
-                <span class="ico">🔧</span>
-                <span><h3>Değişken ata</h3><p>Elle bir değişken set et; sonraki adımlarda kullan.</p></span>
-                <span class="arr">+</span>
+            <button type="button" class="rail-item" data-type="setvar">
+                <span class="rail-node">🔧</span>
+                <span class="rail-txt"><h3>Değişken ata</h3><p>Elle bir değişken set et</p></span>
             </button>
-            <button type="button" class="tile" data-submit="delay">
-                <span class="ico">⏱️</span>
-                <span><h3>Bekle</h3><p>Adımlar arasına gecikme koy (asenkron işlemler için).</p></span>
-                <span class="arr">+</span>
+            <button type="button" class="rail-item" data-type="delay">
+                <span class="rail-node">⏱️</span>
+                <span class="rail-txt"><h3>Bekle</h3><p>Adımlar arasına gecikme koy</p></span>
             </button>
         </div>
-    </div>
 
-    {# ---- STAGE 2a: pick request ---- #}
-    <div class="stage" id="stageHttp">
-        <div class="picker-head"><button type="button" class="back" data-back>←</button><h2>İstek seç</h2></div>
-        {% if available_requests is empty %}
-            <div class="empty-note">Henüz istek yok. Önce <a href="{{ path('app_collection_index', {workspace: workspace.id}) }}">Collection'larda</a> bir istek oluştur.</div>
-        {% else %}
-            <input type="text" class="search" id="reqSearch" placeholder="İstek veya collection ara…" autocomplete="off">
-            <div class="plist" id="reqList"></div>
-        {% endif %}
-    </div>
-
-    {# ---- STAGE 2b: pick db connection ---- #}
-    <div class="stage" id="stageDb">
-        <div class="picker-head"><button type="button" class="back" data-back>←</button><h2>Bağlantı seç</h2></div>
-        {% if db_connections is empty %}
-            <div class="empty-note">Bağlantı yok. Önce <a href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">Veritabanı bağlantısı</a> ekle.</div>
-        {% else %}
-            <div class="plist">
-                {% for c in db_connections %}
-                    <button type="button" class="prow" data-conn="{{ c.id }}">
-                        <span class="mbadge">{{ c.type|upper|slice(0,5) }}</span>
-                        <span class="col"><span class="nm">{{ c.name }}</span><br><span class="path">{{ c.host }}{{ c.databaseName ? ' / ' ~ c.databaseName }}</span></span>
-                    </button>
-                {% endfor %}
+        {# ---- contextual detail ---- #}
+        <div class="detail">
+            {# HTTP #}
+            <div class="pane on" data-pane="http">
+                <div class="dt-head"><h2>HTTP isteği</h2><p>Bir collection isteği seç — kopyası bu adıma alınır.</p></div>
+                <div class="dt-body">
+                    {% if available_requests is empty %}
+                        <div class="empty-note">Henüz istek yok. Önce <a href="{{ path('app_collection_index', {workspace: workspace.id}) }}">Collection'larda</a> bir istek oluştur.</div>
+                    {% else %}
+                        <input type="text" class="search" id="reqSearch" placeholder="İstek, collection veya URL ara…" autocomplete="off">
+                        <div class="plist" id="reqList"></div>
+                    {% endif %}
+                </div>
             </div>
-        {% endif %}
+            {# DB #}
+            <div class="pane" data-pane="db">
+                <div class="dt-head"><h2>DB doğrulama</h2><p>Ödeme sonrası kayıt gerçekten oluştu mu — bir bağlantı seç.</p></div>
+                <div class="dt-body">
+                    {% if db_connections is empty %}
+                        <div class="empty-note">Bağlantı yok. Önce <a href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">Veritabanı bağlantısı</a> ekle.</div>
+                    {% else %}
+                        <div class="plist">
+                            {% for c in db_connections %}
+                                <button type="button" class="prow" data-conn="{{ c.id }}">
+                                    <span class="mbadge">{{ c.type|upper|slice(0,5) }}</span>
+                                    <span class="col"><span class="nm">{{ c.name }}</span><span class="path">{{ c.host }}{{ c.databaseName ? ' / ' ~ c.databaseName }}</span></span>
+                                </button>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {# setvar #}
+            <div class="pane" data-pane="setvar">
+                <div class="dt-head"><h2>Değişken ata</h2><p>Sabit bir değer veya <code>{{ '{{ifade}}' }}</code> ile bir değişken set et; sonraki adımlarda kullanılır.</p></div>
+                <div class="dt-body util-add">
+                    <p style="font-size:13px;color:var(--muted);margin:0;">Adım eklendikten sonra atamaları düzenleyeceksin.</p>
+                    <button type="button" class="btn big-add" data-submit="setvar">🔧 Değişken adımı ekle</button>
+                </div>
+            </div>
+            {# delay #}
+            <div class="pane" data-pane="delay">
+                <div class="dt-head"><h2>Bekle</h2><p>Asenkron işlemler (webhook, kuyruk) tamamlansın diye adımlar arasına gecikme koy.</p></div>
+                <div class="dt-body util-add">
+                    <p style="font-size:13px;color:var(--muted);margin:0;">Varsayılan 1000 ms — sonra düzenleyebilirsin.</p>
+                    <button type="button" class="btn big-add" data-submit="delay">⏱️ Bekleme adımı ekle</button>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -134,9 +148,9 @@
 {% verbatim %}
 <script>
 (function () {
-    var wiz = document.getElementById('wiz');
-    if (!wiz) return;
-    var token = wiz.dataset.token;
+    var sw = document.getElementById('sw');
+    if (!sw) return;
+    var token = sw.dataset.token;
 
     function post(action, field, value) {
         var f = document.createElement('form');
@@ -147,37 +161,27 @@
         document.body.appendChild(f); f.submit();
     }
 
-    function show(id, crumbLabel) {
-        document.querySelectorAll('.stage').forEach(function (s) { s.classList.remove('on'); });
-        document.getElementById(id).classList.add('on');
-        var onStage2 = id !== 'stage1';
-        document.getElementById('crumb1').classList.toggle('on', !onStage2);
-        document.getElementById('crumb2').classList.toggle('on', onStage2);
-        if (crumbLabel) document.getElementById('crumb2lbl').textContent = crumbLabel;
-        var srch = document.getElementById('reqSearch');
-        if (id === 'stageHttp' && srch) srch.focus();
+    // rail selection → swap detail pane
+    function select(type) {
+        document.querySelectorAll('.rail-item').forEach(function (i) { i.classList.toggle('on', i.dataset.type === type); });
+        document.querySelectorAll('.pane').forEach(function (p) { p.classList.toggle('on', p.dataset.pane === type); });
+        if (type === 'http') { var s = document.getElementById('reqSearch'); if (s) s.focus(); }
     }
-
-    // stage 1 tiles
-    document.querySelectorAll('.tile').forEach(function (t) {
-        t.addEventListener('click', function () {
-            if (t.hasAttribute('disabled')) return;
-            var go = t.dataset.go, sub = t.dataset.submit;
-            if (sub) { post(wiz.dataset.addutil, 'type', sub); return; }
-            if (go === 'http') show('stageHttp', 'İstek');
-            if (go === 'db') show('stageDb', 'Bağlantı');
-        });
-    });
-    document.querySelectorAll('[data-back]').forEach(function (b) {
-        b.addEventListener('click', function () { show('stage1'); });
+    document.querySelectorAll('.rail-item').forEach(function (i) {
+        i.addEventListener('click', function () { select(i.dataset.type); });
     });
 
-    // db connection pick
+    // utility add buttons
+    document.querySelectorAll('[data-submit]').forEach(function (b) {
+        b.addEventListener('click', function () { post(sw.dataset.addutil, 'type', b.dataset.submit); });
+    });
+
+    // db connections
     document.querySelectorAll('.prow[data-conn]').forEach(function (row) {
-        row.addEventListener('click', function () { post(wiz.dataset.adddb, 'connection', row.dataset.conn); });
+        row.addEventListener('click', function () { post(sw.dataset.adddb, 'connection', row.dataset.conn); });
     });
 
-    // request picker: grouped, searchable list
+    // request picker: grouped + searchable
     var listEl = document.getElementById('reqList');
     if (listEl) {
         var reqs = JSON.parse(document.getElementById('reqData').textContent || '[]');
@@ -185,32 +189,28 @@
             filter = (filter || '').toLowerCase().trim();
             var groups = {}, order = [];
             reqs.forEach(function (r) {
-                var hay = (r.name + ' ' + r.coll + ' ' + r.method + ' ' + r.url).toLowerCase();
-                if (filter && hay.indexOf(filter) === -1) return;
+                if (filter && (r.name + ' ' + r.coll + ' ' + r.method + ' ' + r.url).toLowerCase().indexOf(filter) === -1) return;
                 if (!groups[r.coll]) { groups[r.coll] = []; order.push(r.coll); }
                 groups[r.coll].push(r);
             });
             listEl.innerHTML = '';
-            if (order.length === 0) { listEl.innerHTML = '<div class="no-hit">Eşleşen istek yok.</div>'; return; }
+            if (!order.length) { listEl.innerHTML = '<div class="no-hit">Eşleşen istek yok.</div>'; return; }
             order.forEach(function (coll) {
-                var h = document.createElement('div'); h.className = 'grp-head'; h.textContent = coll;
-                listEl.appendChild(h);
+                var h = document.createElement('div'); h.className = 'grp-head'; h.textContent = coll; listEl.appendChild(h);
                 groups[coll].forEach(function (r) {
                     var b = document.createElement('button'); b.type = 'button'; b.className = 'prow';
                     var m = document.createElement('span'); m.className = 'mbadge m-' + r.method.toLowerCase(); m.textContent = r.method;
                     var col = document.createElement('span'); col.className = 'col';
-                    var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name;
-                    col.appendChild(nm);
-                    if (r.url) { var p = document.createElement('span'); p.className = 'path'; p.textContent = r.url; col.appendChild(document.createElement('br')); col.appendChild(p); }
+                    var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name; col.appendChild(nm);
+                    if (r.url) { var p = document.createElement('span'); p.className = 'path'; p.textContent = r.url; col.appendChild(p); }
                     b.appendChild(m); b.appendChild(col);
-                    b.addEventListener('click', function () { post(wiz.dataset.add, 'request', r.id); });
+                    b.addEventListener('click', function () { post(sw.dataset.add, 'request', r.id); });
                     listEl.appendChild(b);
                 });
             });
         }
         render('');
-        var srch = document.getElementById('reqSearch');
-        srch.addEventListener('input', function () { render(srch.value); });
+        document.getElementById('reqSearch').addEventListener('input', function () { render(this.value); });
     }
 })();
 </script>
