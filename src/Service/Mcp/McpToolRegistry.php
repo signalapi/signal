@@ -233,9 +233,10 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId', 'var', 'path'], 'properties' => [
                     'stepId' => ['type' => 'string'], 'var' => ['type' => 'string'], 'path' => ['type' => 'string'],
                 ]]],
-            ['name' => 'set_step_checks', 'description' => 'Bir adımın extraction ve/veya assertion\'larını topluca ayarlar (verilmeyen değişmez).',
+            ['name' => 'set_step_checks', 'description' => 'Bir adımın extraction, assertion ve/veya JSON şema doğrulamasını ayarlar (verilmeyen değişmez). schema: bir JSON-Schema objesi (type/properties/required/items) — yanıt uymazsa adım başarısız olur; null/boş verilirse şema kaldırılır.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
                     'stepId' => ['type' => 'string'], 'extractions' => $strArray, 'assertions' => $strArray,
+                    'schema' => ['type' => ['object', 'null'], 'description' => 'JSON-Schema objesi; null = kaldır'],
                 ]]],
             ['name' => 'set_flow_order', 'description' => 'Adımların çalışma sırasını (ve tuval bağlantılarını) belirler. stepIds: çalışacakları sırayla adım id\'leri.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'stepIds'], 'properties' => [
@@ -965,8 +966,27 @@ class McpToolRegistry
         if (isset($args['extractions'])) {
             $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'])));
         }
-        if (isset($args['assertions'])) {
-            $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'])));
+        if (isset($args['assertions']) || \array_key_exists('schema', $args)) {
+            // Rebuild assertions, keeping the schema assertion separate from the text DSL.
+            $asserts = isset($args['assertions'])
+                ? $this->parser->parseAssertions($this->joinLines($args['assertions']))
+                : array_values(array_filter($step->getAssertions(), static fn (array $a): bool => 'schema' !== ($a['kind'] ?? '')));
+
+            if (\array_key_exists('schema', $args)) {
+                $s = $args['schema'];
+                $json = \is_array($s) ? (string) json_encode($s) : (\is_string($s) ? $s : '');
+                if ('' !== trim($json) && \is_array(json_decode($json, true))) {
+                    $asserts[] = ['kind' => 'schema', 'schema' => $json];
+                }
+            } else {
+                foreach ($step->getAssertions() as $a) {
+                    if ('schema' === ($a['kind'] ?? '')) {
+                        $asserts[] = $a;
+                        break;
+                    }
+                }
+            }
+            $step->setAssertions($asserts);
         }
         $this->steps->save($step);
 

@@ -310,7 +310,13 @@ class FlowStepController extends AbstractAppController
         }
 
         $step->setExtractions($parser->parseExtractions((string) $r->request->get('extractions')));
-        $step->setAssertions($parser->parseAssertions((string) $r->request->get('assertions')));
+        $assertions = $parser->parseAssertions((string) $r->request->get('assertions'));
+        // JSON-schema assertion can't ride the text DSL — carried in its own field.
+        $schema = trim((string) $r->request->get('schema'));
+        if ('' !== $schema && \is_array(json_decode($schema, true))) {
+            $assertions[] = ['kind' => 'schema', 'schema' => $schema];
+        }
+        $step->setAssertions($assertions);
 
         $step->setRetryEnabled((bool) $r->request->get('retryEnabled'));
         $step->setRetryMax(max(1, min(20, (int) $r->request->get('retryMax', 5))));
@@ -411,6 +417,7 @@ class FlowStepController extends AbstractAppController
         RequestRunner $runner,
         \App\Service\Db\DbQueryRunner $dbQuery,
         \App\Repository\FlowRunRepository $runs,
+        \App\Service\JsonSchema $jsonSchema,
     ): JsonResponse {
         $this->assertWorkspace($workspace);
         $this->assertFlow($workspace, $flow);
@@ -436,7 +443,8 @@ class FlowStepController extends AbstractAppController
             }
             $r = $dbQuery->run($step->getDbConnection(), $step->getQuery(), $vars);
 
-            return new JsonResponse(['ok' => $r->ok, 'kind' => 'db', 'json' => $r->ok ? $r->data : null, 'error' => $r->error]);
+            return new JsonResponse(['ok' => $r->ok, 'kind' => 'db', 'json' => $r->ok ? $r->data : null,
+                'inferredSchema' => $r->ok && \is_array($r->data) ? $jsonSchema->infer($r->data) : null, 'error' => $r->error]);
         }
 
         $result = $runner->send($step->toTransientRequest(), $vars, $workspace);
@@ -449,6 +457,7 @@ class FlowStepController extends AbstractAppController
         return new JsonResponse([
             'ok' => $result->ok, 'kind' => 'http', 'status' => $result->statusCode,
             'json' => $parsed, 'rawBody' => null === $result->body ? null : mb_substr($result->body, 0, 20000),
+            'inferredSchema' => \is_array($parsed) ? $jsonSchema->infer($parsed) : null,
             'error' => $result->error,
         ]);
     }

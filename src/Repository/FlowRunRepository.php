@@ -39,6 +39,9 @@ class FlowRunRepository extends ServiceEntityRepository
             ->andWhere('r.flow = :f')
             ->setParameter('f', $flow->getId(), 'uuid')
             ->orderBy('r.createdAt', 'DESC')
+            // Tiebreak by id (UUIDv7 = time-ordered) so two runs in the same
+            // second still order deterministically — "latest" stays correct.
+            ->addOrderBy('r.id', 'DESC')
             ->setMaxResults($limit)
             ->getQuery()
             ->getResult();

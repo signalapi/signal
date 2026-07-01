@@ -29,6 +29,7 @@ class FlowRunner
         private readonly DynamicVariableGenerator $dynamic,
         private readonly \App\Repository\DataFactoryRepository $factories,
         private readonly ResponseShape $shape,
+        private readonly JsonSchema $jsonSchema,
     ) {
     }
 
@@ -629,6 +630,21 @@ class FlowRunner
         $op = $assertion['op'] ?? 'eq';
         $expected = (string) ($assertion['expected'] ?? '');
         $token = self::OP_TOKEN[$op] ?? $op;
+
+        // Schema validation doesn't fit the target/op/value model.
+        if ('schema' === $kind) {
+            $schema = json_decode((string) ($assertion['schema'] ?? ''), true);
+            if (!\is_array($schema)) {
+                return ['label' => 'yanıt JSON şemasına uyuyor', 'ok' => false, 'actual' => 'geçersiz şema tanımı'];
+            }
+            $violations = $this->jsonSchema->validate($schema, $decoded);
+
+            return [
+                'label' => 'yanıt JSON şemasına uyuyor',
+                'ok' => [] === $violations,
+                'actual' => [] === $violations ? 'uygun' : implode(' · ', \array_slice($violations, 0, 5)),
+            ];
+        }
 
         // Resolve (target label, actual value, whether the target exists).
         switch ($kind) {
