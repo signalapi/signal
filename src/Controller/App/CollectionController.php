@@ -119,14 +119,37 @@ class CollectionController extends AbstractAppController
         Workspace $workspace,
         #[MapEntity(mapping: ['collection' => 'id'])] ApiCollection $collection,
         \App\Repository\EnvironmentRepository $environments,
+        \App\Repository\DataFactoryRepository $dataFactories,
+        \App\Service\DynamicVariableGenerator $dynamic,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertCollection($workspace, $collection);
 
+        $envs = $environments->findByWorkspace($workspace);
+
+        // Autocomplete catalog: env variable names + factories + built-ins.
+        $catalog = [];
+        $seen = [];
+        foreach ($envs as $env) {
+            foreach (array_keys($env->toMap()) as $name) {
+                if (!isset($seen[$name])) {
+                    $seen[$name] = true;
+                    $catalog[] = ['token' => '{{' . $name . '}}', 'label' => $name, 'desc' => 'env değişkeni', 'group' => 'var'];
+                }
+            }
+        }
+        foreach ($dataFactories->findByWorkspace($workspace) as $f) {
+            $catalog[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => 'fabrika · ' . $f->getKind(), 'group' => 'gen'];
+        }
+        foreach ($dynamic->builtins() as $b) {
+            $catalog[] = ['token' => $b['token'], 'label' => $b['name'], 'desc' => $b['description'], 'group' => 'gen'];
+        }
+
         return $this->render('app/collection/workbench.html.twig', [
             'workspace' => $workspace,
             'collection' => $collection,
-            'environments' => $environments->findByWorkspace($workspace),
+            'environments' => $envs,
+            'vc_catalog' => $catalog,
         ]);
     }
 

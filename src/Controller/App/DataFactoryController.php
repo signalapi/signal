@@ -76,6 +76,7 @@ class DataFactoryController extends AbstractAppController
         #[MapEntity(mapping: ['factory' => 'id'])] DataFactory $factory,
         Request $request,
         DataFactoryRepository $factories,
+        DynamicVariableGenerator $gen,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertFactory($workspace, $factory);
@@ -100,9 +101,21 @@ class DataFactoryController extends AbstractAppController
             return $this->redirectToRoute('app_factory_edit', ['workspace' => $workspace->getId(), 'factory' => $factory->getId()]);
         }
 
+        // Autocomplete for the template field: built-ins + other factories.
+        $catalog = [];
+        foreach ($factories->findByWorkspace($workspace) as $f) {
+            if ($f->getId()?->toRfc4122() !== $factory->getId()?->toRfc4122()) {
+                $catalog[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => 'fabrika · ' . $f->getKind(), 'group' => 'gen'];
+            }
+        }
+        foreach ($gen->builtins() as $b) {
+            $catalog[] = ['token' => $b['token'], 'label' => $b['name'], 'desc' => $b['description'], 'group' => 'gen'];
+        }
+
         return $this->render('app/data_factory/edit.html.twig', [
             'workspace' => $workspace,
             'factory' => $factory,
+            'vc_catalog' => $catalog,
         ]);
     }
 

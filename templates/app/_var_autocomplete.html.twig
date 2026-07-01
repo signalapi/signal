@@ -1,0 +1,100 @@
+{# Reusable {{...}} autocomplete. Params:
+   - catalog: array of {token,label,desc,group}
+   - scope:   CSS selector of the container to attach to (delegated) #}
+<script type="application/json" id="vcCatalog">{{ catalog|json_encode|raw }}</script>
+<script type="application/json" id="vcConfig">{{ {scope: scope}|json_encode|raw }}</script>
+<style>
+    .vc-pop { position: absolute; z-index: 9999; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+        box-shadow: var(--shadow); max-height: 260px; overflow-y: auto; min-width: 240px; padding: 4px; display: none; }
+    .vc-item { display: flex; align-items: baseline; gap: 8px; padding: 6px 9px; border-radius: 7px; cursor: pointer; }
+    .vc-item.sel, .vc-item:hover { background: var(--accent-soft); }
+    .vc-tok { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); font-weight: 600; white-space: nowrap; }
+    .vc-desc { font-size: 11px; color: var(--muted); margin-left: auto; padding-left: 10px; }
+    .vc-grp { font-size: 9px; font-weight: 700; letter-spacing: .04em; color: var(--muted); border: 1px solid var(--border);
+        border-radius: 4px; padding: 1px 4px; min-width: 22px; text-align: center; }
+</style>
+{% verbatim %}
+<script>
+(function () {
+    var catEl = document.getElementById('vcCatalog'), cfgEl = document.getElementById('vcConfig');
+    if (!catEl || !cfgEl) return;
+    var CAT = [], scope = '';
+    try { CAT = JSON.parse(catEl.textContent || '[]'); scope = (JSON.parse(cfgEl.textContent || '{}').scope) || ''; } catch (e) { return; }
+    var root = scope ? document.querySelector(scope) : document.body;
+    if (!root) return;
+    var OPEN = '{' + '{', CLOSE = '}' + '}';
+    var pop = document.createElement('div'); pop.className = 'vc-pop'; document.body.appendChild(pop);
+    var field = null, start = -1, items = [], sel = 0;
+
+    function editable(el) { return el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && (el.type === 'text' || el.type === ''))); }
+
+    function trigger(el) {
+        if (typeof el.selectionStart !== 'number') return null;
+        var pos = el.selectionStart, text = el.value.slice(0, pos);
+        var open = text.lastIndexOf(OPEN);
+        if (open === -1) return null;
+        if (text.slice(open).indexOf(CLOSE) !== -1) return null;
+        return { open: open, frag: text.slice(open + 2) };
+    }
+
+    function suggest(frag) {
+        var f = frag.toLowerCase(), wantGen = f.charAt(0) === '$', q = wantGen ? f.slice(1) : f;
+        return CAT.filter(function (it) {
+            if (wantGen && it.group !== 'gen') return false;
+            return it.label.toLowerCase().indexOf(q) !== -1;
+        }).slice(0, 12);
+    }
+
+    function hide() { pop.style.display = 'none'; field = null; }
+
+    function render() {
+        pop.innerHTML = '';
+        items.forEach(function (it, i) {
+            var row = document.createElement('div'); row.className = 'vc-item' + (i === sel ? ' sel' : '');
+            var g = document.createElement('span'); g.className = 'vc-grp'; g.textContent = it.group === 'gen' ? 'ƒ' : 'var';
+            var t = document.createElement('span'); t.className = 'vc-tok'; t.textContent = it.token;
+            var d = document.createElement('span'); d.className = 'vc-desc'; d.textContent = it.desc || '';
+            row.appendChild(g); row.appendChild(t); row.appendChild(d);
+            row.addEventListener('mousedown', function (e) { e.preventDefault(); choose(i); });
+            pop.appendChild(row);
+        });
+    }
+
+    function position() {
+        var r = field.getBoundingClientRect();
+        pop.style.left = (r.left + window.scrollX) + 'px';
+        pop.style.top = (r.bottom + window.scrollY + 2) + 'px';
+        pop.style.minWidth = Math.max(240, r.width) + 'px';
+    }
+
+    function choose(i) {
+        var it = items[i]; if (!it || !field) return;
+        var pos = field.selectionStart, v = field.value;
+        field.value = v.slice(0, start) + it.token + v.slice(pos);
+        var caret = start + it.token.length;
+        hide(); field.focus(); field.setSelectionRange(caret, caret);
+        field.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    root.addEventListener('input', function (e) {
+        if (!editable(e.target) || e.target.id === 'reqSearch') return;
+        var t = trigger(e.target);
+        if (!t) { hide(); return; }
+        items = suggest(t.frag);
+        if (!items.length) { hide(); return; }
+        field = e.target; start = t.open; sel = 0; render(); position(); pop.style.display = 'block';
+    });
+
+    root.addEventListener('keydown', function (e) {
+        if (pop.style.display !== 'block' || field !== e.target) return;
+        if (e.key === 'ArrowDown') { e.preventDefault(); sel = (sel + 1) % items.length; render(); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); sel = (sel - 1 + items.length) % items.length; render(); }
+        else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); choose(sel); }
+        else if (e.key === 'Escape') { hide(); }
+    }, true);
+
+    document.addEventListener('mousedown', function (e) { if (field && e.target !== field && !pop.contains(e.target)) hide(); });
+    window.addEventListener('scroll', function () { if (field) position(); }, true);
+})();
+</script>
+{% endverbatim %}
