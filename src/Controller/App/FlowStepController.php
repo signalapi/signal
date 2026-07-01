@@ -10,7 +10,9 @@ use App\Repository\ApiRequestRepository;
 use App\Repository\DbConnectionRepository;
 use App\Repository\FlowStepRepository;
 use App\Service\FlowExpressionParser;
+use App\Service\RequestRunner;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
+use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -217,6 +219,64 @@ class FlowStepController extends AbstractAppController
             'extractions_text' => $parser->renderExtractions($step->getExtractions()),
             'assertions_text' => $parser->renderAssertions($step->getAssertions()),
             'connections' => $connections->findByWorkspace($workspace),
+        ]);
+    }
+
+    /**
+     * Runs this step live and returns the real response as JSON, so the rule
+     * builder can render it as a clickable tree — the tester picks a field
+     * instead of typing a path. Uses the flow's default environment plus the
+     * variables extracted by the most recent run (so mid-flow steps that need
+     * a token from an earlier step still get a usable response).
+     */
+    #[Route('/{step}/probe', name: 'app_flow_step_probe', methods: ['POST'])]
+    public function probe(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        #[MapEntity(mapping: ['step' => 'id'])] FlowStep $step,
+        Request $httpRequest,
+        RequestRunner $runner,
+        \App\Service\Db\DbQueryRunner $dbQuery,
+        \App\Repository\FlowRunRepository $runs,
+    ): JsonResponse {
+        $this->assertWorkspace($workspace);
+        $this->assertFlow($workspace, $flow);
+        $this->assertStep($flow, $step);
+        if (!$this->isCsrfTokenValid('edit-step' . $step->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        // Variable context: default env + latest run's extracted vars.
+        $vars = null !== $flow->getDefaultEnvironment() ? $flow->getDefaultEnvironment()->toMap() : [];
+        $recent = $runs->recentForFlow($flow, 1);
+        if (isset($recent[0])) {
+            foreach ($recent[0]->getStepResults() as $sr) {
+                foreach ($sr->getExtractedVars() as $k => $v) {
+                    $vars[(string) $k] = \is_scalar($v) ? (string) $v : (string) json_encode($v);
+                }
+            }
+        }
+
+        if ($step->isDb()) {
+            if (null === $step->getDbConnection()) {
+                return new JsonResponse(['ok' => false, 'error' => 'Bağlantı seçili değil.']);
+            }
+            $r = $dbQuery->run($step->getDbConnection(), $step->getQuery(), $vars);
+
+            return new JsonResponse(['ok' => $r->ok, 'kind' => 'db', 'json' => $r->ok ? $r->data : null, 'error' => $r->error]);
+        }
+
+        $result = $runner->send($step->toTransientRequest(), $vars, $workspace);
+        $parsed = null;
+        if (null !== $result->body && '' !== $result->body) {
+            $decoded = json_decode($result->body, true);
+            $parsed = \JSON_ERROR_NONE === json_last_error() ? $decoded : null;
+        }
+
+        return new JsonResponse([
+            'ok' => $result->ok, 'kind' => 'http', 'status' => $result->statusCode,
+            'json' => $parsed, 'rawBody' => null === $result->body ? null : mb_substr($result->body, 0, 20000),
+            'error' => $result->error,
         ]);
     }
 

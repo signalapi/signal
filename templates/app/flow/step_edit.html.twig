@@ -103,16 +103,46 @@
     {% endif %}
 
     {% if not step.isSetvar and not step.isDelay %}
-    <div class="grid2">
-        <div class="field">
-            <label>Extraction'lar (her satır <code>değişken = path</code>)</label>
-            <textarea name="extractions" rows="6" style="font-family:var(--font-mono);" placeholder="{{ step.isDb ? 'status = rows.0.status' : 'token = data.access_token' }}">{{ extractions_text }}</textarea>
-            <p class="fhint">{% if step.isDb %}SQL: <code>rows.0.kolon</code>, <code>rowCount</code> · Redis: <code>value</code> · Mongo: <code>documents.0.alan</code>, <code>count</code>{% else %}Yanıt JSON'ından; sonraki adımlarda <code>{{ '{{değişken}}' }}</code>.{% endif %}</p>
+    <div class="fgroup" id="ruleBuilder"
+         data-probe="{{ path('app_flow_step_probe', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"
+         data-isdb="{{ step.isDb ? '1' : '0' }}">
+        <script type="application/json" id="seedAssert">{{ step.assertions|json_encode|raw }}</script>
+        <script type="application/json" id="seedExt">{{ step.extractions|json_encode|raw }}</script>
+
+        <div class="fgroup-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <span>Doğrulama kuralları</span>
+            <button type="button" class="btn ghost small" id="probeBtn">↧ Yanıttan seç</button>
         </div>
-        <div class="field">
-            <label>Assertion'lar (her satır bir kural)</label>
-            <textarea name="assertions" rows="6" style="font-family:var(--font-mono);" placeholder="{{ step.isDb ? 'rowCount == 1&#10;rows.0.status == active' : 'status == 200&#10;data.user.id exists' }}">{{ assertions_text }}</textarea>
-            <p class="fhint">Operatörler: <code>== != &gt; &lt; &gt;= &lt;= contains matches exists empty notEmpty</code><br>{% if step.isDb %}örn: <code>rowCount &gt;= 1</code>, <code>rows.0.status == active</code>{% else %}örn: <code>status == 200</code>, <code>responseTime &lt; 800</code>, <code>data.id matches ^[0-9]+$</code>{% endif %}</p>
+        <p class="fhint" style="margin:0 0 12px;">Her kural, dönen yanıtın bir alanını beklediğin değerle karşılaştırır. <b>Yanıttan seç</b>'e basıp alanı tıkla — path yazmana gerek yok.</p>
+
+        <div id="treePanel" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
+            <div id="treeStatus" style="font-size:12.5px;color:var(--muted);margin-bottom:8px;"></div>
+            <div id="tree" style="font-family:var(--font-mono);font-size:12.5px;line-height:1.7;max-height:280px;overflow:auto;"></div>
+        </div>
+
+        <div id="ruleRows"></div>
+        <button type="button" class="btn ghost small" id="addRule">+ kural</button>
+
+        <div class="fgroup-title" style="margin-top:20px;">Değer aktarımı</div>
+        <p class="fhint" style="margin:0 0 10px;">Bu yanıttan bir alanı bir değişkene al; sonraki adımlarda <code>{{ '{{değişken}}' }}</code> olarak kullan.</p>
+        <div id="extRows"></div>
+        <button type="button" class="btn ghost small" id="addExt">+ aktarım</button>
+
+        <div style="margin-top:16px;">
+            <a href="#" id="advToggle" class="fhint" style="text-decoration:underline;cursor:pointer;">⚙ Gelişmiş — metin olarak düzenle</a>
+        </div>
+        <div id="advBox" style="display:none;margin-top:10px;">
+            <div class="grid2">
+                <div class="field">
+                    <label>Extraction'lar (<code>değişken = path</code>)</label>
+                    <textarea name="extractions" rows="6" style="font-family:var(--font-mono);">{{ extractions_text }}</textarea>
+                </div>
+                <div class="field">
+                    <label>Assertion'lar (her satır bir kural)</label>
+                    <textarea name="assertions" rows="6" style="font-family:var(--font-mono);">{{ assertions_text }}</textarea>
+                </div>
+            </div>
+            <p class="fhint">Operatörler: <code>== != &gt; &lt; &gt;= &lt;= contains matches exists empty notEmpty</code>. Buradaki değişiklikler yukarıdaki kurucuyla senkronize olur.</p>
         </div>
     </div>
 
@@ -140,6 +170,19 @@
     .kvrow { display: flex; gap: 6px; margin-bottom: 5px; }
     .kvrow input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 7px 9px; color: var(--text); font-family: var(--font-mono); font-size: 12.5px; }
     [data-auth] { display: none; }
+    .rrow { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
+    .rrow input, .rrow select { background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 8px 9px; color: var(--text); font-size: 12.5px; }
+    .rrow .f-field { flex: 2; font-family: var(--font-mono); }
+    .rrow .f-val { flex: 1.5; font-family: var(--font-mono); }
+    .rrow select { flex: 1.2; }
+    .rrow .rm { cursor: pointer; color: var(--muted); padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: transparent; line-height: 1; }
+    .rrow .rm:hover { color: var(--danger, #e5484d); border-color: var(--danger, #e5484d); }
+    .tnode { padding-left: 14px; }
+    .tleaf { cursor: pointer; padding: 1px 6px; border-radius: 5px; display: inline-block; }
+    .tleaf:hover { background: var(--accent-soft); }
+    .tkey { color: var(--muted); } .tval { color: var(--accent); }
+    .tvar { cursor: pointer; font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; margin-left: 6px; background: transparent; }
+    .tvar:hover { color: var(--accent); border-color: var(--accent); }
 </style>
 <script>
     function addKv(containerId, prefix) {
@@ -153,5 +196,181 @@
         document.querySelectorAll('[data-auth]').forEach(function (el) { el.style.display = el.dataset.auth === t ? (el.dataset.auth === 'bearer' ? 'block' : 'flex') : 'none'; });
     }
     document.addEventListener('DOMContentLoaded', authToggle);
+
+    // ---- Response-driven rule builder ----
+    (function () {
+        var root = document.getElementById('ruleBuilder');
+        if (!root) return;
+
+        var OPS = [
+            {t: '==', tr: 'eşittir', val: true},
+            {t: '!=', tr: 'eşit değil', val: true},
+            {t: 'contains', tr: 'içerir', val: true},
+            {t: 'matches', tr: 'regex eşleşir', val: true},
+            {t: '>', tr: 'büyüktür', val: true},
+            {t: '<', tr: 'küçüktür', val: true},
+            {t: '>=', tr: 'en az (≥)', val: true},
+            {t: '<=', tr: 'en çok (≤)', val: true},
+            {t: 'exists', tr: 'var (dolu)', val: false},
+            {t: 'empty', tr: 'boş', val: false},
+            {t: 'notEmpty', tr: 'boş değil', val: false}
+        ];
+        var NAME2TOKEN = {eq:'==',ne:'!=',gt:'>',lt:'<',ge:'>=',le:'<=',contains:'contains',matches:'matches',exists:'exists',empty:'empty',notEmpty:'notEmpty'};
+        var NOVAL = {exists:1, empty:1, notEmpty:1};
+
+        var isDb = root.getAttribute('data-isdb') === '1';
+        var probeUrl = root.getAttribute('data-probe');
+        var ruleRows = document.getElementById('ruleRows');
+        var extRows = document.getElementById('extRows');
+        var taAssert = document.querySelector('#advBox textarea[name="assertions"]');
+        var taExt = document.querySelector('#advBox textarea[name="extractions"]');
+        var token = (document.querySelector('input[name="_token"]') || {}).value || '';
+
+        function opNoVal(t) { for (var i=0;i<OPS.length;i++) if (OPS[i].t===t) return !OPS[i].val; return false; }
+
+        function serialize() {
+            var aLines = [];
+            ruleRows.querySelectorAll('.rrow').forEach(function (row) {
+                var f = row.querySelector('.f-field').value.trim();
+                var op = row.querySelector('select').value;
+                var v = row.querySelector('.f-val').value.trim();
+                if (!f) return;
+                aLines.push(opNoVal(op) ? (f + ' ' + op) : (f + ' ' + op + ' ' + v));
+            });
+            var eLines = [];
+            extRows.querySelectorAll('.rrow').forEach(function (row) {
+                var vr = row.querySelector('.e-var').value.trim();
+                var f = row.querySelector('.e-field').value.trim();
+                if (vr && f) eLines.push(vr + ' = ' + f);
+            });
+            taAssert.value = aLines.join('\n');
+            taExt.value = eLines.join('\n');
+        }
+
+        function valToggle(row) {
+            var op = row.querySelector('select').value;
+            row.querySelector('.f-val').style.visibility = opNoVal(op) ? 'hidden' : 'visible';
+        }
+
+        function ruleRow(field, opToken, value) {
+            var row = document.createElement('div'); row.className = 'rrow';
+            var fi = document.createElement('input'); fi.className = 'f-field'; fi.placeholder = isDb ? 'alan (örn: rows.0.status)' : 'yanıt alanı'; fi.value = field || '';
+            var sel = document.createElement('select');
+            OPS.forEach(function (o) { var op = document.createElement('option'); op.value = o.t; op.textContent = o.tr; if (o.t === opToken) op.selected = true; sel.appendChild(op); });
+            var vi = document.createElement('input'); vi.className = 'f-val'; vi.placeholder = 'beklenen değer'; vi.value = value || '';
+            var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '×';
+            rm.onclick = function () { row.remove(); serialize(); };
+            [fi, vi].forEach(function (e) { e.addEventListener('input', serialize); });
+            sel.addEventListener('change', function () { valToggle(row); serialize(); });
+            row.appendChild(fi); row.appendChild(sel); row.appendChild(vi); row.appendChild(rm);
+            ruleRows.appendChild(row); valToggle(row);
+            return row;
+        }
+
+        function extRow(varName, field) {
+            var row = document.createElement('div'); row.className = 'rrow';
+            var vr = document.createElement('input'); vr.className = 'e-var'; vr.placeholder = 'değişken adı'; vr.value = varName || '';
+            var arrow = document.createElement('span'); arrow.textContent = '='; arrow.style.color = 'var(--muted)';
+            var fi = document.createElement('input'); fi.className = 'e-field f-field'; fi.placeholder = 'yanıt alanı'; fi.value = field || '';
+            var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '×';
+            rm.onclick = function () { row.remove(); serialize(); };
+            [vr, fi].forEach(function (e) { e.addEventListener('input', serialize); });
+            row.appendChild(vr); row.appendChild(arrow); row.appendChild(fi); row.appendChild(rm);
+            extRows.appendChild(row);
+            return row;
+        }
+
+        function structToRule(a) {
+            var field;
+            if (a.kind === 'status') field = 'status';
+            else if (a.kind === 'responseTime') field = 'responseTime';
+            else if (a.kind === 'body') field = 'body';
+            else if (a.kind === 'header') field = 'header ' + (a.name || '');
+            else field = a.path || '';
+            return {field: field, op: NAME2TOKEN[a.op] || '==', value: a.expected || ''};
+        }
+
+        // Seed from stored structures.
+        try {
+            var seedA = JSON.parse(document.getElementById('seedAssert').textContent || '[]');
+            seedA.forEach(function (a) { var r = structToRule(a); ruleRow(r.field, r.op, r.value); });
+            var seedE = JSON.parse(document.getElementById('seedExt').textContent || '[]');
+            seedE.forEach(function (e) { extRow(e.var, e.path); });
+        } catch (e) {}
+
+        document.getElementById('addRule').onclick = function () { ruleRow('', '==', ''); serialize(); };
+        document.getElementById('addExt').onclick = function () { extRow('', ''); serialize(); };
+        document.getElementById('advToggle').onclick = function (ev) {
+            ev.preventDefault();
+            var box = document.getElementById('advBox');
+            box.style.display = box.style.display === 'none' ? 'block' : 'none';
+        };
+
+        // ---- probe + tree ----
+        function preview(v) {
+            if (v === null) return 'null';
+            if (typeof v === 'string') return '"' + (v.length > 40 ? v.slice(0, 40) + '…' : v) + '"';
+            return String(v);
+        }
+        function leaf(path, key, value) {
+            var wrap = document.createElement('div');
+            var span = document.createElement('span'); span.className = 'tleaf';
+            var k = document.createElement('span'); k.className = 'tkey'; k.textContent = key + ': ';
+            var val = document.createElement('span'); val.className = 'tval'; val.textContent = preview(value);
+            span.appendChild(k); span.appendChild(val);
+            span.title = 'Bu alan için kural ekle: ' + path;
+            span.onclick = function () { addRuleFromPath(path, value); };
+            var vb = document.createElement('button'); vb.type = 'button'; vb.className = 'tvar'; vb.textContent = '⇒ değişken';
+            vb.title = 'Bu alanı bir değişkene al';
+            vb.onclick = function () { addExtFromPath(path); };
+            wrap.appendChild(span); wrap.appendChild(vb);
+            return wrap;
+        }
+        function renderNode(container, obj, prefix) {
+            if (obj === null || typeof obj !== 'object') { container.appendChild(leaf(prefix || '$', prefix || 'değer', obj)); return; }
+            Object.keys(obj).forEach(function (key) {
+                var path = prefix ? (prefix + '.' + key) : key;
+                var v = obj[key];
+                if (v !== null && typeof v === 'object') {
+                    var head = document.createElement('div'); head.className = 'tkey'; head.textContent = key + (Array.isArray(v) ? ' [' + v.length + ']' : ' {}');
+                    container.appendChild(head);
+                    var child = document.createElement('div'); child.className = 'tnode';
+                    renderNode(child, v, path); container.appendChild(child);
+                } else {
+                    container.appendChild(leaf(path, key, v));
+                }
+            });
+        }
+        function addRuleFromPath(path, value) {
+            var v = (value !== null && typeof value !== 'object') ? String(value) : '';
+            var r = ruleRow(path, '==', v); serialize();
+            r.scrollIntoView({block: 'nearest'}); r.querySelector('.f-val').focus();
+        }
+        function addExtFromPath(path) {
+            var suggested = path.split('.').pop().replace(/[^a-zA-Z0-9_]/g, '');
+            var r = extRow(suggested, path); serialize();
+            r.scrollIntoView({block: 'nearest'});
+        }
+
+        var panel = document.getElementById('treePanel');
+        var treeEl = document.getElementById('tree');
+        var statusEl = document.getElementById('treeStatus');
+        document.getElementById('probeBtn').onclick = function () {
+            panel.style.display = 'block';
+            statusEl.textContent = 'Yanıt çekiliyor…'; treeEl.innerHTML = '';
+            var fd = new FormData(); fd.append('_token', token);
+            fetch(probeUrl, {method: 'POST', body: fd, headers: {'X-Requested-With': 'fetch'}})
+                .then(function (r) { return r.json(); })
+                .then(function (d) {
+                    if (!d.ok && d.error) { statusEl.textContent = 'Hata: ' + d.error + (d.status ? ' (HTTP ' + d.status + ')' : ''); }
+                    else { statusEl.textContent = (d.kind === 'db' ? 'DB sonucu' : 'HTTP ' + (d.status || '')) + ' — bir alana tıkla: kural · “⇒ değişken”: aktarım'; }
+                    if (d.json !== null && d.json !== undefined) { renderNode(treeEl, d.json, ''); }
+                    else if (d.rawBody) { var pre = document.createElement('div'); pre.style.whiteSpace = 'pre-wrap'; pre.textContent = d.rawBody; treeEl.appendChild(pre); statusEl.textContent += ' (JSON değil — path elle girilmeli)'; }
+                })
+                .catch(function () { statusEl.textContent = 'İstek başarısız.'; });
+        };
+
+        serialize();
+    })();
 </script>
 {% endblock %}
