@@ -29,10 +29,13 @@ class DataFactoryController extends AbstractAppController
             $samples[(string) $f->getId()] = $gen->generate('$' . $f->getName());
         }
 
+        $gen->setFactories([]); // built-in samples shouldn't see factory state
+
         return $this->render('app/data_factory/index.html.twig', [
             'workspace' => $workspace,
             'factories' => $factories->findByWorkspace($workspace),
             'samples' => $samples,
+            'builtins' => $gen->builtins(),
         ]);
     }
 

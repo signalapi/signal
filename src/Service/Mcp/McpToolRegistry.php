@@ -75,7 +75,7 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'list_db_connections', 'description' => 'Veritabanı bağlantılarını listeler (kimlik bilgisi dönmez).',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'list_data_factories', 'description' => 'Workspace\'in veri fabrikalarını (yönetilebilir {{$üreteç}}\'ler) listeler; her biri için birer örnek değer.',
+            ['name' => 'list_data_factories', 'description' => 'Workspace\'in veri fabrikalarını (yönetilebilir {{$üreteç}}\'ler) VE yerleşik {{$guid}}/{{$randomEmail}}… üreteçlerini örnek değerleriyle listeler.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'create_data_factory', 'description' => 'Yeni bir veri fabrikası oluşturur — {{$name}} ile kullanılır, her seferinde taze değer. kind: oneOf {values:[...]} · template {template:"...{{$guid}}..."} · intRange {min,max} · pattern {pattern:"#### #### #### ####"} (#=rakam A=A-Z a=a-z *=harf+rakam).',
                 'inputSchema' => ['type' => 'object', 'required' => ['name', 'kind', 'config'], 'properties' => [
@@ -1096,8 +1096,9 @@ class McpToolRegistry
                 'sample' => $this->dynamic->generate('$' . $f->getName()),
             ];
         }
+        $this->dynamic->setFactories([]);
 
-        return ['dataFactories' => $out];
+        return ['dataFactories' => $out, 'builtins' => $this->dynamic->builtins()];
     }
 
     private function createDataFactory(Workspace $ws, array $args): array

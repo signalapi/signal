@@ -50,4 +50,38 @@
     {% endfor %}
 </div>
 {% endif %}
+
+{# ---- built-in generators (read-only reference) ---- #}
+<div class="section-title" style="font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:34px 0 4px;">Yerleşik üreteçler</div>
+<p class="subtitle" style="font-size:12px;margin:0 0 14px;">Hazır gelir, tanımlamana gerek yok. Token'a tıkla → kopyalanır.</p>
+<div class="bi-grid">
+    {% for b in builtins %}
+        <button type="button" class="bi-card" data-copy="{{ b.token }}" title="Kopyala">
+            <code class="bi-tok">{{ b.token }}</code>
+            <span class="bi-desc">{{ b.description }}</span>
+            <span class="bi-sample">{{ b.sample }}</span>
+        </button>
+    {% endfor %}
+</div>
+
+<style>
+    .bi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+    .bi-card { text-align: left; cursor: pointer; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+        padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font: inherit; transition: border-color .12s, background .12s; }
+    .bi-card:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .bi-tok { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); font-weight: 600; }
+    .bi-desc { font-size: 11.5px; color: var(--muted); }
+    .bi-sample { font-family: var(--font-mono); font-size: 11px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bi-card.copied { border-color: var(--pass); }
+</style>
+<script>
+    document.querySelectorAll('.bi-card').forEach(function (c) {
+        c.addEventListener('click', function () {
+            var t = c.dataset.copy;
+            (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {
+                c.classList.add('copied'); setTimeout(function () { c.classList.remove('copied'); }, 700);
+            }).catch(function () {});
+        });
+    });
+</script>
 {% endblock %}

@@ -16,6 +16,30 @@ class DynamicVariableGenerator
     private const COMPANIES = ['Acme', 'Globex', 'Initech', 'Umbrella', 'Hooli', 'Soylent', 'Vehement', 'Massive Dynamic'];
     private const COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'cyan', 'magenta', 'orange'];
 
+    /** Discoverable catalog: primary token name → short description (TR). */
+    public const BUILTINS = [
+        'guid' => 'UUID (v4)',
+        'timestamp' => 'Unix zaman damgası',
+        'isoTimestamp' => 'ISO 8601 zaman (UTC)',
+        'isoDate' => 'ISO tarih (YYYY-MM-DD)',
+        'randomInt' => 'Rastgele tam sayı (0–1000)',
+        'randomPrice' => 'Rastgele fiyat (0.00)',
+        'randomBoolean' => 'true / false',
+        'randomEmail' => 'Rastgele e-posta',
+        'randomUserName' => 'Rastgele kullanıcı adı',
+        'randomFirstName' => 'Rastgele ad',
+        'randomLastName' => 'Rastgele soyad',
+        'randomFullName' => 'Rastgele ad soyad',
+        'randomPhoneNumber' => 'Rastgele telefon',
+        'randomCompanyName' => 'Rastgele şirket',
+        'randomCity' => 'Rastgele şehir',
+        'randomCountry' => 'Rastgele ülke',
+        'randomColor' => 'Rastgele renk',
+        'randomWord' => 'Rastgele kelime',
+        'randomWords' => 'Rastgele kelimeler (3)',
+        'randomIP' => 'Rastgele IPv4',
+    ];
+
     /**
      * Returns the generated value, or null if the name is not a known dynamic variable.
      */
@@ -37,6 +61,26 @@ class DynamicVariableGenerator
     public function setFactories(array $factories): void
     {
         $this->factories = $factories;
+    }
+
+    /**
+     * The discoverable built-in catalog with a fresh sample value for each.
+     *
+     * @return array<int, array{name: string, token: string, description: string, sample: string}>
+     */
+    public function builtins(): array
+    {
+        $out = [];
+        foreach (self::BUILTINS as $name => $desc) {
+            $out[] = [
+                'name' => $name,
+                'token' => '{{$' . $name . '}}',
+                'description' => $desc,
+                'sample' => (string) $this->builtin($name),
+            ];
+        }
+
+        return $out;
     }
 
     public function generate(string $name): ?string
