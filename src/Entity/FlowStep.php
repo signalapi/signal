@@ -91,6 +91,17 @@ class FlowStep
     #[ORM\Column(type: Types::JSON)]
     private array $assertions = [];
 
+    /**
+     * Optional run-if guard: {left, op, right}. Evaluated against the run
+     * context before the step executes; if it fails, the step is skipped
+     * (not failed). null = always run. Enables branching, e.g. call a
+     * provider-specific sub-flow only when {{provider}} == Yuno.
+     *
+     * @var array{left: string, op: string, right: string}|null
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $condition = null;
+
     /** Node position on the visual flow canvas. */
     #[ORM\Column(options: ['default' => 0])]
     private int $canvasX = 0;
@@ -255,6 +266,25 @@ class FlowStep
     public function isCall(): bool
     {
         return self::TYPE_CALL === $this->type;
+    }
+
+    /** @return array{left: string, op: string, right: string}|null */
+    public function getCondition(): ?array
+    {
+        return $this->condition;
+    }
+
+    /** @param array{left: string, op: string, right: string}|null $condition */
+    public function setCondition(?array $condition): static
+    {
+        $this->condition = $condition;
+
+        return $this;
+    }
+
+    public function hasCondition(): bool
+    {
+        return null !== $this->condition && '' !== trim((string) ($this->condition['left'] ?? ''));
     }
 
     public function getCalledFlow(): ?TestFlow

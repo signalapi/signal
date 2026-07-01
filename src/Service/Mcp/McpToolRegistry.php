@@ -101,12 +101,15 @@ class McpToolRegistry
                     'environmentName' => ['type' => 'string', 'description' => 'Varsayılan environment adı'],
                     'stopOnFailure' => ['type' => 'boolean'],
                 ]]],
-            ['name' => 'update_step', 'description' => 'Bir adımı günceller: ad değiştirme (rename) ve DB adımı için query/connection. HTTP isteğini düzenlemek için set_step_request kullanın.',
+            ['name' => 'update_step', 'description' => 'Bir adımı günceller: ad, DB adımı için query/connection, ve KOŞUL (run-if). condition: {left, op, right} verilirse adım yalnızca koşul sağlanınca çalışır (dallanma); null verilirse koşul kalkar. op: eq/ne/contains/matches/gt/lt/ge/le/exists/empty/notEmpty. HTTP isteğini düzenlemek için set_step_request kullanın.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
                     'stepId' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
                     'query' => ['type' => 'string', 'description' => 'Yalnızca DB adımı: {{değişken}} destekler'],
                     'connection' => ['type' => 'string', 'description' => 'Yalnızca DB adımı: bağlantı adı veya id'],
+                    'condition' => ['type' => ['object', 'null'], 'description' => '{left, op, right} — örn {"left":"{{provider}}","op":"eq","right":"Yuno"}. null = koşulu kaldır.', 'properties' => [
+                        'left' => ['type' => 'string'], 'op' => ['type' => 'string'], 'right' => ['type' => 'string'],
+                    ]],
                 ]]],
             ['name' => 'add_http_step', 'description' => 'Akışa bir HTTP isteği adımı ekler. extractions: ["var = json.path"], assertions: ["status == 200", "data.id exists"].',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'requestId'], 'properties' => [
@@ -420,9 +423,34 @@ class McpToolRegistry
                 $step->setDbConnection($this->findConnection($ws, (string) $args['connection']));
             }
         }
+        if (\array_key_exists('condition', $args)) {
+            $step->setCondition($this->normalizeCondition($args['condition']));
+        }
         $this->steps->save($step);
 
-        return ['ok' => true, 'stepId' => (string) $step->getId(), 'name' => $step->getName()];
+        return ['ok' => true, 'stepId' => (string) $step->getId(), 'name' => $step->getName(), 'condition' => $step->getCondition()];
+    }
+
+    /**
+     * @return array{left: string, op: string, right: string}|null
+     */
+    private function normalizeCondition(mixed $c): ?array
+    {
+        if (!\is_array($c)) {
+            return null;
+        }
+        $left = trim((string) ($c['left'] ?? ''));
+        if ('' === $left) {
+            return null;
+        }
+        $op = (string) ($c['op'] ?? 'eq');
+        $allowed = ['eq', 'ne', 'contains', 'matches', 'gt', 'lt', 'ge', 'le', 'exists', 'empty', 'notEmpty'];
+
+        return [
+            'left' => $left,
+            'op' => \in_array($op, $allowed, true) ? $op : 'eq',
+            'right' => (string) ($c['right'] ?? ''),
+        ];
     }
 
     private function addHttpStep(Workspace $ws, array $args): array
@@ -705,12 +733,18 @@ class McpToolRegistry
             } else {
                 $entry['query'] = $s->getQuery();
             }
-            if (!$s->isSetvar() && !$s->isDelay()) {
+            if ($s->isCall()) {
+                $entry['calls'] = $s->getCalledFlow()?->getName();
+            }
+            if (!$s->isSetvar() && !$s->isDelay() && !$s->isCall()) {
                 $entry['extractions'] = $s->getExtractions();
                 $entry['assertions'] = $s->getAssertions();
                 if ($s->isRetryEnabled()) {
                     $entry['retry'] = ['max' => $s->getRetryMax(), 'delayMs' => $s->getRetryDelayMs()];
                 }
+            }
+            if ($s->hasCondition()) {
+                $entry['condition'] = $s->getCondition();
             }
             $steps[] = $entry;
         }

@@ -26,6 +26,21 @@
         <input type="text" name="name" value="{{ step.name }}">
     </div>
 
+    {# ---- run-if condition (all step types) ---- #}
+    {% set cond = step.condition %}
+    {% set condOps = {'eq':'eşittir','ne':'eşit değil','contains':'içerir','matches':'regex eşleşir','gt':'büyüktür','lt':'küçüktür','ge':'en az (≥)','le':'en çok (≤)','exists':'var (dolu)','empty':'boş','notEmpty':'boş değil'} %}
+    <div class="fgroup" style="max-width:640px;">
+        <div class="fgroup-title">Koşul <span style="font-weight:400;color:var(--muted);">· opsiyonel</span></div>
+        <p class="fhint" style="margin:0 0 10px;">Bu adım yalnızca koşul sağlanırsa çalışır; sağlanmazsa atlanır (hata sayılmaz). Örn: <code>{{ '{{provider}}' }}</code> içerir <code>Yuno</code>. Boş bırakırsan her zaman çalışır.</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <input type="text" name="cond_left" value="{{ cond.left ?? '' }}" placeholder="{{ '{{değişken}}' }}" style="flex:1.4;min-width:150px;font-family:var(--font-mono);">
+            <select name="cond_op" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);">
+                {% for val, lbl in condOps %}<option value="{{ val }}" {{ (cond.op ?? 'eq') == val ? 'selected' }}>{{ lbl }}</option>{% endfor %}
+            </select>
+            <input type="text" name="cond_right" value="{{ cond.right ?? '' }}" placeholder="değer" style="flex:1;min-width:110px;font-family:var(--font-mono);">
+        </div>
+    </div>
+
     {% if step.isDelay %}
         <div class="fgroup" style="max-width:380px;">
             <div class="fgroup-title">Bekleme</div>

@@ -223,6 +223,9 @@
                                 {% elseif step.isDb %}{% if step.dbConnection %}{{ step.dbConnection.type }} · {{ (step.query ?: '(sorgu yok)')|slice(0, 80) }}{% else %}<span style="color:var(--danger);">bağlantı silinmiş</span>{% endif %}
                                 {% else %}{{ step.reqMethod }} {{ step.reqUrl ?: '(URL boş)' }}{% endif %}
                             </div>
+                            {% if step.hasCondition %}
+                            <div class="rt-sub" style="color:var(--accent);">⤷ yalnızca: <code>{{ step.condition.left }} {{ step.condition.op }} {{ step.condition.right }}</code></div>
+                            {% endif %}
                             {% if not step.isDelay and not step.isSetvar and not step.isCall %}
                             <div class="rt-sub">
                                 {{ step.extractions|length }} extraction · {{ step.assertions|length }} assertion{% if step.retryEnabled %} · <span class="retry">↻ {{ step.retryMax }}× / {{ step.retryDelayMs }}ms</span>{% endif %}

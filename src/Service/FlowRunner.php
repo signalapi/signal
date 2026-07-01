@@ -99,16 +99,19 @@ class FlowRunner
         // Expand call steps so progress/total reflect the sub-flow steps that actually run.
         $run->setTotalSteps($this->countExpanded($flow, []));
 
-        $state = ['position' => 0, 'passed' => 0, 'stopped' => false, 'sawError' => false, 'cancelled' => false];
+        $state = ['position' => 0, 'passed' => 0, 'stopped' => false, 'sawError' => false, 'failed' => false, 'cancelled' => false];
         $this->executeSteps($run, $flow, $context, $state, [], $flow->isStopOnFailure());
 
         $run->setPassedSteps($state['passed']);
+        // Total = steps actually emitted (condition-skipped calls collapse to 1),
+        // so "N/total" stays truthful even with branching.
+        $run->setTotalSteps($state['position']);
         $run->setFinishedAt(new \DateTimeImmutable());
         $run->setStatus(match (true) {
             $state['cancelled'] => FlowRun::STATUS_CANCELLED,
             $state['sawError'] => FlowRun::STATUS_ERROR,
-            $state['passed'] === $run->getTotalSteps() => FlowRun::STATUS_PASSED,
-            default => FlowRun::STATUS_FAILED,
+            $state['failed'] => FlowRun::STATUS_FAILED,
+            default => FlowRun::STATUS_PASSED,
         });
         $this->em->flush();
 
@@ -132,6 +135,18 @@ class FlowRunner
             if (!$state['stopped'] && $this->cancelRequested($run)) {
                 $state['cancelled'] = true;
                 $state['stopped'] = true;
+            }
+
+            // Run-if guard: an unmet condition skips the step (call included) — not a failure.
+            if (!$state['stopped'] && $step->hasCondition() && !$this->conditionMet($step, $context)) {
+                $result = new StepResult();
+                $result->setPosition($state['position']++);
+                $result->setLabel($labelPrefix . $step->getName());
+                $result->setStatus(StepResult::STATUS_SKIPPED);
+                $result->setError('Koşul sağlanmadı — adım atlandı.');
+                $run->addStepResult($result);
+                $this->em->flush();
+                continue;
             }
 
             if ($step->isCall()) {
@@ -185,6 +200,8 @@ class FlowRunner
             } else {
                 if (StepResult::STATUS_ERROR === $outcome) {
                     $state['sawError'] = true;
+                } else {
+                    $state['failed'] = true;
                 }
                 $state['stopped'] = $stopOnFailure;
             }
@@ -192,6 +209,24 @@ class FlowRunner
             $run->setPassedSteps($state['passed']);
             $this->em->flush();
         }
+    }
+
+    /**
+     * Evaluates a step's run-if condition against the current context.
+     *
+     * @param array<string, string> $context
+     */
+    private function conditionMet(FlowStep $step, array $context): bool
+    {
+        $c = $step->getCondition();
+        if (null === $c || '' === trim((string) ($c['left'] ?? ''))) {
+            return true;
+        }
+        $left = $this->resolver->resolve((string) $c['left'], $context) ?? '';
+        // An unresolved {{placeholder}} counts as "not found".
+        $found = '' !== $left && !str_contains($left, '{{');
+
+        return $this->applyOp((string) ($c['op'] ?? 'eq'), $found, $left, (string) ($c['right'] ?? ''));
     }
 
     /**

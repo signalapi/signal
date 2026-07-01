@@ -268,6 +268,20 @@ class FlowStepController extends AbstractAppController
     {
         $step->setName(trim((string) $r->request->get('name')) ?: $step->getName());
 
+        // Run-if condition (all step types).
+        $condLeft = trim((string) $r->request->get('cond_left'));
+        if ('' === $condLeft) {
+            $step->setCondition(null);
+        } else {
+            $op = (string) $r->request->get('cond_op', 'eq');
+            $allowed = ['eq', 'ne', 'contains', 'matches', 'gt', 'lt', 'ge', 'le', 'exists', 'empty', 'notEmpty'];
+            $step->setCondition([
+                'left' => $condLeft,
+                'op' => \in_array($op, $allowed, true) ? $op : 'eq',
+                'right' => (string) $r->request->get('cond_right', ''),
+            ]);
+        }
+
         if ($step->isCall()) {
             // A call step delegates everything to the referenced flow; only the target matters.
             $calledId = (string) $r->request->get('calledFlow');
