@@ -240,8 +240,11 @@
             </div>
             {% endif %}
 
+            {# live execution trace — built from run status (handles sub-flows/loops) #}
+            <div class="runtrack" id="liveTrack" style="display:none;"></div>
+
             {# add control — opens the step-type chooser page #}
-            <div class="rt-add">
+            <div class="rt-add" id="addControl">
                 <div class="rt-rail"><div class="plus">+</div></div>
                 <div class="rt-add-body">
                     <a class="btn addstep-btn" href="{{ path('app_flow_step_new', {workspace: workspace.id, flow: flow.id}) }}">+ Adım ekle</a>
@@ -380,40 +383,57 @@
     var count = document.getElementById('lbCount'), detail = document.getElementById('lbDetail');
     var cancelBtn = document.getElementById('lbCancel');
     var GLYPH = { passed: '✓', failed: '✗', error: '✗', skipped: '–', running: '' };
+    var staticTrack = document.getElementById('runtrack');
+    var liveTrack = document.getElementById('liveTrack');
+    var addControl = document.getElementById('addControl');
+    var total = staticTrack ? staticTrack.querySelectorAll('.rt-node').length : 0;
 
-    function resetNodes() {
-        document.querySelectorAll('.rt-node').forEach(function (n) {
-            n.className = 'rt-node';
-            n.textContent = n.dataset.idx;
+    // Switch the left column from the authored (static) list to a live trace,
+    // which is rebuilt each poll from the run's step results — so sub-flow and
+    // loop iterations (expanded positions) all show, with their real labels.
+    function enterLiveMode() {
+        if (staticTrack) staticTrack.style.display = 'none';
+        if (addControl) addControl.style.display = 'none';
+        liveTrack.style.display = '';
+        liveTrack.innerHTML = '';
+    }
+
+    function badgeInfo(method) {
+        var m = (method || '').toString();
+        return { label: m || '·', cls: 'm-' + m.toLowerCase() };
+    }
+
+    function renderLive(steps) {
+        liveTrack.innerHTML = '';
+        steps.forEach(function (s, i) {
+            var st = s.status;
+            var row = document.createElement('div'); row.className = 'rt-row';
+            if (st === 'passed') row.classList.add('is-done');
+            if (st === 'failed' || st === 'error') row.classList.add('is-fail');
+
+            var rail = document.createElement('div'); rail.className = 'rt-rail';
+            var node = document.createElement('div'); node.className = 'rt-node st-' + st;
+            var g = GLYPH[st];
+            node.textContent = (g === '' || g === undefined) ? (i + 1) : g;
+            rail.appendChild(node);
+
+            var card = document.createElement('div'); card.className = 'rt-card st-' + st;
+            var head = document.createElement('div'); head.className = 'rt-chead';
+            var b = badgeInfo(s.method);
+            var badge = document.createElement('span'); badge.className = 'rt-badge ' + b.cls; badge.textContent = b.label;
+            var name = document.createElement('span'); name.className = 'rt-name'; name.textContent = s.label || '';
+            var live = document.createElement('span'); live.className = 'rt-live';
+            if (st === 'passed' && s.responseStatus) { live.textContent = s.responseStatus + ' · ' + (s.durationMs || 0) + 'ms'; live.style.color = 'var(--pass)'; }
+            else if (st === 'failed' || st === 'error') { live.textContent = (s.responseStatus || 'hata'); live.style.color = 'var(--fail)'; }
+            else if (st === 'running') { live.textContent = '● çalışıyor'; live.style.color = 'var(--accent)'; }
+            else if (st === 'skipped') { live.textContent = 'atlandı'; live.style.color = 'var(--muted)'; }
+            head.appendChild(badge); head.appendChild(name); head.appendChild(live);
+            card.appendChild(head);
+
+            row.appendChild(rail); row.appendChild(card);
+            liveTrack.appendChild(row);
         });
-        document.querySelectorAll('.rt-card').forEach(function (c) { c.className = 'rt-card'; });
-        document.querySelectorAll('.rt-row').forEach(function (r) { r.classList.remove('is-done', 'is-fail'); });
-        document.querySelectorAll('.rt-live').forEach(function (l) { l.textContent = ''; l.style.color = ''; });
     }
-
-    function paintStep(s) {
-        var node = document.querySelector('.rt-node[data-pos="' + s.position + '"]');
-        var card = document.querySelector('.rt-card[data-pos="' + s.position + '"]');
-        var row = document.querySelector('.rt-row[data-pos="' + s.position + '"]');
-        var live = document.querySelector('.rt-live[data-pos="' + s.position + '"]');
-        if (!node) return;
-        node.className = 'rt-node st-' + s.status;
-        if (card) card.className = 'rt-card st-' + s.status;
-        var g = GLYPH[s.status];
-        node.textContent = (g === '' || g === undefined) ? node.dataset.idx : g;
-        if (row) {
-            row.classList.toggle('is-done', s.status === 'passed');
-            row.classList.toggle('is-fail', s.status === 'failed' || s.status === 'error');
-        }
-        if (live) {
-            if (s.status === 'passed' && s.responseStatus) { live.textContent = s.responseStatus + ' · ' + (s.durationMs || 0) + 'ms'; live.style.color = 'var(--pass)'; }
-            else if (s.status === 'failed' || s.status === 'error') { live.textContent = (s.responseStatus || 'hata'); live.style.color = 'var(--fail)'; }
-            else if (s.status === 'running') { live.textContent = '● çalışıyor'; live.style.color = 'var(--accent)'; }
-            else { live.textContent = ''; }
-        }
-    }
-
-    var total = document.querySelectorAll('.rt-node').length;
 
     function setHead(state, label) {
         dot.className = 'lb-dot' + (state === 'running' ? ' run' : ' ' + state);
@@ -424,9 +444,10 @@
         fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (d) {
-                (d.steps || []).forEach(paintStep);
+                renderLive(d.steps || []);
                 var done = d.passedSteps || 0;
-                fill.style.width = (total ? Math.round((done / total) * 100) : 0) + '%';
+                total = d.totalSteps || total;
+                fill.style.width = (total ? Math.min(100, Math.round((done / total) * 100)) : 0) + '%';
                 count.textContent = done + '/' + (d.totalSteps || total) + ' adım' + (d.cancelRequested ? ' · iptal isteniyor…' : '');
                 if (d.finished) {
                     cancelBtn.hidden = true;
@@ -450,7 +471,7 @@
         if (vars) body.set('variables', vars);
 
         runBtn.disabled = true; runBtn.textContent = 'Başlatılıyor…';
-        resetNodes();
+        enterLiveMode();
         box.hidden = false; fill.className = 'lb-fill'; fill.style.width = '0';
         setHead('running', 'Çalışıyor…'); detail.hidden = true; cancelBtn.hidden = true;
         count.textContent = '0/' + total + ' adım';
