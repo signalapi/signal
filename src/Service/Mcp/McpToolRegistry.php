@@ -125,6 +125,12 @@ class McpToolRegistry
                     'extractions' => $strArray,
                     'assertions' => $strArray,
                 ]]],
+            ['name' => 'add_call_step', 'description' => 'Akışa bir ALT-AKIŞ çağrısı adımı ekler: başka bir akışın adımları bu koşumda inline, aynı değişken bağlamıyla çalışır (referans — hep güncel hâli). Döngüsel çağrılar koşumda otomatik engellenir. Tekrar eden blokları (login, abonelik başlat) bir kez kurup her akıştan çağırmak için.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'calledFlow'], 'properties' => [
+                    'flowId' => ['type' => 'string', 'description' => 'Adımın ekleneceği ana akış id\'si'],
+                    'calledFlow' => ['type' => 'string', 'description' => 'Çağrılacak alt-akışın id\'si veya adı'],
+                    'name' => ['type' => 'string'],
+                ]]],
             ['name' => 'create_flow_from_collection', 'description' => 'Bir collection\'ın isteklerinden tek seferde sıralı HTTP adımlı akış kurar. requestIds verilmezse collection\'daki tüm istekler sırasıyla eklenir; verilirse yalnızca o istekler (verilen sırayla).',
                 'inputSchema' => ['type' => 'object', 'required' => ['collectionId', 'name'], 'properties' => [
                     'collectionId' => ['type' => 'string'],
@@ -251,6 +257,7 @@ class McpToolRegistry
             'create_flow_from_collection' => $this->createFlowFromCollection($ws, $args),
             'add_http_step' => $this->addHttpStep($ws, $args),
             'add_db_step' => $this->addDbStep($ws, $args),
+            'add_call_step' => $this->addCallStep($ws, $args),
             'add_setvar_step' => $this->addSetvarStep($ws, $args),
             'add_delay_step' => $this->addDelayStep($ws, $args),
             'get_flow' => $this->getFlow($ws, $args),
@@ -457,6 +464,25 @@ class McpToolRegistry
         $this->steps->save($step);
 
         return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition()];
+    }
+
+    private function addCallStep(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $called = $this->resolveFlow($ws, (string) ($args['calledFlow'] ?? ''));
+        if ($called->getId()?->toRfc4122() === $flow->getId()?->toRfc4122()) {
+            throw new \InvalidArgumentException('Bir akış kendini çağıramaz.');
+        }
+
+        $step = new FlowStep();
+        $step->setFlow($flow);
+        $step->setType(FlowStep::TYPE_CALL);
+        $step->setCalledFlow($called);
+        $step->setName(trim((string) ($args['name'] ?? '')) ?: '↳ ' . $called->getName());
+        $step->setPosition($this->nextPosition($flow));
+        $this->steps->save($step);
+
+        return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition(), 'calls' => $called->getName()];
     }
 
     private function runFlow(Workspace $ws, array $args): array
@@ -1158,6 +1184,29 @@ class McpToolRegistry
         }
 
         return $flow;
+    }
+
+    /**
+     * Resolves a flow by id or (case-insensitive) name, scoped to the workspace.
+     */
+    private function resolveFlow(Workspace $ws, string $ref): TestFlow
+    {
+        $ref = trim($ref);
+        if ('' === $ref) {
+            throw new \InvalidArgumentException('calledFlow zorunlu.');
+        }
+        if (Uuid::isValid($ref)) {
+            $flow = $this->flows->find($ref);
+            if (null !== $flow && $flow->getWorkspace()->getId()?->toRfc4122() === $ws->getId()?->toRfc4122()) {
+                return $flow;
+            }
+        }
+        foreach ($this->flows->findByWorkspace($ws) as $f) {
+            if (0 === strcasecmp($f->getName(), $ref)) {
+                return $f;
+            }
+        }
+        throw new \InvalidArgumentException('Çağrılacak akış bulunamadı: ' . $ref);
     }
 
     private function findEnvironmentByName(Workspace $ws, string $name): ?Environment
