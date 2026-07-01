@@ -21,6 +21,7 @@ use App\Repository\FlowStepRepository;
 use App\Repository\TestFlowRepository;
 use App\Service\Db\DbQueryRunner;
 use App\Service\FlowExpressionParser;
+use App\Service\FlowVariableScanner;
 use App\Service\FlowRunner;
 use App\Service\FlowRunReporter;
 use Symfony\Component\Messenger\MessageBusInterface;
@@ -46,6 +47,7 @@ class McpToolRegistry
         private readonly FlowRunner $runner,
         private readonly DbQueryRunner $dbQuery,
         private readonly FlowExpressionParser $parser,
+        private readonly FlowVariableScanner $varScanner,
         private readonly FlowRunReporter $reporter,
         private readonly MessageBusInterface $bus,
     ) {
@@ -144,7 +146,9 @@ class McpToolRegistry
                     'ms' => ['type' => 'integer', 'description' => 'Bekleme süresi (ms, maks 60000)'],
                     'name' => ['type' => 'string'],
                 ]]],
-            ['name' => 'get_flow', 'description' => 'Bir akışın detayını (tüm adımları, extraction/assertion\'ları, retry ayarlarıyla) döner.',
+            ['name' => 'get_flow', 'description' => 'Bir akışın detayını (tüm adımları, extraction/assertion\'ları, retry ayarları ve istediği dış değişkenlerle) döner.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
+            ['name' => 'get_flow_variables', 'description' => 'Bir akışın çalışmak için DIŞARIDAN beklediği değişkenleri döner (adımlarda kullanılan {{değişken}}\'lerden, akışın kendi ürettikleri ve dinamik olanlar hariç). Her biri için environment sağlıyor mu ve değeri belirtilir. run_flow/run_suite öncesi hangi değerleri vereceğini bilmek için.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
             ['name' => 'run_flow', 'description' => 'Bir akışı SENKRON çalıştırır, biter ve adım adım sonucu (assertion durumları dahil) döner. Kısa akışlar için.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => [
@@ -250,6 +254,7 @@ class McpToolRegistry
             'add_setvar_step' => $this->addSetvarStep($ws, $args),
             'add_delay_step' => $this->addDelayStep($ws, $args),
             'get_flow' => $this->getFlow($ws, $args),
+            'get_flow_variables' => $this->getFlowVariables($ws, $args),
             'run_flow' => $this->runFlow($ws, $args),
             'run_flow_async' => $this->runFlowAsync($ws, $args),
             'list_runs' => $this->listRuns($ws, $args),
@@ -691,6 +696,24 @@ class McpToolRegistry
             'defaultEnvironment' => $flow->getDefaultEnvironment()?->getName(),
             'stopOnFailure' => $flow->isStopOnFailure(),
             'steps' => $steps,
+            'variables' => $this->varScanner->externalVariables($flow),
+        ];
+    }
+
+    private function getFlowVariables(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $vars = $this->varScanner->externalVariables($flow);
+        $mustSupply = array_values(array_filter($vars, static fn (array $v): bool => !$v['fromEnv']));
+
+        return [
+            'flow' => $flow->getName(),
+            'defaultEnvironment' => $flow->getDefaultEnvironment()?->getName(),
+            'variables' => $vars,
+            'mustSupply' => array_map(static fn (array $v): string => $v['name'], $mustSupply),
+            'hint' => [] === $mustSupply
+                ? 'Tüm değişkenler environment\'tan geliyor; run_flow ekstra değişken istemeden çalışır.'
+                : 'mustSupply alanındaki değişkenleri run_flow\'da variables ile verin.',
         ];
     }
 
