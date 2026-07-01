@@ -41,6 +41,19 @@
         </div>
     </div>
 
+    {# ---- forEach loop (all step types) ---- #}
+    {% set loop_cfg = step.loop %}
+    <div class="fgroup" style="max-width:640px;">
+        <div class="fgroup-title">Döngü <span style="font-weight:400;color:var(--muted);">· opsiyonel</span></div>
+        <p class="fhint" style="margin:0 0 10px;">Bir listenin her öğesi için bu adımı tekrar çalıştırır. <b>Liste</b> bir dizi döndüren değişken olmalı (örn. bir önceki adımda <code>pkgs = result.packages</code> ile çıkarılmış). Öğe <code>{{ '{{öğe}}' }}</code> olarak; nesneyse <code>{{ '{{öğe.id}}' }}</code>, sıra <code>{{ '{{öğe_index}}' }}</code>.</p>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <span style="font-size:12px;color:var(--muted);">her</span>
+            <input type="text" name="loop_as" value="{{ loop_cfg.as ?? '' }}" placeholder="öğe" style="flex:0 0 130px;font-family:var(--font-mono);">
+            <span style="font-size:12px;color:var(--muted);">için · liste</span>
+            <input type="text" name="loop_over" value="{{ loop_cfg.over ?? '' }}" placeholder="{{ '{{pkgs}}' }}" style="flex:1;min-width:150px;font-family:var(--font-mono);">
+        </div>
+    </div>
+
     {% if step.isDelay %}
         <div class="fgroup" style="max-width:380px;">
             <div class="fgroup-title">Bekleme</div>

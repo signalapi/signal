@@ -102,6 +102,16 @@ class FlowStep
     #[ORM\Column(type: Types::JSON, nullable: true)]
     private ?array $condition = null;
 
+    /**
+     * Optional forEach loop: {over, as}. `over` resolves to a JSON array; the
+     * step (or sub-flow) runs once per element with {{as}} bound to it
+     * ({{as.field}} for objects, {{as_index}} for the index). null = run once.
+     *
+     * @var array{over: string, as: string}|null
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $loop = null;
+
     /** Node position on the visual flow canvas. */
     #[ORM\Column(options: ['default' => 0])]
     private int $canvasX = 0;
@@ -285,6 +295,25 @@ class FlowStep
     public function hasCondition(): bool
     {
         return null !== $this->condition && '' !== trim((string) ($this->condition['left'] ?? ''));
+    }
+
+    /** @return array{over: string, as: string}|null */
+    public function getLoop(): ?array
+    {
+        return $this->loop;
+    }
+
+    /** @param array{over: string, as: string}|null $loop */
+    public function setLoop(?array $loop): static
+    {
+        $this->loop = $loop;
+
+        return $this;
+    }
+
+    public function hasLoop(): bool
+    {
+        return null !== $this->loop && '' !== trim((string) ($this->loop['over'] ?? ''));
     }
 
     public function getCalledFlow(): ?TestFlow

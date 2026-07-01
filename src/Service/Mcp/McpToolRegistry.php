@@ -110,6 +110,9 @@ class McpToolRegistry
                     'condition' => ['type' => ['object', 'null'], 'description' => '{left, op, right} — örn {"left":"{{provider}}","op":"eq","right":"Yuno"}. null = koşulu kaldır.', 'properties' => [
                         'left' => ['type' => 'string'], 'op' => ['type' => 'string'], 'right' => ['type' => 'string'],
                     ]],
+                    'loop' => ['type' => ['object', 'null'], 'description' => 'forEach döngüsü {over, as}: over bir dizi döndüren ifade ({{pkgs}}), as öğe değişkeni. Adım her öğe için tekrar çalışır ({{as}}, nesnede {{as.field}}, {{as_index}}). null = döngüyü kaldır.', 'properties' => [
+                        'over' => ['type' => 'string'], 'as' => ['type' => 'string'],
+                    ]],
                 ]]],
             ['name' => 'add_http_step', 'description' => 'Akışa bir HTTP isteği adımı ekler. extractions: ["var = json.path"], assertions: ["status == 200", "data.id exists"].',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'requestId'], 'properties' => [
@@ -426,9 +429,28 @@ class McpToolRegistry
         if (\array_key_exists('condition', $args)) {
             $step->setCondition($this->normalizeCondition($args['condition']));
         }
+        if (\array_key_exists('loop', $args)) {
+            $step->setLoop($this->normalizeLoop($args['loop']));
+        }
         $this->steps->save($step);
 
-        return ['ok' => true, 'stepId' => (string) $step->getId(), 'name' => $step->getName(), 'condition' => $step->getCondition()];
+        return ['ok' => true, 'stepId' => (string) $step->getId(), 'name' => $step->getName(), 'condition' => $step->getCondition(), 'loop' => $step->getLoop()];
+    }
+
+    /**
+     * @return array{over: string, as: string}|null
+     */
+    private function normalizeLoop(mixed $l): ?array
+    {
+        if (!\is_array($l)) {
+            return null;
+        }
+        $over = trim((string) ($l['over'] ?? ''));
+        if ('' === $over) {
+            return null;
+        }
+
+        return ['over' => $over, 'as' => trim((string) ($l['as'] ?? 'item')) ?: 'item'];
     }
 
     /**
@@ -745,6 +767,9 @@ class McpToolRegistry
             }
             if ($s->hasCondition()) {
                 $entry['condition'] = $s->getCondition();
+            }
+            if ($s->hasLoop()) {
+                $entry['loop'] = $s->getLoop();
             }
             $steps[] = $entry;
         }

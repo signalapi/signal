@@ -18,6 +18,7 @@ use Doctrine\ORM\EntityManagerInterface;
 class FlowRunner
 {
     private const MAX_BODY_SNAPSHOT = 20000;
+    private const MAX_LOOP = 100;
 
     public function __construct(
         private readonly RequestRunner $requestRunner,
@@ -149,65 +150,157 @@ class FlowRunner
                 continue;
             }
 
-            if ($step->isCall()) {
-                $called = $step->getCalledFlow();
-                $calledId = $called?->getId()?->toRfc4122();
-                if (null !== $called && null !== $calledId && !\in_array($calledId, $callStack, true)) {
-                    $this->executeSteps($run, $called, $context, $state, array_merge($callStack, [$calledId]), $stopOnFailure, $labelPrefix . $called->getName() . ' › ');
+            // forEach loop: run the step once per element of the resolved list.
+            if (!$state['stopped'] && $step->hasLoop()) {
+                $loop = $step->getLoop();
+                $items = $this->resolveList((string) ($loop['over'] ?? ''), $context);
+                $as = trim((string) ($loop['as'] ?? 'item')) ?: 'item';
+                if ([] === $items) {
+                    $result = new StepResult();
+                    $result->setPosition($state['position']++);
+                    $result->setLabel($labelPrefix . $step->getName());
+                    $result->setStatus(StepResult::STATUS_SKIPPED);
+                    $result->setError('Döngü listesi boş — 0 öğe.');
+                    $run->addStepResult($result);
+                    $this->em->flush();
                     continue;
                 }
-                // Missing or cyclic → a single marker result.
-                $result = new StepResult();
-                $result->setPosition($state['position']++);
-                $result->setLabel($labelPrefix . $step->getName());
-                $result->setRequestMethod('CALL');
-                if ($state['stopped']) {
-                    $result->setStatus(StepResult::STATUS_SKIPPED);
-                } else {
-                    $result->setStatus(StepResult::STATUS_ERROR);
-                    $result->setError(null === $called ? 'Çağrılan alt-akış bulunamadı/silinmiş.' : 'Döngüsel alt-akış çağrısı engellendi.');
-                    $state['sawError'] = true;
-                    $state['stopped'] = $stopOnFailure;
+                $i = 0;
+                foreach ($items as $item) {
+                    if ($i >= self::MAX_LOOP) {
+                        break;
+                    }
+                    $this->bindLoopVars($context, $as, $item, $i);
+                    $this->executeStepBody($run, $flow, $step, $context, $state, $callStack, $stopOnFailure, $labelPrefix . '[' . $i . '] ');
+                    ++$i;
+                    if ($state['stopped']) {
+                        break;
+                    }
                 }
-                $run->addStepResult($result);
-                $run->setPassedSteps($state['passed']);
-                $this->em->flush();
                 continue;
             }
 
+            $this->executeStepBody($run, $flow, $step, $context, $state, $callStack, $stopOnFailure, $labelPrefix);
+        }
+    }
+
+    /**
+     * Runs a single step once (a call recurses into its flow; a leaf executes),
+     * emitting its result(s) and updating shared state.
+     *
+     * @param array<string, string> $context
+     * @param array<string, mixed>  $state
+     * @param string[]              $callStack
+     */
+    private function executeStepBody(FlowRun $run, TestFlow $flow, FlowStep $step, array &$context, array &$state, array $callStack, bool $stopOnFailure, string $labelPrefix): void
+    {
+        if ($step->isCall()) {
+            $called = $step->getCalledFlow();
+            $calledId = $called?->getId()?->toRfc4122();
+            if (null !== $called && null !== $calledId && !\in_array($calledId, $callStack, true)) {
+                $this->executeSteps($run, $called, $context, $state, array_merge($callStack, [$calledId]), $stopOnFailure, $labelPrefix . $called->getName() . ' › ');
+
+                return;
+            }
+            // Missing or cyclic → a single marker result.
             $result = new StepResult();
             $result->setPosition($state['position']++);
             $result->setLabel($labelPrefix . $step->getName());
-
+            $result->setRequestMethod('CALL');
             if ($state['stopped']) {
                 $result->setStatus(StepResult::STATUS_SKIPPED);
-                $run->addStepResult($result);
-                $this->em->flush();
-                continue;
-            }
-
-            $outcome = match (true) {
-                $step->isDelay() => $this->runDelayStep($step, $result),
-                $step->isSetvar() => $this->runSetvarStep($step, $result, $context),
-                $step->isDb() => $this->runDbStep($step, $result, $context),
-                default => $this->runHttpStep($step, $result, $context, $flow->getWorkspace()),
-            };
-
-            $run->addStepResult($result);
-
-            if (StepResult::STATUS_PASSED === $outcome) {
-                ++$state['passed'];
             } else {
-                if (StepResult::STATUS_ERROR === $outcome) {
-                    $state['sawError'] = true;
-                } else {
-                    $state['failed'] = true;
-                }
+                $result->setStatus(StepResult::STATUS_ERROR);
+                $result->setError(null === $called ? 'Çağrılan alt-akış bulunamadı/silinmiş.' : 'Döngüsel alt-akış çağrısı engellendi.');
+                $state['sawError'] = true;
                 $state['stopped'] = $stopOnFailure;
             }
-
+            $run->addStepResult($result);
             $run->setPassedSteps($state['passed']);
             $this->em->flush();
+
+            return;
+        }
+
+        $result = new StepResult();
+        $result->setPosition($state['position']++);
+        $result->setLabel($labelPrefix . $step->getName());
+
+        if ($state['stopped']) {
+            $result->setStatus(StepResult::STATUS_SKIPPED);
+            $run->addStepResult($result);
+            $this->em->flush();
+
+            return;
+        }
+
+        $outcome = match (true) {
+            $step->isDelay() => $this->runDelayStep($step, $result),
+            $step->isSetvar() => $this->runSetvarStep($step, $result, $context),
+            $step->isDb() => $this->runDbStep($step, $result, $context),
+            default => $this->runHttpStep($step, $result, $context, $flow->getWorkspace()),
+        };
+
+        $run->addStepResult($result);
+
+        if (StepResult::STATUS_PASSED === $outcome) {
+            ++$state['passed'];
+        } else {
+            if (StepResult::STATUS_ERROR === $outcome) {
+                $state['sawError'] = true;
+            } else {
+                $state['failed'] = true;
+            }
+            $state['stopped'] = $stopOnFailure;
+        }
+
+        $run->setPassedSteps($state['passed']);
+        $this->em->flush();
+    }
+
+    /**
+     * Resolves a loop's `over` expression to a list (JSON array; {{vars}} first).
+     *
+     * @param array<string, string> $context
+     *
+     * @return array<int, mixed>
+     */
+    private function resolveList(string $over, array $context): array
+    {
+        $raw = $this->resolver->resolve($over, $context) ?? '';
+        $decoded = json_decode($raw, true);
+
+        return \is_array($decoded) ? array_values($decoded) : [];
+    }
+
+    /**
+     * Binds the current loop element into the context: {{as}}, {{as_index}},
+     * and (for objects/arrays) dotted {{as.field}} paths.
+     *
+     * @param array<string, string> $context
+     */
+    private function bindLoopVars(array &$context, string $as, mixed $item, int $index): void
+    {
+        $context[$as . '_index'] = (string) $index;
+        $context[$as] = \is_scalar($item) ? (string) $item : (string) json_encode($item, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE);
+        if (\is_array($item)) {
+            $this->flattenInto($context, $as, $item);
+        }
+    }
+
+    /**
+     * @param array<string, string> $context
+     * @param array<mixed>          $value
+     */
+    private function flattenInto(array &$context, string $prefix, array $value): void
+    {
+        foreach ($value as $k => $v) {
+            $key = $prefix . '.' . $k;
+            if (\is_array($v)) {
+                $this->flattenInto($context, $key, $v);
+            } else {
+                $context[$key] = \is_scalar($v) ? (string) $v : (string) json_encode($v, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE);
+            }
         }
     }
 

@@ -226,6 +226,9 @@
                             {% if step.hasCondition %}
                             <div class="rt-sub" style="color:var(--accent);">⤷ yalnızca: <code>{{ step.condition.left }} {{ step.condition.op }} {{ step.condition.right }}</code></div>
                             {% endif %}
+                            {% if step.hasLoop %}
+                            <div class="rt-sub" style="color:var(--accent);">↻ her <code>{{ step.loop.as }}</code> ∈ <code>{{ step.loop.over }}</code></div>
+                            {% endif %}
                             {% if not step.isDelay and not step.isSetvar and not step.isCall %}
                             <div class="rt-sub">
                                 {{ step.extractions|length }} extraction · {{ step.assertions|length }} assertion{% if step.retryEnabled %} · <span class="retry">↻ {{ step.retryMax }}× / {{ step.retryDelayMs }}ms</span>{% endif %}

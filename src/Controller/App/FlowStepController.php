@@ -282,6 +282,17 @@ class FlowStepController extends AbstractAppController
             ]);
         }
 
+        // forEach loop (all step types).
+        $loopOver = trim((string) $r->request->get('loop_over'));
+        if ('' === $loopOver) {
+            $step->setLoop(null);
+        } else {
+            $step->setLoop([
+                'over' => $loopOver,
+                'as' => trim((string) $r->request->get('loop_as')) ?: 'item',
+            ]);
+        }
+
         if ($step->isCall()) {
             // A call step delegates everything to the referenced flow; only the target matters.
             $calledId = (string) $r->request->get('calledFlow');
