@@ -207,6 +207,62 @@ class FlowRunController extends AbstractAppController
         }
     }
 
+    /**
+     * Creates (or refreshes) a public, login-less report link for this run,
+     * valid for 7 days. Returns the absolute URL.
+     */
+    #[Route('/{run}/share', name: 'app_flow_run_share', methods: ['POST'])]
+    public function share(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        #[MapEntity(mapping: ['run' => 'id'])] FlowRun $run,
+        Request $httpRequest,
+        FlowRunRepository $runs,
+    ): JsonResponse {
+        $this->assertWorkspace($workspace);
+        $this->assertFlow($workspace, $flow);
+        if ($run->getFlow()->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122()) {
+            throw $this->createNotFoundException();
+        }
+        if (!$this->isCsrfTokenValid('share-run' . $run->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if (null === $run->getShareToken()) {
+            $run->setShareToken(bin2hex(random_bytes(16)));
+        }
+        $run->setShareExpiresAt(new \DateTimeImmutable('+7 days'));
+        $runs->save($run);
+
+        return new JsonResponse([
+            'url' => $this->generateUrl('public_report', ['token' => $run->getShareToken()], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL),
+            'expiresAt' => $run->getShareExpiresAt()?->format('d.m.Y H:i'),
+        ]);
+    }
+
+    #[Route('/{run}/unshare', name: 'app_flow_run_unshare', methods: ['POST'])]
+    public function unshare(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        #[MapEntity(mapping: ['run' => 'id'])] FlowRun $run,
+        Request $httpRequest,
+        FlowRunRepository $runs,
+    ): JsonResponse {
+        $this->assertWorkspace($workspace);
+        $this->assertFlow($workspace, $flow);
+        if ($run->getFlow()->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122()) {
+            throw $this->createNotFoundException();
+        }
+        if (!$this->isCsrfTokenValid('share-run' . $run->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+        $run->setShareToken(null);
+        $run->setShareExpiresAt(null);
+        $runs->save($run);
+
+        return new JsonResponse(['ok' => true]);
+    }
+
     #[Route('/{run}/cancel', name: 'app_flow_run_cancel', methods: ['POST'])]
     public function cancel(
         Workspace $workspace,

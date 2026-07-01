@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Koşum Raporu · {{ run.flow.name }} · Signal</title>
+<style>
+    :root {
+        --bg:#f4f1ea; --panel:#fff; --panel-2:#f7f5ef; --ink:#211f1a; --muted:#8a857a;
+        --border:#e4e0d6; --accent:#b4531f; --accent-soft:#f6e9df;
+        --pass:#1f9d55; --fail:#e5484d; --fail-soft:#fcebec; --warn:#b8860b; --warn-soft:#faf3df;
+        --mono:'SF Mono',ui-monospace,Menlo,monospace;
+    }
+    * { box-sizing:border-box; }
+    body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; line-height:1.5; }
+    .wrap { max-width:820px; margin:0 auto; padding:32px 20px 60px; }
+    .brand { font-weight:800; letter-spacing:-.02em; font-size:15px; color:var(--accent); }
+    .brand span { color:var(--muted); font-weight:600; }
+    h1 { font-size:24px; letter-spacing:-.02em; margin:14px 0 6px; }
+    .meta { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 0; }
+    .tag { font-size:12px; color:var(--muted); background:var(--panel); border:1px solid var(--border); border-radius:999px; padding:4px 11px; }
+    .tag b { color:var(--ink); font-weight:600; }
+    .sbig { display:inline-block; font-weight:700; font-size:13px; padding:5px 12px; border-radius:999px; }
+    .s-passed { background:#e6f4ec; color:var(--pass); } .s-failed,.s-error { background:var(--fail-soft); color:var(--fail); }
+    .s-cancelled { background:var(--warn-soft); color:var(--warn); } .s-running { background:var(--accent-soft); color:var(--accent); }
+
+    .track { margin-top:26px; }
+    .row { display:flex; gap:13px; align-items:flex-start; }
+    .rail { width:30px; flex-shrink:0; display:flex; justify-content:center; position:relative; }
+    .rail::before { content:""; position:absolute; left:50%; top:22px; bottom:-14px; width:2px; transform:translateX(-50%); background:var(--border); }
+    .row:last-child .rail::before { display:none; }
+    .node { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;
+        color:#fff; flex-shrink:0; position:relative; z-index:1; background:var(--muted); }
+    .node.st-passed { background:var(--pass); } .node.st-failed,.node.st-error { background:var(--fail); }
+    .node.st-skipped { background:var(--warn); }
+    .card { flex:1; min-width:0; border:1px solid var(--border); background:var(--panel); border-radius:11px; padding:11px 14px; margin-bottom:14px; }
+    .card.st-failed,.card.st-error { border-left:3px solid var(--fail); }
+    .card.st-passed { border-left:3px solid var(--pass); }
+    .chead { display:flex; align-items:center; gap:9px; }
+    .badge { font-family:var(--mono); font-size:9.5px; font-weight:700; padding:2px 6px; border-radius:5px; background:var(--accent-soft); color:var(--accent); }
+    .nm { font-weight:600; font-size:14px; flex:1; min-width:0; }
+    .req { font-family:var(--mono); font-size:11.5px; color:var(--muted); margin-top:6px; word-break:break-all; }
+    .blk { margin-top:9px; font-size:12.5px; }
+    .blk .cap { font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
+    .a-ok { color:var(--pass); } .a-no { color:var(--fail); }
+    .aline { font-family:var(--mono); font-size:12px; }
+    .drift { background:var(--warn-soft); border:1px solid var(--warn); border-radius:8px; padding:8px 10px; }
+    .drift .cap { color:#8a6d00; }
+    .errbox { background:var(--fail-soft); color:var(--fail); border-radius:8px; padding:8px 10px; font-family:var(--mono); font-size:12px; margin-top:8px; }
+    .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+    {% set sc = run.status %}
+    <div class="brand">Signal <span>· Koşum Raporu</span></div>
+    <h1>{{ run.flow.name }}</h1>
+    <div><span class="sbig s-{{ sc }}">{{ {'passed':'✓ Geçti','failed':'✗ Başarısız','error':'✗ Hata','cancelled':'İptal','running':'Çalışıyor'}[sc] ?? sc }}</span></div>
+    <div class="meta">
+        <span class="tag"><b>{{ run.passedSteps }}/{{ run.totalSteps }}</b> adım geçti</span>
+        <span class="tag">süre <b>{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</b></span>
+        <span class="tag">env <b>{{ run.environmentName ?: '—' }}</b></span>
+        <span class="tag">{{ run.createdAt|date('d.m.Y H:i') }}</span>
+    </div>
+
+    <div class="track">
+    {% for r in run.stepResults %}
+        <div class="row">
+            <div class="rail"><div class="node st-{{ r.status }}">{% if r.status == 'passed' %}✓{% elseif r.status in ['failed','error'] %}✗{% elseif r.status == 'skipped' %}–{% else %}{{ r.position + 1 }}{% endif %}</div></div>
+            <div class="card st-{{ r.status }}">
+                <div class="chead">
+                    {% if r.requestMethod %}<span class="badge">{{ r.requestMethod }}</span>{% endif %}
+                    <span class="nm">{{ r.label }}</span>
+                    {% if r.responseStatus %}<span class="req" style="margin:0;">{{ r.responseStatus }} · {{ r.durationMs }}ms</span>{% endif %}
+                </div>
+                {% if r.requestUrl and r.status != 'skipped' %}<div class="req">{{ r.requestUrl }}</div>{% endif %}
+                {% if r.status == 'skipped' %}<div class="req">{{ r.error ?: 'Atlandı.' }}</div>{% endif %}
+
+                {% if r.assertionResults is not empty %}
+                    <div class="blk">
+                        <div class="cap">Doğrulamalar</div>
+                        {% for a in r.assertionResults %}
+                            <div class="aline">{% if a.ok %}<span class="a-ok">✓</span>{% else %}<span class="a-no">✗</span>{% endif %} {{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— gelen: {{ a.actual }}</span>{% endif %}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+
+                {% if r.shapeDrift is not empty %}
+                    <div class="blk drift">
+                        <div class="cap">⚠ Kontrat değişti</div>
+                        {% for c in r.shapeDrift %}<div class="aline">{{ c }}</div>{% endfor %}
+                    </div>
+                {% endif %}
+
+                {% if r.error and r.status != 'skipped' %}<div class="errbox">{{ r.error }}</div>{% endif %}
+            </div>
+        </div>
+    {% endfor %}
+    </div>
+
+    <div class="foot">
+        Signal ile üretildi · Bu rapor bağlantısı {{ run.shareExpiresAt ? run.shareExpiresAt|date('d.m.Y H:i') ~ ' tarihine kadar' : 'süresiz' }} geçerlidir.
+    </div>
+</div>
+</body>
+</html>

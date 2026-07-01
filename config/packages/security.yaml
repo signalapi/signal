@@ -61,6 +61,7 @@ security:
         - { path: ^/admin, roles: ROLE_SUPER_ADMIN }
         - { path: ^/login, roles: PUBLIC_ACCESS }
         - { path: ^/register, roles: PUBLIC_ACCESS }
+        - { path: '^/r/', roles: PUBLIC_ACCESS }
         - { path: ^/app, roles: ROLE_MERCHANT }
 
 when@test:

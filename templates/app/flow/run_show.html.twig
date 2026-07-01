@@ -96,6 +96,54 @@
     <div class="ru-stat"><div class="n" style="font-size:16px;">{{ run.environmentName ?: '—' }}</div><div class="l">Environment</div></div>
 </div>
 
+{% if sc != 'running' %}
+<div class="share" id="share"
+     data-share="{{ path('app_flow_run_share', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
+     data-unshare="{{ path('app_flow_run_unshare', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
+     data-token="{{ csrf_token('share-run' ~ run.id) }}">
+    <button type="button" class="btn ghost small" id="shareBtn">🔗 Paylaş</button>
+    <div class="share-box" id="shareBox" {{ run.isShareValid ? '' : 'hidden' }}>
+        <input type="text" id="shareUrl" readonly value="{{ run.isShareValid ? url('public_report', {token: run.shareToken}) : '' }}">
+        <button type="button" class="btn small" id="shareCopy">Kopyala</button>
+        <button type="button" class="btn ghost small" id="shareRevoke">İptal</button>
+        <span class="share-exp">{{ run.isShareValid and run.shareExpiresAt ? run.shareExpiresAt|date('d.m.Y H:i') ~ '\'e kadar' }}</span>
+    </div>
+    <p class="share-hint">Login gerektirmeyen, süreli bir rapor bağlantısı. Paydaşlarla paylaşılabilir.</p>
+</div>
+<style>
+    .share { margin: 2px 0 18px; }
+    .share-box { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+    .share-box[hidden] { display: none; }
+    .share-box input { flex: 1; min-width: 220px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
+        padding: 8px 10px; color: var(--ink); font-family: var(--font-mono); font-size: 12px; }
+    .share-exp { font-size: 11.5px; color: var(--muted); }
+    .share-hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
+</style>
+<script>
+(function () {
+    var root = document.getElementById('share'); if (!root) return;
+    var box = document.getElementById('shareBox'), urlIn = document.getElementById('shareUrl');
+    var token = root.dataset.token;
+    function post(url) {
+        var b = new URLSearchParams(); b.set('_token', token);
+        return fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' }, body: b.toString() }).then(function (r) { return r.json(); });
+    }
+    document.getElementById('shareBtn').addEventListener('click', function () {
+        post(root.dataset.share).then(function (d) {
+            if (d.url) { urlIn.value = d.url; box.hidden = false; root.querySelector('.share-exp').textContent = d.expiresAt ? d.expiresAt + "'e kadar" : ''; }
+        });
+    });
+    document.getElementById('shareCopy').addEventListener('click', function () {
+        urlIn.select(); (navigator.clipboard ? navigator.clipboard.writeText(urlIn.value) : Promise.resolve()).catch(function(){});
+        var b = this; var t = b.textContent; b.textContent = 'Kopyalandı ✓'; setTimeout(function(){ b.textContent = t; }, 900);
+    });
+    document.getElementById('shareRevoke').addEventListener('click', function () {
+        post(root.dataset.unshare).then(function () { box.hidden = true; urlIn.value = ''; });
+    });
+})();
+</script>
+{% endif %}
+
 {% if sc in ['failed', 'error'] %}
 {% set failing = run.stepResults|filter(r => r.status in ['failed', 'error']) %}
 <div class="diag">

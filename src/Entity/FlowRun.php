@@ -70,10 +70,47 @@ class FlowRun
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $finishedAt = null;
 
+    /** Random token for a public, login-less report link (null = not shared). */
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $shareToken = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $shareExpiresAt = null;
+
     public function __construct()
     {
         $this->stepResults = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
+    }
+
+    public function getShareToken(): ?string
+    {
+        return $this->shareToken;
+    }
+
+    public function setShareToken(?string $shareToken): static
+    {
+        $this->shareToken = $shareToken;
+
+        return $this;
+    }
+
+    public function getShareExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->shareExpiresAt;
+    }
+
+    public function setShareExpiresAt(?\DateTimeImmutable $shareExpiresAt): static
+    {
+        $this->shareExpiresAt = $shareExpiresAt;
+
+        return $this;
+    }
+
+    public function isShareValid(): bool
+    {
+        return null !== $this->shareToken
+            && (null === $this->shareExpiresAt || $this->shareExpiresAt > new \DateTimeImmutable());
     }
 
     public function getId(): ?Uuid
