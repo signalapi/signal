@@ -24,6 +24,9 @@ class FlowStepController extends AbstractAppController
 {
     public function __construct(
         private readonly \App\Repository\TestFlowRepository $flows,
+        private readonly \App\Repository\DataFactoryRepository $dataFactories,
+        private readonly \App\Service\DynamicVariableGenerator $dynamic,
+        private readonly \App\Service\FlowVariableScanner $varScanner,
     ) {
     }
 
@@ -350,9 +353,32 @@ class FlowStepController extends AbstractAppController
             'assertions_text' => $parser->renderAssertions($step->getAssertions()),
             'connections' => $connections->findByWorkspace($workspace),
             'flows' => $this->callableFlows($workspace, $flow),
+            'vc_catalog' => $this->vcCatalog($workspace, $flow),
             'is_new' => $isNew,
             'create_ctx' => $createCtx,
         ]);
+    }
+
+    /**
+     * Autocomplete catalog for {{...}} fields: generators (built-ins + factories)
+     * and the flow's variables.
+     *
+     * @return array<int, array{token: string, label: string, desc: string, group: string}>
+     */
+    private function vcCatalog(Workspace $workspace, TestFlow $flow): array
+    {
+        $out = [];
+        foreach ($this->varScanner->externalVariables($flow) as $v) {
+            $out[] = ['token' => '{{' . $v['name'] . '}}', 'label' => $v['name'], 'desc' => $v['fromEnv'] ? 'env değişkeni' : 'değişken', 'group' => 'var'];
+        }
+        foreach ($this->dataFactories->findByWorkspace($workspace) as $f) {
+            $out[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => 'fabrika · ' . $f->getKind(), 'group' => 'gen'];
+        }
+        foreach ($this->dynamic->builtins() as $b) {
+            $out[] = ['token' => $b['token'], 'label' => $b['name'], 'desc' => $b['description'], 'group' => 'gen'];
+        }
+
+        return $out;
     }
 
     /**
