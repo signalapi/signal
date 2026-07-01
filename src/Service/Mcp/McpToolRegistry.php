@@ -192,6 +192,11 @@ class McpToolRegistry
                 ]]],
             ['name' => 'get_run', 'description' => 'Bir koşumun detayını döner.',
                 'inputSchema' => ['type' => 'object', 'required' => ['runId'], 'properties' => ['runId' => ['type' => 'string']]]],
+            ['name' => 'diagnose_run', 'description' => 'Başarısız bir koşumu TEŞHİS için ham kanıt döner: her başarısız adımın isteği, GERÇEK yanıt gövdesi, hangi assertion\'ın beklenen vs gerçek değeri tutmadığı, çıkarılan değişkenler ve hata. runId ver ya da flowId ile son koşumu al. Sonucu yorumlayıp neden patladığını açıkla; gerekiyorsa update_step/set_step_request/set_step_checks ile düzeltme öner, DB durumunu db_query ile kontrol et.',
+                'inputSchema' => ['type' => 'object', 'properties' => [
+                    'runId' => ['type' => 'string'],
+                    'flowId' => ['type' => 'string', 'description' => 'runId verilmezse bu akışın en son koşumu teşhis edilir'],
+                ]]],
             ['name' => 'delete_flow', 'description' => 'Bir akışı ve tüm koşum geçmişini siler.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
             ['name' => 'delete_step', 'description' => 'Bir akış adımını siler.',
@@ -286,6 +291,7 @@ class McpToolRegistry
             'run_flow_async' => $this->runFlowAsync($ws, $args),
             'list_runs' => $this->listRuns($ws, $args),
             'get_run' => $this->getRun($ws, $args),
+            'diagnose_run' => $this->diagnoseRun($ws, $args),
             'delete_flow' => $this->deleteFlow($ws, $args),
             'delete_step' => $this->deleteStep($ws, $args),
             'add_request_step' => $this->addRequestStep($ws, $args),
@@ -629,6 +635,71 @@ class McpToolRegistry
         }
 
         return $this->reporter->toArray($run);
+    }
+
+    private function diagnoseRun(Workspace $ws, array $args): array
+    {
+        $run = null;
+        $runId = (string) ($args['runId'] ?? '');
+        if ('' !== $runId) {
+            $found = Uuid::isValid($runId) ? $this->runs->find($runId) : null;
+            if (null === $found || $found->getFlow()->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
+                throw new \InvalidArgumentException('Koşum bulunamadı.');
+            }
+            $run = $found;
+        } elseif (!empty($args['flowId'])) {
+            $flow = $this->requireFlow($ws, (string) $args['flowId']);
+            $recent = $this->runs->recentForFlow($flow, 1);
+            $run = $recent[0] ?? null;
+            if (null === $run) {
+                throw new \InvalidArgumentException('Bu akışın henüz koşumu yok.');
+            }
+        } else {
+            throw new \InvalidArgumentException('runId veya flowId gerekli.');
+        }
+
+        $failing = [];
+        foreach ($run->getStepResults() as $r) {
+            if (!\in_array($r->getStatus(), ['failed', 'error'], true)) {
+                continue;
+            }
+            $failedAssertions = array_values(array_filter(
+                $r->getAssertionResults(),
+                static fn (array $a): bool => empty($a['ok']),
+            ));
+            $body = $r->getResponseBody();
+            $failing[] = [
+                'position' => $r->getPosition(),
+                'label' => $r->getLabel(),
+                'status' => $r->getStatus(),
+                'attempts' => $r->getAttempts(),
+                'method' => $r->getRequestMethod(),
+                'target' => $r->getRequestUrl(),
+                'responseStatus' => $r->getResponseStatus(),
+                'durationMs' => $r->getDurationMs(),
+                'responseBody' => null === $body ? null : mb_substr($body, 0, 4000),
+                'failedAssertions' => $failedAssertions,
+                'extracted' => $r->getExtractedVars(),
+                'error' => $r->getError(),
+            ];
+        }
+        usort($failing, static fn (array $a, array $b): int => $a['position'] <=> $b['position']);
+
+        return [
+            'run' => [
+                'id' => (string) $run->getId(),
+                'flow' => $run->getFlow()->getName(),
+                'status' => $run->getStatus(),
+                'environment' => $run->getEnvironmentName(),
+                'passedSteps' => $run->getPassedSteps(),
+                'totalSteps' => $run->getTotalSteps(),
+            ],
+            'iterationData' => $run->getIterationData(),
+            'failingSteps' => $failing,
+            'guidance' => [] === $failing
+                ? 'Bu koşumda başarısız adım yok (durum: ' . $run->getStatus() . ').'
+                : 'Her failingStep için responseBody ve failedAssertions.actual/expected\'i incele; neden patladığını açıkla ve gerekiyorsa update_step (koşul), set_step_request (istek) veya set_step_checks ile düzeltme öner. DB doğrulaması gerekiyorsa db_query ile o anki durumu kontrol et.',
+        ];
     }
 
     private function whoami(Workspace $ws): array
