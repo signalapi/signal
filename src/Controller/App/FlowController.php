@@ -78,6 +78,7 @@ class FlowController extends AbstractAppController
         \App\Repository\ApiRequestRepository $requests,
         EnvironmentRepository $environments,
         \App\Repository\DbConnectionRepository $connections,
+        \App\Service\FlowVariableScanner $scanner,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertFlow($workspace, $flow);
@@ -88,6 +89,7 @@ class FlowController extends AbstractAppController
             'available_requests' => $requests->findByWorkspace($workspace),
             'environments' => $environments->findByWorkspace($workspace),
             'db_connections' => $connections->findByWorkspace($workspace),
+            'flow_variables' => $scanner->externalVariables($flow),
         ]);
     }
 

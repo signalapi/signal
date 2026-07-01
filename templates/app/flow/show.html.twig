@@ -88,6 +88,35 @@
         border-radius: 9px; padding: 9px 11px; color: var(--text); font-size: 13px; box-sizing: border-box; }
     .console input[type=text] { font-family: var(--font-mono); font-size: 12px; }
     .console .field + .field { margin-top: 12px; }
+    /* ---- variable table (run console) ---- */
+    .var-list { display: flex; flex-direction: column; gap: 6px; }
+    .var-row { display: flex; align-items: center; gap: 8px; }
+    .var-name { flex: 0 0 34%; font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 600;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .var-row .var-in, .var-row .var-key { flex: 1; min-width: 0; background: var(--panel-2); border: 1px solid var(--border);
+        border-radius: 8px; padding: 7px 9px; color: var(--text); font-family: var(--font-mono); font-size: 12px; }
+    .var-row .var-key { flex: 0 0 34%; }
+    .var-src { flex-shrink: 0; font-size: 10px; font-weight: 700; color: var(--muted); background: var(--panel-2);
+        border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; }
+    .var-rm { flex-shrink: 0; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted);
+        border-radius: 6px; padding: 4px 8px; line-height: 1; }
+    .vhint { font-size: 11.5px; color: var(--muted); margin: 8px 0 0; }
+    a.vhint.adv { display: inline-block; text-decoration: underline; cursor: pointer; }
+
+    /* ---- data-driven grid ---- */
+    .dd-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
+    table.dd { border-collapse: collapse; width: 100%; font-size: 12px; }
+    table.dd th, table.dd td { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0; }
+    table.dd th:last-child, table.dd td:last-child { border-right: none; }
+    table.dd tr:last-child td { border-bottom: none; }
+    table.dd th { background: var(--panel-2); }
+    table.dd input { width: 100%; box-sizing: border-box; border: none; background: transparent; padding: 8px 9px;
+        color: var(--text); font-family: var(--font-mono); font-size: 12px; }
+    table.dd th input { font-weight: 700; color: var(--muted); }
+    table.dd input:focus { outline: 2px solid var(--accent-soft); outline-offset: -2px; }
+    .dd-rm { cursor: pointer; border: none; background: transparent; color: var(--muted); font-size: 14px; padding: 4px 8px; }
+    .dd-actions { display: flex; gap: 8px; margin: 10px 0; }
+
     .run-go { width: 100%; justify-content: center; margin-top: 16px; font-size: 14.5px; padding: 12px; }
     .run-alt { display: flex; gap: 8px; margin-top: 8px; }
     .run-alt .btn { flex: 1; justify-content: center; }
@@ -225,8 +254,21 @@
                     </select>
                 </div>
                 <div class="field">
-                    <label class="lbl" for="runVars">Değişkenler (JSON, opsiyonel)</label>
-                    <input type="text" id="runVars" placeholder='{"userId":"42"}'>
+                    <label class="lbl">Değişkenler</label>
+                    {% if flow_variables is empty %}
+                        <p class="vhint">Bu akış ek değişken istemiyor. İstersen aşağıdan elle ekleyebilirsin.</p>
+                    {% endif %}
+                    <div class="var-list" id="varList">
+                        {% for v in flow_variables %}
+                            <div class="var-row">
+                                <span class="var-name" title="{{ v.name }}">{{ v.name }}</span>
+                                <input type="text" class="var-in" data-var="{{ v.name }}"
+                                       placeholder="{{ v.fromEnv ? (v.envValue|length > 22 ? v.envValue|slice(0,22) ~ '…' : v.envValue) : 'değer gir' }}">
+                                {% if v.fromEnv %}<span class="var-src" title="Environment sağlıyor — boş bırakırsan bu kullanılır">env</span>{% endif %}
+                            </div>
+                        {% endfor %}
+                    </div>
+                    <a class="vhint adv" id="addVarBtn" style="margin-top:8px;">+ değişken ekle</a>
                 </div>
 
                 <button class="btn run-go" id="runLive" {{ flow.steps is empty ? 'disabled' }}>▶ Canlı çalıştır</button>
@@ -259,15 +301,21 @@
             <details class="foldcard">
                 <summary>📊 Data-driven çalıştır <span class="chev">▶</span></summary>
                 <div class="fold-body">
-                    <form method="post" action="{{ path('app_flow_run_data', {workspace: workspace.id, flow: flow.id}) }}">
+                    <form method="post" action="{{ path('app_flow_run_data', {workspace: workspace.id, flow: flow.id}) }}"
+                          id="ddForm" data-cols="{{ flow_variables|map(v => v.name)|json_encode|e('html_attr') }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
                         <label class="lbl" style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">Environment</label>
                         <select name="environment" style="width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);font-size:13px;margin-bottom:10px;box-sizing:border-box;">
                             <option value="">{{ flow.defaultEnvironment ? '(varsayılan: ' ~ flow.defaultEnvironment.name ~ ')' : '— yok —' }}</option>
                             {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
                         </select>
-                        <textarea name="dataset" rows="5" style="width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:10px;color:var(--text);font-family:var(--font-mono);font-size:12px;box-sizing:border-box;" placeholder='[{"email":"a@x.com"},{"email":"b@x.com"}]  ·  veya CSV (ilk satır başlık)'></textarea>
-                        <p class="subtitle" style="font-size:11px;margin:8px 0 10px;">Her satır bir iterasyon. Alanlar <code>{{ '{{email}}' }}</code> gibi kullanılır.</p>
+                        <div class="dd-scroll"><table class="dd" id="ddTable"></table></div>
+                        <div class="dd-actions">
+                            <button class="btn ghost small" type="button" id="ddAddRow">+ Satır</button>
+                            <button class="btn ghost small" type="button" id="ddAddCol">+ Kolon</button>
+                        </div>
+                        <input type="hidden" name="dataset" id="ddDataset">
+                        <p class="subtitle" style="font-size:11px;margin:0 0 10px;">Her satır bir koşum. Kolonlar akıştaki <code>{{ '{{değişken}}' }}</code>'lere karşılık gelir.</p>
                         <button class="btn small" type="submit" {{ flow.steps is empty ? 'disabled' }}>▶ Veri kümesiyle çalıştır</button>
                     </form>
                 </div>
@@ -388,7 +436,7 @@
 
     runBtn.addEventListener('click', function () {
         var env = document.getElementById('runEnv').value;
-        var vars = document.getElementById('runVars').value.trim();
+        var vars = collectVars();
         var body = new URLSearchParams();
         body.set('_token', token);
         body.set('environment', env);
@@ -423,8 +471,77 @@
     if (syncForm) {
         syncForm.addEventListener('submit', function () {
             document.getElementById('syncEnv').value = document.getElementById('runEnv').value;
-            document.getElementById('syncVars').value = document.getElementById('runVars').value.trim();
+            document.getElementById('syncVars').value = collectVars();
         });
+    }
+
+    // ---- variable table → {name: value} JSON (empty values skipped) ----
+    function collectVars() {
+        var out = {};
+        document.querySelectorAll('#varList .var-row').forEach(function (row) {
+            var fixed = row.querySelector('.var-in');
+            var name, val;
+            if (fixed) { name = fixed.dataset.var; val = fixed.value.trim(); }
+            else {
+                var k = row.querySelector('.var-key'), v = row.querySelector('.var-val');
+                if (!k) return; name = k.value.trim(); val = v ? v.value.trim() : '';
+            }
+            if (name && val !== '') out[name] = val;
+        });
+        return Object.keys(out).length ? JSON.stringify(out) : '';
+    }
+    var addVarBtn = document.getElementById('addVarBtn');
+    if (addVarBtn) addVarBtn.addEventListener('click', function () {
+        var row = document.createElement('div'); row.className = 'var-row';
+        row.innerHTML = '<input class="var-key" placeholder="değişken"><input class="var-val var-in-c" placeholder="değer" style="flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-family:var(--font-mono);font-size:12px;"><button type="button" class="var-rm">×</button>';
+        row.querySelector('.var-rm').addEventListener('click', function () { row.remove(); });
+        document.getElementById('varList').appendChild(row);
+        row.querySelector('.var-key').focus();
+    });
+
+    // ---- data-driven grid: model {cols, rows} → dataset JSON ----
+    var ddForm = document.getElementById('ddForm');
+    if (ddForm) {
+        var ddTable = document.getElementById('ddTable');
+        var cols = [];
+        try { cols = JSON.parse(ddForm.dataset.cols || '[]'); } catch (e) { cols = []; }
+        if (!cols.length) cols = ['deger'];
+        var rows = [ cols.map(function () { return ''; }), cols.map(function () { return ''; }) ];
+
+        function renderDd() {
+            var thead = '<tr>' + cols.map(function (c, ci) {
+                return '<th><input class="dd-col" data-c="' + ci + '" value="' + String(c).replace(/"/g, '&quot;') + '"></th>';
+            }).join('') + '<th style="width:34px;"></th></tr>';
+            var body = rows.map(function (r, ri) {
+                return '<tr>' + cols.map(function (c, ci) {
+                    return '<td><input data-r="' + ri + '" data-cc="' + ci + '" value="' + String(r[ci] || '').replace(/"/g, '&quot;') + '"></td>';
+                }).join('') + '<td><button type="button" class="dd-rm" data-del="' + ri + '">×</button></td></tr>';
+            }).join('');
+            ddTable.innerHTML = '<thead>' + thead + '</thead><tbody>' + body + '</tbody>';
+        }
+        // read edits back into the model on any input
+        ddTable.addEventListener('input', function (e) {
+            var t = e.target;
+            if (t.classList.contains('dd-col')) { cols[+t.dataset.c] = t.value; }
+            else if (t.dataset.r !== undefined) { rows[+t.dataset.r][+t.dataset.cc] = t.value; }
+        });
+        ddTable.addEventListener('click', function (e) {
+            if (e.target.dataset.del !== undefined) { rows.splice(+e.target.dataset.del, 1); if (!rows.length) rows.push(cols.map(function(){return '';})); renderDd(); }
+        });
+        document.getElementById('ddAddRow').addEventListener('click', function () { rows.push(cols.map(function () { return ''; })); renderDd(); });
+        document.getElementById('ddAddCol').addEventListener('click', function () {
+            cols.push('kolon' + (cols.length + 1)); rows.forEach(function (r) { r.push(''); }); renderDd();
+        });
+        ddForm.addEventListener('submit', function () {
+            var data = [];
+            rows.forEach(function (r) {
+                var obj = {}, any = false;
+                cols.forEach(function (c, ci) { var name = String(c).trim(); var val = (r[ci] || '').trim(); if (name && val !== '') { obj[name] = val; any = true; } });
+                if (any) data.push(obj);
+            });
+            document.getElementById('ddDataset').value = JSON.stringify(data);
+        });
+        renderDd();
     }
 })();
 </script>
