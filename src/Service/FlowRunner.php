@@ -96,24 +96,75 @@ class FlowRunner
         @set_time_limit(0);
 
         $context = array_merge($environment ? $environment->toMap() : [], $extraVars);
-        $passed = 0;
-        $stopped = false;
-        $sawError = false;
-        $cancelled = false;
-        $position = 0;
+        // Expand call steps so progress/total reflect the sub-flow steps that actually run.
+        $run->setTotalSteps($this->countExpanded($flow, []));
 
+        $state = ['position' => 0, 'passed' => 0, 'stopped' => false, 'sawError' => false, 'cancelled' => false];
+        $this->executeSteps($run, $flow, $context, $state, [], $flow->isStopOnFailure());
+
+        $run->setPassedSteps($state['passed']);
+        $run->setFinishedAt(new \DateTimeImmutable());
+        $run->setStatus(match (true) {
+            $state['cancelled'] => FlowRun::STATUS_CANCELLED,
+            $state['sawError'] => FlowRun::STATUS_ERROR,
+            $state['passed'] === $run->getTotalSteps() => FlowRun::STATUS_PASSED,
+            default => FlowRun::STATUS_FAILED,
+        });
+        $this->em->flush();
+
+        return $run;
+    }
+
+    /**
+     * Executes a flow's steps into the run, sharing a single variable context and
+     * progress state across the (possibly nested) call. A "call" step runs the
+     * referenced flow's current steps inline — so a reusable "login" sub-flow can
+     * extract a token the parent then uses.
+     *
+     * @param array<string, string> $context
+     * @param array{position: int, passed: int, stopped: bool, sawError: bool, cancelled: bool} $state
+     * @param string[]               $callStack flow ids on the current call path (cycle guard)
+     */
+    private function executeSteps(FlowRun $run, TestFlow $flow, array &$context, array &$state, array $callStack, bool $stopOnFailure, string $labelPrefix = ''): void
+    {
         foreach ($flow->getSteps() as $step) {
             /** @var FlowStep $step */
-            if (!$stopped && $this->cancelRequested($run)) {
-                $cancelled = true;
-                $stopped = true;
+            if (!$state['stopped'] && $this->cancelRequested($run)) {
+                $state['cancelled'] = true;
+                $state['stopped'] = true;
+            }
+
+            if ($step->isCall()) {
+                $called = $step->getCalledFlow();
+                $calledId = $called?->getId()?->toRfc4122();
+                if (null !== $called && null !== $calledId && !\in_array($calledId, $callStack, true)) {
+                    $this->executeSteps($run, $called, $context, $state, array_merge($callStack, [$calledId]), $stopOnFailure, $labelPrefix . $called->getName() . ' › ');
+                    continue;
+                }
+                // Missing or cyclic → a single marker result.
+                $result = new StepResult();
+                $result->setPosition($state['position']++);
+                $result->setLabel($labelPrefix . $step->getName());
+                $result->setRequestMethod('CALL');
+                if ($state['stopped']) {
+                    $result->setStatus(StepResult::STATUS_SKIPPED);
+                } else {
+                    $result->setStatus(StepResult::STATUS_ERROR);
+                    $result->setError(null === $called ? 'Çağrılan alt-akış bulunamadı/silinmiş.' : 'Döngüsel alt-akış çağrısı engellendi.');
+                    $state['sawError'] = true;
+                    $state['stopped'] = $stopOnFailure;
+                }
+                $run->addStepResult($result);
+                $run->setPassedSteps($state['passed']);
+                $this->em->flush();
+                continue;
             }
 
             $result = new StepResult();
-            $result->setPosition($position++);
-            $result->setLabel($step->getName());
+            $result->setPosition($state['position']++);
+            $result->setLabel($labelPrefix . $step->getName());
 
-            if ($stopped) {
+            if ($state['stopped']) {
                 $result->setStatus(StepResult::STATUS_SKIPPED);
                 $run->addStepResult($result);
                 $this->em->flush();
@@ -130,29 +181,43 @@ class FlowRunner
             $run->addStepResult($result);
 
             if (StepResult::STATUS_PASSED === $outcome) {
-                ++$passed;
+                ++$state['passed'];
             } else {
                 if (StepResult::STATUS_ERROR === $outcome) {
-                    $sawError = true;
+                    $state['sawError'] = true;
                 }
-                $stopped = $flow->isStopOnFailure();
+                $state['stopped'] = $stopOnFailure;
             }
 
-            $run->setPassedSteps($passed);
+            $run->setPassedSteps($state['passed']);
             $this->em->flush();
         }
+    }
 
-        $run->setPassedSteps($passed);
-        $run->setFinishedAt(new \DateTimeImmutable());
-        $run->setStatus(match (true) {
-            $cancelled => FlowRun::STATUS_CANCELLED,
-            $sawError => FlowRun::STATUS_ERROR,
-            $passed === $run->getTotalSteps() => FlowRun::STATUS_PASSED,
-            default => FlowRun::STATUS_FAILED,
-        });
-        $this->em->flush();
+    /**
+     * Number of leaf steps that will actually run, expanding call steps.
+     * A missing/cyclic call counts as 1 (its error marker).
+     *
+     * @param string[] $callStack
+     */
+    private function countExpanded(TestFlow $flow, array $callStack): int
+    {
+        $n = 0;
+        foreach ($flow->getSteps() as $step) {
+            if ($step->isCall()) {
+                $called = $step->getCalledFlow();
+                $calledId = $called?->getId()?->toRfc4122();
+                if (null !== $called && null !== $calledId && !\in_array($calledId, $callStack, true)) {
+                    $n += $this->countExpanded($called, array_merge($callStack, [$calledId]));
+                } else {
+                    ++$n;
+                }
+            } else {
+                ++$n;
+            }
+        }
 
-        return $run;
+        return $n;
     }
 
     /**

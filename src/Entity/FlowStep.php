@@ -16,6 +16,7 @@ class FlowStep
     public const TYPE_DB = 'db';
     public const TYPE_SETVAR = 'setvar';
     public const TYPE_DELAY = 'delay';
+    public const TYPE_CALL = 'call';
 
     #[ORM\Id]
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -42,6 +43,16 @@ class FlowStep
     #[ORM\ManyToOne(targetEntity: DbConnection::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?DbConnection $dbConnection = null;
+
+    /**
+     * The flow this step calls inline (call steps). Referenced, not copied:
+     * the sub-flow's current steps run in the parent's run and share its
+     * variable context. SET NULL so deleting the sub-flow leaves a broken
+     * (but visible) call step rather than cascading.
+     */
+    #[ORM\ManyToOne(targetEntity: TestFlow::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?TestFlow $calledFlow = null;
 
     /** SQL / Redis command / Mongo JSON spec (db steps), with {{var}} support. */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
@@ -239,6 +250,23 @@ class FlowStep
     public function isDelay(): bool
     {
         return self::TYPE_DELAY === $this->type;
+    }
+
+    public function isCall(): bool
+    {
+        return self::TYPE_CALL === $this->type;
+    }
+
+    public function getCalledFlow(): ?TestFlow
+    {
+        return $this->calledFlow;
+    }
+
+    public function setCalledFlow(?TestFlow $calledFlow): static
+    {
+        $this->calledFlow = $calledFlow;
+
+        return $this;
     }
 
     public function getApiRequest(): ?ApiRequest

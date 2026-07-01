@@ -63,6 +63,7 @@
      data-add="{{ path('app_flow_step_add', {workspace: workspace.id, flow: flow.id}) }}"
      data-adddb="{{ path('app_flow_step_add_db', {workspace: workspace.id, flow: flow.id}) }}"
      data-addutil="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}"
+     data-addcall="{{ path('app_flow_step_add_call', {workspace: workspace.id, flow: flow.id}) }}"
      data-token="{{ csrf_token('add-step' ~ flow.id) }}">
 
     <a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ flow.name }}</a>
@@ -86,6 +87,10 @@
             <button type="button" class="rail-item" data-type="delay">
                 <span class="rail-node">⏱️</span>
                 <span class="rail-txt"><h3>Bekle</h3><p>Adımlar arasına gecikme koy</p></span>
+            </button>
+            <button type="button" class="rail-item" data-type="call">
+                <span class="rail-node">🧩</span>
+                <span class="rail-txt"><h3>Alt-akış çağır</h3><p>Başka bir akışı burada çalıştır</p></span>
             </button>
         </div>
 
@@ -127,6 +132,24 @@
                 <div class="dt-body util-add">
                     <p style="font-size:13px;color:var(--muted);margin:0;">Adım eklendikten sonra atamaları düzenleyeceksin.</p>
                     <button type="button" class="btn big-add" data-submit="setvar">🔧 Değişken adımı ekle</button>
+                </div>
+            </div>
+            {# call sub-flow #}
+            <div class="pane" data-pane="call">
+                <div class="dt-head"><h2>Alt-akış çağır</h2><p>Seçilen akışın adımları burada, aynı değişken bağlamıyla çalışır — referanslı, hep güncel hâli.</p></div>
+                <div class="dt-body">
+                    {% if callable_flows is empty %}
+                        <div class="empty-note">Çağrılabilir başka akış yok. Önce başka bir akış oluştur.</div>
+                    {% else %}
+                        <div class="plist">
+                            {% for cf in callable_flows %}
+                                <button type="button" class="prow" data-callflow="{{ cf.id }}">
+                                    <span class="mbadge">AKIŞ</span>
+                                    <span class="col"><span class="nm">{{ cf.name }}</span><span class="path">{{ cf.steps|length }} adım</span></span>
+                                </button>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
                 </div>
             </div>
             {# delay #}
@@ -179,6 +202,11 @@
     // db connections
     document.querySelectorAll('.prow[data-conn]').forEach(function (row) {
         row.addEventListener('click', function () { post(sw.dataset.adddb, 'connection', row.dataset.conn); });
+    });
+
+    // sub-flow calls
+    document.querySelectorAll('.prow[data-callflow]').forEach(function (row) {
+        row.addEventListener('click', function () { post(sw.dataset.addcall, 'calledFlow', row.dataset.callflow); });
     });
 
     // request picker: grouped + searchable

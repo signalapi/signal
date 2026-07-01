@@ -22,6 +22,11 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 #[IsGranted('ROLE_MERCHANT')]
 class FlowStepController extends AbstractAppController
 {
+    public function __construct(
+        private readonly \App\Repository\TestFlowRepository $flows,
+    ) {
+    }
+
     #[Route('/new', name: 'app_flow_step_new', methods: ['GET'])]
     public function chooseNew(
         Workspace $workspace,
@@ -37,6 +42,7 @@ class FlowStepController extends AbstractAppController
             'flow' => $flow,
             'available_requests' => $requests->findByWorkspace($workspace),
             'db_connections' => $connections->findByWorkspace($workspace),
+            'callable_flows' => $this->callableFlows($workspace, $flow),
         ]);
     }
 
@@ -142,6 +148,38 @@ class FlowStepController extends AbstractAppController
         return $this->renderEditor($workspace, $flow, $step, $parser, $connections, true, ['type' => $type]);
     }
 
+    #[Route('/add-call', name: 'app_flow_step_add_call', methods: ['POST'])]
+    public function addCall(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        Request $httpRequest,
+        FlowExpressionParser $parser,
+        DbConnectionRepository $connections,
+    ): Response {
+        $this->assertWorkspace($workspace);
+        $this->assertFlow($workspace, $flow);
+        if (!$this->isCsrfTokenValid('add-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $called = $this->flows->find((string) $httpRequest->request->get('calledFlow'));
+        if (null === $called
+            || $called->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()
+            || $called->getId()?->toRfc4122() === $flow->getId()?->toRfc4122()) {
+            $this->addFlash('error', 'Geçersiz alt-akış seçimi.');
+
+            return $this->redirectToRoute('app_flow_step_new', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
+        }
+
+        $step = new FlowStep();
+        $step->setFlow($flow);
+        $step->setType(FlowStep::TYPE_CALL);
+        $step->setCalledFlow($called);
+        $step->setName('↳ ' . $called->getName());
+
+        return $this->renderEditor($workspace, $flow, $step, $parser, $connections, true, ['type' => 'call']);
+    }
+
     /**
      * Commits a brand-new step to the flow — invoked only when the user saves
      * the "new step" editor. Rebuilds the step from the create context, appends
@@ -175,7 +213,7 @@ class FlowStepController extends AbstractAppController
             $step->setType(FlowStep::TYPE_HTTP);
             $step->setApiRequest($apiRequest);
             $step->copyRequestFrom($apiRequest);
-        } elseif (\in_array($type, [FlowStep::TYPE_DB, FlowStep::TYPE_SETVAR, FlowStep::TYPE_DELAY], true)) {
+        } elseif (\in_array($type, [FlowStep::TYPE_DB, FlowStep::TYPE_SETVAR, FlowStep::TYPE_DELAY, FlowStep::TYPE_CALL], true)) {
             $step->setType($type);
         } else {
             throw $this->createNotFoundException();
@@ -229,6 +267,20 @@ class FlowStepController extends AbstractAppController
     private function hydrateStep(FlowStep $step, Request $r, Workspace $workspace, DbConnectionRepository $connections, FlowExpressionParser $parser): void
     {
         $step->setName(trim((string) $r->request->get('name')) ?: $step->getName());
+
+        if ($step->isCall()) {
+            // A call step delegates everything to the referenced flow; only the target matters.
+            $calledId = (string) $r->request->get('calledFlow');
+            if ('' !== $calledId) {
+                $called = $this->flows->find($calledId);
+                $step->setCalledFlow($called && $called->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122() ? $called : null);
+            } else {
+                $step->setCalledFlow(null);
+            }
+
+            return;
+        }
+
         $step->setExtractions($parser->parseExtractions((string) $r->request->get('extractions')));
         $step->setAssertions($parser->parseAssertions((string) $r->request->get('assertions')));
 
@@ -272,9 +324,24 @@ class FlowStepController extends AbstractAppController
             'extractions_text' => $parser->renderExtractions($step->getExtractions()),
             'assertions_text' => $parser->renderAssertions($step->getAssertions()),
             'connections' => $connections->findByWorkspace($workspace),
+            'flows' => $this->callableFlows($workspace, $flow),
             'is_new' => $isNew,
             'create_ctx' => $createCtx,
         ]);
+    }
+
+    /**
+     * Flows in the workspace this flow may call — all except itself (deeper
+     * cycles are caught at run time by the engine's call-stack guard).
+     *
+     * @return TestFlow[]
+     */
+    private function callableFlows(Workspace $workspace, TestFlow $flow): array
+    {
+        return array_values(array_filter(
+            $this->flows->findByWorkspace($workspace),
+            static fn (TestFlow $f): bool => $f->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122(),
+        ));
     }
 
     /**

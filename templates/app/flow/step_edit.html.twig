@@ -4,8 +4,8 @@
 
 {% block panel %}
 {% set is_new = is_new|default(false) %}
-{% set kind = step.isDelay ? 'Bekleme' : (step.isSetvar ? 'Değişken set' : (step.isDb ? 'DB sorgusu' : 'HTTP isteği')) %}
-{% set badge = step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : 'HTTP')) %}
+{% set kind = step.isCall ? 'Alt-akış' : (step.isDelay ? 'Bekleme' : (step.isSetvar ? 'Değişken set' : (step.isDb ? 'DB sorgusu' : 'HTTP isteği'))) %}
+{% set badge = step.isCall ? 'CALL' : (step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : 'HTTP'))) %}
 
 <a class="backlink" href="{{ is_new ? path('app_flow_step_new', {workspace: workspace.id, flow: flow.id}) : path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ is_new ? 'Adım türü' : flow.name }}</a>
 <div class="pagehead">
@@ -59,6 +59,18 @@
                 <p class="fhint">SQL: normal sorgu · Redis: <code>GET key</code> · Mongo: <code>{{ '{"collection":"x","filter":{...}}' }}</code></p>
             </div>
         </div>
+    {% elseif step.isCall %}
+        <div class="fgroup" style="max-width:520px;">
+            <div class="fgroup-title">Çağrılan alt-akış</div>
+            <div class="field" style="margin:0;">
+                <label>Bu adım, seçilen akışın adımlarını burada sırayla çalıştırır (aynı değişken bağlamıyla).</label>
+                <select name="calledFlow">
+                    <option value="">— akış seç —</option>
+                    {% for cf in flows %}<option value="{{ cf.id }}" {{ step.calledFlow and step.calledFlow.id == cf.id ? 'selected' }}>{{ cf.name }} ({{ cf.steps|length }} adım)</option>{% endfor %}
+                </select>
+                <p class="fhint">Referanslıdır: alt-akışı değiştirdiğinde onu çağıran her yerde güncel hâli çalışır. Döngüsel çağrılar otomatik engellenir.</p>
+            </div>
+        </div>
     {% else %}
         <div class="fgroup">
             <div class="fgroup-title">İstek · bu flow'a özel</div>
@@ -107,7 +119,7 @@
         </div>
     {% endif %}
 
-    {% if not step.isSetvar and not step.isDelay %}
+    {% if not step.isSetvar and not step.isDelay and not step.isCall %}
     <div class="fgroup" id="ruleBuilder"
          {% if not is_new %}data-probe="{{ path('app_flow_step_probe', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"{% else %}data-probe=""{% endif %}
          data-isdb="{{ step.isDb ? '1' : '0' }}">

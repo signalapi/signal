@@ -190,7 +190,7 @@
             {% else %}
             <div class="runtrack" id="runtrack">
                 {% for step in flow.steps %}
-                    {% set badge = step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : step.reqMethod)) %}
+                    {% set badge = step.isCall ? 'CALL' : (step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : step.reqMethod))) %}
                     <div class="rt-row" data-pos="{{ loop.index0 }}">
                         <div class="rt-rail"><div class="rt-node" data-pos="{{ loop.index0 }}" data-idx="{{ loop.index }}">{{ loop.index }}</div></div>
                         <div class="rt-card" data-pos="{{ loop.index0 }}">
@@ -217,12 +217,13 @@
                                 </div>
                             </div>
                             <div class="rt-detail">
-                                {% if step.isDelay %}{{ step.query ?: 0 }} ms bekle
+                                {% if step.isCall %}{% if step.calledFlow %}↳ {{ step.calledFlow.name }} ({{ step.calledFlow.steps|length }} adım){% else %}<span style="color:var(--danger);">alt-akış silinmiş</span>{% endif %}
+                                {% elseif step.isDelay %}{{ step.query ?: 0 }} ms bekle
                                 {% elseif step.isSetvar %}{{ (step.query ?: '(atama yok)')|slice(0, 90) }}
                                 {% elseif step.isDb %}{% if step.dbConnection %}{{ step.dbConnection.type }} · {{ (step.query ?: '(sorgu yok)')|slice(0, 80) }}{% else %}<span style="color:var(--danger);">bağlantı silinmiş</span>{% endif %}
                                 {% else %}{{ step.reqMethod }} {{ step.reqUrl ?: '(URL boş)' }}{% endif %}
                             </div>
-                            {% if not step.isDelay and not step.isSetvar %}
+                            {% if not step.isDelay and not step.isSetvar and not step.isCall %}
                             <div class="rt-sub">
                                 {{ step.extractions|length }} extraction · {{ step.assertions|length }} assertion{% if step.retryEnabled %} · <span class="retry">↻ {{ step.retryMax }}× / {{ step.retryDelayMs }}ms</span>{% endif %}
                             </div>
