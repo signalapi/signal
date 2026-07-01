@@ -4,100 +4,215 @@
 
 {% block panel %}
 <style>
-    .sn-wrap { max-width: 860px; }
-    .sn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 22px; }
-    @media (max-width: 720px) { .sn-grid { grid-template-columns: 1fr; } }
+    .wiz { max-width: 720px; }
+    .wiz-steps { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); margin: 4px 0 22px; }
+    .wiz-steps .s { display: inline-flex; align-items: center; gap: 6px; }
+    .wiz-steps .n { width: 20px; height: 20px; border-radius: 50%; background: var(--panel-2); border: 1px solid var(--border);
+        display: inline-flex; align-items: center; justify-content: center; font-weight: 700; font-size: 11px; }
+    .wiz-steps .s.on .n { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .wiz-steps .s.on { color: var(--ink); font-weight: 600; }
+    .wiz-steps .sep { flex: 0 0 24px; height: 1px; background: var(--border); }
 
-    .sn-card { display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--border);
-        border-radius: 14px; padding: 20px; box-shadow: var(--shadow); transition: border-color .2s, box-shadow .2s, transform .1s; }
-    .sn-card:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    .sn-ico { width: 42px; height: 42px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
-        font-size: 21px; background: var(--accent-soft); margin-bottom: 14px; }
-    .sn-card h3 { margin: 0 0 5px; font-size: 16px; letter-spacing: -.01em; }
-    .sn-card p { margin: 0 0 16px; font-size: 12.5px; color: var(--muted); line-height: 1.5; flex: 1; }
-    .sn-card select { width: 100%; background: var(--panel-2); border: 1px solid var(--border); border-radius: 9px;
-        padding: 9px 11px; color: var(--text); font-size: 13px; box-sizing: border-box; margin-bottom: 10px; }
-    .sn-card .btn { width: 100%; justify-content: center; }
-    .sn-empty { font-size: 12px; color: var(--muted); background: var(--panel-2); border: 1px dashed var(--border);
-        border-radius: 9px; padding: 10px 12px; margin-bottom: 10px; }
-    .sn-empty a { font-weight: 600; }
-    .sn-util { display: flex; gap: 8px; }
-    .sn-util form { flex: 1; }
+    .stage { display: none; } .stage.on { display: block; }
+
+    /* stage 1 — type tiles */
+    .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    @media (max-width: 640px) { .tiles { grid-template-columns: 1fr; } }
+    .tile { text-align: left; cursor: pointer; background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+        padding: 18px; display: flex; gap: 14px; align-items: flex-start; transition: border-color .15s, box-shadow .15s, transform .08s; width: 100%; font: inherit; color: inherit; }
+    .tile:hover { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .tile:active { transform: translateY(1px); }
+    .tile .ico { width: 40px; height: 40px; border-radius: 11px; display: flex; align-items: center; justify-content: center;
+        font-size: 20px; background: var(--accent-soft); flex-shrink: 0; }
+    .tile h3 { margin: 0 0 4px; font-size: 15px; } .tile p { margin: 0; font-size: 12px; color: var(--muted); line-height: 1.45; }
+    .tile .arr { margin-left: auto; color: var(--muted); font-size: 18px; align-self: center; }
+    .tile[disabled] { opacity: .55; cursor: default; } .tile[disabled]:hover { border-color: var(--border); box-shadow: none; }
+
+    /* stage 2 — pickers */
+    .picker-head { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .picker-head .back { cursor: pointer; border: 1px solid var(--border); background: var(--panel); border-radius: 8px;
+        padding: 6px 11px; font-size: 13px; color: var(--muted); }
+    .picker-head .back:hover { color: var(--ink); background: var(--panel-2); }
+    .picker-head h2 { margin: 0; font-size: 16px; }
+    .search { width: 100%; box-sizing: border-box; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+        padding: 11px 13px; color: var(--text); font-size: 14px; margin-bottom: 12px; }
+    .search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+    .plist { border: 1px solid var(--border); border-radius: 12px; overflow: hidden auto; max-height: 440px; background: var(--panel); }
+    .grp-head { position: sticky; top: 0; background: var(--panel-2); padding: 7px 14px; font-size: 11px; font-weight: 700;
+        letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+    .prow { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; font: inherit; color: inherit;
+        cursor: pointer; background: transparent; border: none; border-bottom: 1px solid var(--border); padding: 11px 14px; transition: background .1s; }
+    .prow:hover { background: var(--accent-soft); }
+    .prow:last-child { border-bottom: none; }
+    .mbadge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 3px 6px;
+        border-radius: 5px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; min-width: 46px; text-align: center; }
+    .mbadge.m-get { background: #e6f4ec; color: #16a34a; } .mbadge.m-post { background: #f8efe0; color: #b35900; }
+    .mbadge.m-put { background: #e7eefc; color: #2563eb; } .mbadge.m-patch { background: #f0e9fb; color: #8250df; }
+    .mbadge.m-delete { background: var(--fail-soft); color: #dc2626; }
+    .prow .nm { font-weight: 600; font-size: 13.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .prow .path { font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--font-mono); }
+    .prow .col { flex: 1; min-width: 0; }
+    .no-hit { padding: 22px; text-align: center; color: var(--muted); font-size: 13px; }
+    .empty-note { background: var(--panel-2); border: 1px dashed var(--border); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: var(--muted); }
+    .empty-note a { font-weight: 600; }
 </style>
 
-<div class="sn-wrap">
+<div class="wiz" id="wiz"
+     data-add="{{ path('app_flow_step_add', {workspace: workspace.id, flow: flow.id}) }}"
+     data-adddb="{{ path('app_flow_step_add_db', {workspace: workspace.id, flow: flow.id}) }}"
+     data-addutil="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}"
+     data-token="{{ csrf_token('add-step' ~ flow.id) }}">
+
     <a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ flow.name }}</a>
-    <div class="pagehead">
-        <div>
-            <h1>Yeni adım</h1>
-            <p class="subtitle">Bir adım türü seç. Ekledikten sonra ayarlarını düzenler, kaydedince akışta görürsün.</p>
+    <div class="pagehead"><div><h1>Yeni adım</h1></div></div>
+
+    <div class="wiz-steps">
+        <span class="s on" id="crumb1"><span class="n">1</span> Tür</span>
+        <span class="sep"></span>
+        <span class="s" id="crumb2"><span class="n">2</span> <span id="crumb2lbl">Seçim</span></span>
+    </div>
+
+    {# ---- STAGE 1: choose type ---- #}
+    <div class="stage on" id="stage1">
+        <div class="tiles">
+            <button type="button" class="tile" data-go="http">
+                <span class="ico">🌐</span>
+                <span><h3>HTTP isteği</h3><p>Bir API isteği gönder ve yanıtını doğrula.</p></span>
+                <span class="arr">→</span>
+            </button>
+            <button type="button" class="tile" data-go="db">
+                <span class="ico">🗄️</span>
+                <span><h3>DB doğrulama</h3><p>Bir sorgu çalıştır, dönen satırı beklediğinle karşılaştır.</p></span>
+                <span class="arr">→</span>
+            </button>
+            <button type="button" class="tile" data-submit="setvar">
+                <span class="ico">🔧</span>
+                <span><h3>Değişken ata</h3><p>Elle bir değişken set et; sonraki adımlarda kullan.</p></span>
+                <span class="arr">+</span>
+            </button>
+            <button type="button" class="tile" data-submit="delay">
+                <span class="ico">⏱️</span>
+                <span><h3>Bekle</h3><p>Adımlar arasına gecikme koy (asenkron işlemler için).</p></span>
+                <span class="arr">+</span>
+            </button>
         </div>
     </div>
 
-    <div class="sn-grid">
-        {# ---- HTTP request ---- #}
-        <div class="sn-card">
-            <div class="sn-ico">🌐</div>
-            <h3>HTTP isteği</h3>
-            <p>Bir API isteği gönder ve yanıtını doğrula. Collection'daki bir isteği seç — kopyası bu adıma alınır.</p>
-            {% if available_requests is empty %}
-                <div class="sn-empty">Henüz istek yok. Önce <a href="{{ path('app_collection_index', {workspace: workspace.id}) }}">Collection'larda</a> bir istek oluştur.</div>
-                <button class="btn" disabled>+ Ekle</button>
-            {% else %}
-                <form method="post" action="{{ path('app_flow_step_add', {workspace: workspace.id, flow: flow.id}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
-                    <select name="request" required>
-                        <option value="">— istek seç —</option>
-                        {% for r in available_requests %}<option value="{{ r.id }}">{{ r.collection.name }} / {{ r.name }} ({{ r.method }})</option>{% endfor %}
-                    </select>
-                    <button class="btn" type="submit">+ Ekle</button>
-                </form>
-            {% endif %}
-        </div>
+    {# ---- STAGE 2a: pick request ---- #}
+    <div class="stage" id="stageHttp">
+        <div class="picker-head"><button type="button" class="back" data-back>←</button><h2>İstek seç</h2></div>
+        {% if available_requests is empty %}
+            <div class="empty-note">Henüz istek yok. Önce <a href="{{ path('app_collection_index', {workspace: workspace.id}) }}">Collection'larda</a> bir istek oluştur.</div>
+        {% else %}
+            <input type="text" class="search" id="reqSearch" placeholder="İstek veya collection ara…" autocomplete="off">
+            <div class="plist" id="reqList"></div>
+        {% endif %}
+    </div>
 
-        {# ---- DB verification ---- #}
-        <div class="sn-card">
-            <div class="sn-ico">🗄️</div>
-            <h3>DB doğrulama</h3>
-            <p>Bir sorgu çalıştırıp dönen satırı beklediğin değerle karşılaştır. Örn: ödeme sonrası kayıt gerçekten oluştu mu.</p>
-            {% if db_connections is empty %}
-                <div class="sn-empty">Bağlantı yok. Önce <a href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">Veritabanı bağlantısı</a> ekle.</div>
-                <button class="btn" disabled>+ Ekle</button>
-            {% else %}
-                <form method="post" action="{{ path('app_flow_step_add_db', {workspace: workspace.id, flow: flow.id}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
-                    <select name="connection" required>
-                        <option value="">— bağlantı seç —</option>
-                        {% for c in db_connections %}<option value="{{ c.id }}">{{ c.name }} ({{ c.type }})</option>{% endfor %}
-                    </select>
-                    <button class="btn" type="submit">+ Ekle</button>
-                </form>
-            {% endif %}
-        </div>
-
-        {# ---- Set variable ---- #}
-        <div class="sn-card">
-            <div class="sn-ico">🔧</div>
-            <h3>Değişken ata</h3>
-            <p>Elle bir değişken set et (sabit değer veya <code>{{ '{{ifade}}' }}</code>). Sonraki adımlarda kullanılır.</p>
-            <form method="post" action="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
-                <input type="hidden" name="type" value="setvar">
-                <button class="btn" type="submit">+ Ekle</button>
-            </form>
-        </div>
-
-        {# ---- Delay ---- #}
-        <div class="sn-card">
-            <div class="sn-ico">⏱️</div>
-            <h3>Bekle</h3>
-            <p>Adımlar arasına gecikme koy. Asenkron işlemlerin (webhook, kuyruk) tamamlanmasını beklemek için.</p>
-            <form method="post" action="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('add-step' ~ flow.id) }}">
-                <input type="hidden" name="type" value="delay">
-                <button class="btn" type="submit">+ Ekle</button>
-            </form>
-        </div>
+    {# ---- STAGE 2b: pick db connection ---- #}
+    <div class="stage" id="stageDb">
+        <div class="picker-head"><button type="button" class="back" data-back>←</button><h2>Bağlantı seç</h2></div>
+        {% if db_connections is empty %}
+            <div class="empty-note">Bağlantı yok. Önce <a href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">Veritabanı bağlantısı</a> ekle.</div>
+        {% else %}
+            <div class="plist">
+                {% for c in db_connections %}
+                    <button type="button" class="prow" data-conn="{{ c.id }}">
+                        <span class="mbadge">{{ c.type|upper|slice(0,5) }}</span>
+                        <span class="col"><span class="nm">{{ c.name }}</span><br><span class="path">{{ c.host }}{{ c.databaseName ? ' / ' ~ c.databaseName }}</span></span>
+                    </button>
+                {% endfor %}
+            </div>
+        {% endif %}
     </div>
 </div>
+
+<script type="application/json" id="reqData">[
+{% for r in available_requests %}{"id":"{{ r.id }}","name":{{ r.name|json_encode|raw }},"method":"{{ r.method }}","coll":{{ r.collection.name|json_encode|raw }},"url":{{ (r.url ?: '')|json_encode|raw }}}{{ not loop.last ? ',' }}{% endfor %}
+]</script>
+
+{% verbatim %}
+<script>
+(function () {
+    var wiz = document.getElementById('wiz');
+    if (!wiz) return;
+    var token = wiz.dataset.token;
+
+    function post(action, field, value) {
+        var f = document.createElement('form');
+        f.method = 'post'; f.action = action;
+        f.innerHTML = '<input type="hidden" name="_token">' + (field ? '<input type="hidden" name="' + field + '">' : '');
+        f.querySelector('[name=_token]').value = token;
+        if (field) f.querySelector('[name=' + field + ']').value = value;
+        document.body.appendChild(f); f.submit();
+    }
+
+    function show(id, crumbLabel) {
+        document.querySelectorAll('.stage').forEach(function (s) { s.classList.remove('on'); });
+        document.getElementById(id).classList.add('on');
+        var onStage2 = id !== 'stage1';
+        document.getElementById('crumb1').classList.toggle('on', !onStage2);
+        document.getElementById('crumb2').classList.toggle('on', onStage2);
+        if (crumbLabel) document.getElementById('crumb2lbl').textContent = crumbLabel;
+        var srch = document.getElementById('reqSearch');
+        if (id === 'stageHttp' && srch) srch.focus();
+    }
+
+    // stage 1 tiles
+    document.querySelectorAll('.tile').forEach(function (t) {
+        t.addEventListener('click', function () {
+            if (t.hasAttribute('disabled')) return;
+            var go = t.dataset.go, sub = t.dataset.submit;
+            if (sub) { post(wiz.dataset.addutil, 'type', sub); return; }
+            if (go === 'http') show('stageHttp', 'İstek');
+            if (go === 'db') show('stageDb', 'Bağlantı');
+        });
+    });
+    document.querySelectorAll('[data-back]').forEach(function (b) {
+        b.addEventListener('click', function () { show('stage1'); });
+    });
+
+    // db connection pick
+    document.querySelectorAll('.prow[data-conn]').forEach(function (row) {
+        row.addEventListener('click', function () { post(wiz.dataset.adddb, 'connection', row.dataset.conn); });
+    });
+
+    // request picker: grouped, searchable list
+    var listEl = document.getElementById('reqList');
+    if (listEl) {
+        var reqs = JSON.parse(document.getElementById('reqData').textContent || '[]');
+        function render(filter) {
+            filter = (filter || '').toLowerCase().trim();
+            var groups = {}, order = [];
+            reqs.forEach(function (r) {
+                var hay = (r.name + ' ' + r.coll + ' ' + r.method + ' ' + r.url).toLowerCase();
+                if (filter && hay.indexOf(filter) === -1) return;
+                if (!groups[r.coll]) { groups[r.coll] = []; order.push(r.coll); }
+                groups[r.coll].push(r);
+            });
+            listEl.innerHTML = '';
+            if (order.length === 0) { listEl.innerHTML = '<div class="no-hit">Eşleşen istek yok.</div>'; return; }
+            order.forEach(function (coll) {
+                var h = document.createElement('div'); h.className = 'grp-head'; h.textContent = coll;
+                listEl.appendChild(h);
+                groups[coll].forEach(function (r) {
+                    var b = document.createElement('button'); b.type = 'button'; b.className = 'prow';
+                    var m = document.createElement('span'); m.className = 'mbadge m-' + r.method.toLowerCase(); m.textContent = r.method;
+                    var col = document.createElement('span'); col.className = 'col';
+                    var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name;
+                    col.appendChild(nm);
+                    if (r.url) { var p = document.createElement('span'); p.className = 'path'; p.textContent = r.url; col.appendChild(document.createElement('br')); col.appendChild(p); }
+                    b.appendChild(m); b.appendChild(col);
+                    b.addEventListener('click', function () { post(wiz.dataset.add, 'request', r.id); });
+                    listEl.appendChild(b);
+                });
+            });
+        }
+        render('');
+        var srch = document.getElementById('reqSearch');
+        srch.addEventListener('input', function () { render(srch.value); });
+    }
+})();
+</script>
+{% endverbatim %}
 {% endblock %}
