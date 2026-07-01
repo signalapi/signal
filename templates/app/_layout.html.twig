@@ -38,6 +38,7 @@
 
                 <div class="nav-group">Altyapı</div>
                 <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_dbconn' ? 'active' }}"><span class="ico">🗄</span><span class="label">DB Bağlantıları</span></a>
+                <a href="{{ path('app_factory_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_factory' ? 'active' }}"><span class="ico">🎲</span><span class="label">Veri Fabrikaları</span></a>
                 <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_apitoken' ? 'active' }}"><span class="ico">🔑</span><span class="label">API & MCP</span></a>
                 <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_cookie' ? 'active' }}"><span class="ico">🍪</span><span class="label">Cookie'ler</span></a>
             {% endif %}

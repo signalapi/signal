@@ -45,6 +45,8 @@ class McpToolRegistry
         private readonly FlowGroupRepository $groups,
         private readonly FlowGroupRunRepository $groupRuns,
         private readonly FlowRunner $runner,
+        private readonly \App\Repository\DataFactoryRepository $dataFactories,
+        private readonly \App\Service\DynamicVariableGenerator $dynamic,
         private readonly DbQueryRunner $dbQuery,
         private readonly FlowExpressionParser $parser,
         private readonly FlowVariableScanner $varScanner,
@@ -73,6 +75,15 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'list_db_connections', 'description' => 'Veritabanı bağlantılarını listeler (kimlik bilgisi dönmez).',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'list_data_factories', 'description' => 'Workspace\'in veri fabrikalarını (yönetilebilir {{$üreteç}}\'ler) listeler; her biri için birer örnek değer.',
+                'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'create_data_factory', 'description' => 'Yeni bir veri fabrikası oluşturur — {{$name}} ile kullanılır, her seferinde taze değer. kind: oneOf {values:[...]} · template {template:"...{{$guid}}..."} · intRange {min,max} · pattern {pattern:"#### #### #### ####"} (#=rakam A=A-Z a=a-z *=harf+rakam).',
+                'inputSchema' => ['type' => 'object', 'required' => ['name', 'kind', 'config'], 'properties' => [
+                    'name' => ['type' => 'string'], 'kind' => ['type' => 'string', 'enum' => ['oneOf', 'template', 'intRange', 'pattern']],
+                    'config' => ['type' => 'object'], 'description' => ['type' => 'string'],
+                ]]],
+            ['name' => 'delete_data_factory', 'description' => 'Bir veri fabrikasını adıyla siler.',
+                'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => ['name' => ['type' => 'string']]]],
             ['name' => 'db_schema', 'description' => 'Bir DB bağlantısının şemasını keşfeder (SQL: tablolar; table verilirse kolon adı+tipi). DB adımı yazmadan önce hangi tablo/alan var görmek için. Mongo/Redis için db_query kullanın.',
                 'inputSchema' => ['type' => 'object', 'required' => ['connection'], 'properties' => [
                     'connection' => ['type' => 'string', 'description' => 'DB bağlantısı adı veya id'],
@@ -254,6 +265,9 @@ class McpToolRegistry
             'search_requests' => $this->searchRequests($ws, (string) ($args['query'] ?? '')),
             'list_environments' => $this->listEnvironments($ws),
             'list_db_connections' => $this->listDbConnections($ws),
+            'list_data_factories' => $this->listDataFactories($ws),
+            'create_data_factory' => $this->createDataFactory($ws, $args),
+            'delete_data_factory' => $this->deleteDataFactory($ws, $args),
             'db_schema' => $this->dbSchema($ws, $args),
             'db_query' => $this->dbQueryTool($ws, $args),
             'list_flows' => $this->listFlows($ws),
@@ -1065,6 +1079,67 @@ class McpToolRegistry
         $this->groups->remove($suite);
 
         return ['deleted' => true, 'suite' => $name];
+    }
+
+    // ---- data factories ----
+
+    private function listDataFactories(Workspace $ws): array
+    {
+        $out = [];
+        foreach ($this->dataFactories->findByWorkspace($ws) as $f) {
+            $this->dynamic->setFactories([$f->getName() => ['kind' => $f->getKind(), 'config' => $f->getConfig()]]);
+            $out[] = [
+                'name' => $f->getName(),
+                'token' => '{{$' . $f->getName() . '}}',
+                'kind' => $f->getKind(),
+                'config' => $f->getConfig(),
+                'sample' => $this->dynamic->generate('$' . $f->getName()),
+            ];
+        }
+
+        return ['dataFactories' => $out];
+    }
+
+    private function createDataFactory(Workspace $ws, array $args): array
+    {
+        $name = preg_replace('/[^\w.\-]/', '', trim((string) ($args['name'] ?? ''))) ?? '';
+        if ('' === $name) {
+            throw new \InvalidArgumentException('Geçerli bir ad gerekli (harf, rakam, _ veya .).');
+        }
+        $kind = (string) ($args['kind'] ?? '');
+        if (!\in_array($kind, \App\Entity\DataFactory::KINDS, true)) {
+            throw new \InvalidArgumentException('Geçersiz kind. oneOf/template/intRange/pattern.');
+        }
+
+        $factory = new \App\Entity\DataFactory();
+        $factory->setWorkspace($ws);
+        $factory->setName($name);
+        $factory->setKind($kind);
+        $factory->setConfig(\is_array($args['config'] ?? null) ? $args['config'] : []);
+        $factory->setDescription(isset($args['description']) ? (string) $args['description'] : null);
+
+        try {
+            $this->dataFactories->save($factory);
+        } catch (\Throwable) {
+            throw new \InvalidArgumentException('Bu adla bir fabrika zaten var: ' . $name);
+        }
+
+        $this->dynamic->setFactories([$name => ['kind' => $kind, 'config' => $factory->getConfig()]]);
+
+        return ['ok' => true, 'name' => $name, 'token' => '{{$' . $name . '}}', 'sample' => $this->dynamic->generate('$' . $name)];
+    }
+
+    private function deleteDataFactory(Workspace $ws, array $args): array
+    {
+        $name = trim((string) ($args['name'] ?? ''));
+        foreach ($this->dataFactories->findByWorkspace($ws) as $f) {
+            if ($f->getName() === $name) {
+                $this->dataFactories->remove($f);
+
+                return ['deleted' => true, 'name' => $name];
+            }
+        }
+        throw new \InvalidArgumentException('Fabrika bulunamadı: ' . $name);
     }
 
     // ---- db introspection ----

@@ -26,6 +26,8 @@ class FlowRunner
         private readonly JsonPathExtractor $jsonPath,
         private readonly VariableResolver $resolver,
         private readonly EntityManagerInterface $em,
+        private readonly DynamicVariableGenerator $dynamic,
+        private readonly \App\Repository\DataFactoryRepository $factories,
     ) {
     }
 
@@ -97,6 +99,7 @@ class FlowRunner
         @set_time_limit(0);
 
         $context = array_merge($environment ? $environment->toMap() : [], $extraVars);
+        $this->loadFactories($flow);
         // Expand call steps so progress/total reflect the sub-flow steps that actually run.
         $run->setTotalSteps($this->countExpanded($flow, []));
 
@@ -256,6 +259,19 @@ class FlowRunner
 
         $run->setPassedSteps($state['passed']);
         $this->em->flush();
+    }
+
+    /**
+     * Registers the workspace's data factories so {{$name}} resolves them for
+     * this run (fresh value per occurrence).
+     */
+    private function loadFactories(TestFlow $flow): void
+    {
+        $map = [];
+        foreach ($this->factories->findByWorkspace($flow->getWorkspace()) as $f) {
+            $map[$f->getName()] = ['kind' => $f->getKind(), 'config' => $f->getConfig()];
+        }
+        $this->dynamic->setFactories($map);
     }
 
     /**

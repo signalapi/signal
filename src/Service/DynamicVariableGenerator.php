@@ -19,11 +19,41 @@ class DynamicVariableGenerator
     /**
      * Returns the generated value, or null if the name is not a known dynamic variable.
      */
+    /**
+     * Workspace-managed factories for the current run, keyed by name.
+     *
+     * @var array<string, array{kind: string, config: array<string, mixed>}>
+     */
+    private array $factories = [];
+
+    private int $depth = 0;
+
+    /**
+     * Registers the workspace's data factories for this run. They resolve as
+     * {{$name}}, checked after the built-ins.
+     *
+     * @param array<string, array{kind: string, config: array<string, mixed>}> $factories
+     */
+    public function setFactories(array $factories): void
+    {
+        $this->factories = $factories;
+    }
+
     public function generate(string $name): ?string
     {
         // strip a single leading $
         $key = ltrim($name, '$');
 
+        $builtin = $this->builtin($key);
+        if (null !== $builtin) {
+            return $builtin;
+        }
+
+        return isset($this->factories[$key]) ? $this->fromFactory($this->factories[$key]) : null;
+    }
+
+    private function builtin(string $key): ?string
+    {
         return match ($key) {
             'guid', 'randomUUID' => $this->uuid(),
             'timestamp' => (string) time(),
@@ -56,5 +86,73 @@ class DynamicVariableGenerator
         $data[8] = \chr((\ord($data[8]) & 0x3F) | 0x80);
 
         return vsprintf('%s%s-%s-%s-%s-%s%s%s', str_split(bin2hex($data), 4));
+    }
+
+    /**
+     * @param array{kind: string, config: array<string, mixed>} $factory
+     */
+    private function fromFactory(array $factory): string
+    {
+        $config = $factory['config'] ?? [];
+
+        return match ($factory['kind'] ?? '') {
+            'oneOf' => $this->fromOneOf($config),
+            'intRange' => (string) random_int((int) ($config['min'] ?? 0), max((int) ($config['min'] ?? 0), (int) ($config['max'] ?? 100))),
+            'pattern' => $this->fromPattern((string) ($config['pattern'] ?? '')),
+            'template' => $this->renderTemplate((string) ($config['template'] ?? '')),
+            default => '',
+        };
+    }
+
+    /** @param array<string, mixed> $config */
+    private function fromOneOf(array $config): string
+    {
+        $values = array_values(array_filter(
+            array_map(static fn ($v): string => trim((string) $v), (array) ($config['values'] ?? [])),
+            static fn (string $v): bool => '' !== $v,
+        ));
+
+        return [] === $values ? '' : (string) $values[array_rand($values)];
+    }
+
+    /**
+     * # → digit, A → A-Z, a → a-z, * → alnum; anything else is literal.
+     */
+    private function fromPattern(string $pattern): string
+    {
+        $out = '';
+        $len = \strlen($pattern);
+        for ($i = 0; $i < $len; ++$i) {
+            $out .= match ($pattern[$i]) {
+                '#' => (string) random_int(0, 9),
+                'A' => \chr(random_int(65, 90)),
+                'a' => \chr(random_int(97, 122)),
+                '*' => '0123456789abcdefghijklmnopqrstuvwxyz'[random_int(0, 35)],
+                default => $pattern[$i],
+            };
+        }
+
+        return $out;
+    }
+
+    /**
+     * Resolves {{$token}} placeholders inside a template (built-ins + factories),
+     * so factories can compose — e.g. "test+{{$guid}}@zotlo.com". Guarded against
+     * runaway factory recursion.
+     */
+    private function renderTemplate(string $template): string
+    {
+        if ($this->depth > 8) {
+            return $template;
+        }
+        ++$this->depth;
+        $out = preg_replace_callback(
+            '/\{\{\s*(\$[\w.\-]+)\s*\}\}/',
+            fn (array $m): string => $this->generate($m[1]) ?? $m[0],
+            $template,
+        );
+        --$this->depth;
+
+        return (string) $out;
     }
 }

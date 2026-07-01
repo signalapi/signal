@@ -1,0 +1,53 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Veri Fabrikaları · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+<div class="pagehead">
+    <div>
+        <h1>Veri Fabrikaları</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ factories|length }} fabrika · her istekte taze test verisi</p>
+    </div>
+</div>
+
+<p class="subtitle" style="font-size:12.5px;margin:0 0 14px;max-width:720px;">
+    Yönetilebilir üreteçler. Bir fabrika tanımla, akışın her yerinde <code>{{ '{{$adı}}' }}</code> ile kullan — her kullanımda taze değer üretir.
+    Yerleşiklere ek olarak çalışır (<code>{{ '{{$guid}}' }}</code>, <code>{{ '{{$randomEmail}}' }}</code> …).
+</p>
+
+<form class="addbar" method="post" action="{{ path('app_factory_new', {workspace: workspace.id}) }}">
+    <input type="text" name="name" placeholder="Yeni fabrika adı (örn. testCard, provider)">
+    <input type="hidden" name="_token" value="{{ csrf_token('factory-new') }}">
+    <button class="btn small" type="submit">+ Oluştur</button>
+</form>
+
+{% if factories is empty %}
+    <div class="empty" style="text-align:left;padding:24px;margin-top:14px;">Henüz fabrika yok. Yukarıdan bir tane oluştur — örn. <code>provider</code> için Yuno/Payrails seçen bir “oneOf”.</div>
+{% else %}
+<div class="res-grid stagger" style="margin-top:14px;">
+    {% for f in factories %}
+        {% set kindLabel = {'oneOf':'listeden biri','template':'şablon','intRange':'sayı aralığı','pattern':'desen'} %}
+        <div class="res-card">
+            <div class="rc-top">
+                <div class="ic">🎲</div>
+                <div class="rc-name">
+                    <a href="{{ path('app_factory_edit', {workspace: workspace.id, factory: f.id}) }}"><code>{{ '{{$' ~ f.name ~ '}}' }}</code></a>
+                    <div class="s">{{ kindLabel[f.kind] ?? f.kind }}{% if f.description %} · {{ f.description }}{% endif %}</div>
+                </div>
+            </div>
+            <div style="font-family:var(--font-mono);font-size:12px;color:var(--accent);background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:4px 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                örnek: {{ samples[f.id] ?? '—' }}
+            </div>
+            <div class="rc-foot">
+                <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_factory_edit', {workspace: workspace.id, factory: f.id}) }}">Düzenle</a>
+                <form method="post" action="{{ path('app_factory_delete', {workspace: workspace.id, factory: f.id}) }}" onsubmit="return confirm('Fabrika silinecek. Emin misiniz?');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('factory-delete' ~ f.id) }}">
+                    <button class="btn danger" type="submit">Sil</button>
+                </form>
+            </div>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

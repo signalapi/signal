@@ -1,0 +1,98 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}{{ '{{$' ~ factory.name ~ '}}' }} · Veri Fabrikası{% endblock %}
+
+{% block panel %}
+{% set cfg = factory.config %}
+<a class="backlink" href="{{ path('app_factory_index', {workspace: workspace.id}) }}">← Veri Fabrikaları</a>
+<div class="pagehead">
+    <div>
+        <h1>Fabrika düzenle</h1>
+        <p class="subtitle">Akışta <code>{{ '{{$' ~ factory.name ~ '}}' }}</code> ile kullanılır — her seferinde taze değer.</p>
+    </div>
+</div>
+
+<form method="post" id="facForm" data-preview="{{ path('app_factory_preview', {workspace: workspace.id, factory: factory.id}) }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('factory-edit' ~ factory.id) }}">
+
+    <div class="grid2" style="max-width:640px;">
+        <div class="field">
+            <label>Ad (token)</label>
+            <input type="text" name="name" value="{{ factory.name }}" style="font-family:var(--font-mono);">
+            <p class="fhint">Harf, rakam, <code>_</code>, <code>.</code></p>
+        </div>
+        <div class="field">
+            <label>Tür</label>
+            <select name="kind" id="kind" style="width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);">
+                <option value="oneOf"    {{ factory.kind == 'oneOf' ? 'selected' }}>Listeden biri (oneOf)</option>
+                <option value="template" {{ factory.kind == 'template' ? 'selected' }}>Şablon (template)</option>
+                <option value="intRange" {{ factory.kind == 'intRange' ? 'selected' }}>Sayı aralığı (intRange)</option>
+                <option value="pattern"  {{ factory.kind == 'pattern' ? 'selected' }}>Desen (pattern)</option>
+            </select>
+        </div>
+    </div>
+    <div class="field" style="max-width:640px;">
+        <label>Açıklama (opsiyonel)</label>
+        <input type="text" name="description" value="{{ factory.description }}" placeholder="ne üretir?">
+    </div>
+
+    {# ---- kind-specific config ---- #}
+    <div class="fgroup kcfg" data-kind="oneOf" style="max-width:640px;">
+        <div class="fgroup-title">Değerler — her satır bir seçenek</div>
+        <textarea name="values" rows="6" style="font-family:var(--font-mono);" placeholder="Yuno&#10;Payrails">{{ (cfg.values ?? [])|join('\n') }}</textarea>
+        <p class="fhint">Rastgele bir satır seçilir.</p>
+    </div>
+    <div class="fgroup kcfg" data-kind="template" style="max-width:640px;">
+        <div class="fgroup-title">Şablon</div>
+        <input type="text" name="template" value="{{ cfg.template ?? '' }}" style="font-family:var(--font-mono);" placeholder="test+{{ '{{$guid}}' }}@zotlo.com">
+        <p class="fhint">İçindeki <code>{{ '{{$...}}' }}</code> üreteçleri (yerleşik veya başka fabrika) çözülür.</p>
+    </div>
+    <div class="fgroup kcfg" data-kind="intRange" style="max-width:640px;">
+        <div class="fgroup-title">Sayı aralığı</div>
+        <div style="display:flex;gap:10px;align-items:center;">
+            <label style="font-size:13px;color:var(--muted);">min <input type="number" name="min" value="{{ cfg.min ?? 1 }}" style="width:110px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);margin-left:6px;"></label>
+            <label style="font-size:13px;color:var(--muted);">max <input type="number" name="max" value="{{ cfg.max ?? 100 }}" style="width:110px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);margin-left:6px;"></label>
+        </div>
+    </div>
+    <div class="fgroup kcfg" data-kind="pattern" style="max-width:640px;">
+        <div class="fgroup-title">Desen</div>
+        <input type="text" name="pattern" value="{{ cfg.pattern ?? '' }}" style="font-family:var(--font-mono);" placeholder="#### #### #### ####">
+        <p class="fhint"><code>#</code> rakam · <code>A</code> A-Z · <code>a</code> a-z · <code>*</code> harf+rakam · diğerleri aynen.</p>
+    </div>
+
+    <div class="fgroup" style="max-width:640px;">
+        <div style="display:flex;align-items:center;gap:10px;">
+            <button type="button" class="btn ghost small" id="previewBtn">🎲 Önizle</button>
+            <span id="previewOut" style="font-family:var(--font-mono);font-size:12.5px;color:var(--accent);"></span>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button class="btn" type="submit">Kaydet</button>
+        <a class="btn ghost" href="{{ path('app_factory_index', {workspace: workspace.id}) }}">Vazgeç</a>
+    </div>
+</form>
+
+<script>
+(function () {
+    var form = document.getElementById('facForm');
+    var kind = document.getElementById('kind');
+    function sync() {
+        document.querySelectorAll('.kcfg').forEach(function (el) {
+            el.style.display = el.dataset.kind === kind.value ? '' : 'none';
+        });
+    }
+    kind.addEventListener('change', sync); sync();
+
+    document.getElementById('previewBtn').addEventListener('click', function () {
+        var out = document.getElementById('previewOut');
+        out.textContent = '…';
+        var fd = new FormData(form);
+        fetch(form.dataset.preview, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) { out.textContent = (d.samples || []).join('   ·   '); })
+            .catch(function () { out.textContent = 'önizleme başarısız'; });
+    });
+})();
+</script>
+{% endblock %}
