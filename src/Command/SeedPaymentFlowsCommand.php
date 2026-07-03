@@ -304,13 +304,11 @@ class SeedPaymentFlowsCommand extends Command
         if (null !== $env) {
             $flow->setDefaultEnvironment($env);
         }
+        $this->em->persist($flow);
         if (!empty($spec['group'])) {
             $group = $this->ensureGroup($workspace, (string) $spec['group']);
-            $flow->setFlowGroup($group);
-            $flow->setGroupPosition($group->getFlows()->count());
-            $group->getFlows()->add($flow);
+            $group->addFlow($flow);
         }
-        $this->em->persist($flow);
 
         /** @var FlowStep[] $steps */
         $steps = [];

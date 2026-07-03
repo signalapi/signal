@@ -34,10 +34,10 @@ class FlowGroup
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
 
-    /** @var Collection<int, TestFlow> */
-    #[ORM\OneToMany(mappedBy: 'flowGroup', targetEntity: TestFlow::class)]
-    #[ORM\OrderBy(['groupPosition' => 'ASC'])]
-    private Collection $flows;
+    /** @var Collection<int, FlowGroupItem> */
+    #[ORM\OneToMany(mappedBy: 'flowGroup', targetEntity: FlowGroupItem::class, cascade: ['persist', 'remove'], orphanRemoval: true)]
+    #[ORM\OrderBy(['position' => 'ASC'])]
+    private Collection $items;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
@@ -45,7 +45,7 @@ class FlowGroup
     public function __construct()
     {
         $this->createdAt = new \DateTimeImmutable();
-        $this->flows = new ArrayCollection();
+        $this->items = new ArrayCollection();
     }
 
     public function getId(): ?Uuid
@@ -89,10 +89,56 @@ class FlowGroup
         return $this;
     }
 
-    /** @return Collection<int, TestFlow> */
+    /** @return Collection<int, FlowGroupItem> */
+    public function getItems(): Collection
+    {
+        return $this->items;
+    }
+
+    /**
+     * The flows in this suite, in order (derived from the membership items).
+     *
+     * @return Collection<int, TestFlow>
+     */
     public function getFlows(): Collection
     {
-        return $this->flows;
+        return new ArrayCollection(array_map(
+            static fn (FlowGroupItem $i): TestFlow => $i->getFlow(),
+            $this->items->toArray(),
+        ));
+    }
+
+    public function hasFlow(TestFlow $flow): bool
+    {
+        foreach ($this->items as $item) {
+            if ($item->getFlow() === $flow) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function addFlow(TestFlow $flow, ?int $position = null): static
+    {
+        if ($this->hasFlow($flow)) {
+            return $this;
+        }
+        $pos = $position ?? $this->items->count();
+        $this->items->add(new FlowGroupItem($this, $flow, $pos));
+
+        return $this;
+    }
+
+    public function removeFlow(TestFlow $flow): static
+    {
+        foreach ($this->items as $item) {
+            if ($item->getFlow() === $flow) {
+                $this->items->removeElement($item);
+            }
+        }
+
+        return $this;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

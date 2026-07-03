@@ -376,6 +376,7 @@ class FlowRunController extends AbstractAppController
         Workspace $workspace,
         #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
         #[MapEntity(mapping: ['run' => 'id'])] FlowRun $run,
+        \App\Repository\FlowGroupRunRepository $groupRuns,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertFlow($workspace, $flow);
@@ -384,10 +385,17 @@ class FlowRunController extends AbstractAppController
             throw $this->createNotFoundException();
         }
 
+        // If this run was part of a suite batch, resolve that suite for the back-link.
+        $suiteGroup = null;
+        if ('group' === $run->getTrigger() && null !== $run->getBatchId()) {
+            $suiteGroup = $groupRuns->findOneByBatch($run->getBatchId())?->getFlowGroup();
+        }
+
         return $this->render('app/flow/run_show.html.twig', [
             'workspace' => $workspace,
             'flow' => $flow,
             'run' => $run,
+            'suiteGroup' => $suiteGroup,
         ]);
     }
 

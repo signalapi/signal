@@ -248,10 +248,10 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'create_suite', 'description' => 'Yeni bir suite (akış grubu) oluşturur; suiteId döner.',
                 'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => ['name' => ['type' => 'string'], 'description' => ['type' => 'string']]]],
-            ['name' => 'add_flow_to_suite', 'description' => 'Bir akışı suite\'e ekler (sona). Sıra, ekleme sırasıdır.',
+            ['name' => 'add_flow_to_suite', 'description' => 'Bir akışı suite\'e ekler (sona). Bir akış birden fazla suite\'te olabilir; bu ekleme diğer üyelikleri etkilemez.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'flowId'], 'properties' => ['suiteId' => ['type' => 'string'], 'flowId' => ['type' => 'string']]]],
-            ['name' => 'remove_flow_from_suite', 'description' => 'Bir akışı suite\'ten çıkarır (akış silinmez).',
-                'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
+            ['name' => 'remove_flow_from_suite', 'description' => 'Bir akışı belirtilen suite\'ten çıkarır (akış ve diğer suite üyelikleri korunur).',
+                'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'flowId'], 'properties' => ['suiteId' => ['type' => 'string'], 'flowId' => ['type' => 'string']]]],
             ['name' => 'run_suite', 'description' => 'Suite\'teki tüm akışları ARKA PLANDA sırayla çalıştırır; batchId döner. Durumu get_suite_run ile izleyin.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string'], 'environmentName' => ['type' => 'string']]]],
             ['name' => 'get_suite_run', 'description' => 'Bir suite koşumunun durumunu (her akışın geçti/başarısız/çalışıyor) döner.',
@@ -1063,24 +1063,20 @@ class McpToolRegistry
     {
         $suite = $this->requireSuite($ws, (string) ($args['suiteId'] ?? ''));
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
-        $max = -1;
-        foreach ($suite->getFlows() as $f) {
-            $max = max($max, $f->getGroupPosition());
-        }
-        $flow->setFlowGroup($suite);
-        $flow->setGroupPosition($max + 1);
-        $this->flows->save($flow);
+        $suite->addFlow($flow); // a flow may belong to many suites
+        $this->groups->save($suite);
 
         return ['ok' => true, 'suite' => $suite->getName(), 'flowCount' => $suite->getFlows()->count()];
     }
 
     private function removeFlowFromSuite(Workspace $ws, array $args): array
     {
+        $suite = $this->requireSuite($ws, (string) ($args['suiteId'] ?? ''));
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
-        $flow->setFlowGroup(null);
-        $this->flows->save($flow);
+        $suite->removeFlow($flow);
+        $this->groups->save($suite);
 
-        return ['ok' => true];
+        return ['ok' => true, 'suite' => $suite->getName(), 'flowCount' => $suite->getFlows()->count()];
     }
 
     private function runSuite(Workspace $ws, array $args): array
@@ -1116,7 +1112,7 @@ class McpToolRegistry
         $flows = [];
         $done = 0;
         foreach ($this->runs->findByBatch($batchId) as $r) {
-            if ($r->getFlow()->getFlowGroup()?->getId()?->toRfc4122() !== $suite->getId()?->toRfc4122()) {
+            if (!$suite->hasFlow($r->getFlow())) {
                 continue;
             }
             if ('running' !== $r->getStatus()) {

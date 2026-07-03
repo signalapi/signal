@@ -52,7 +52,7 @@ class FlowGroupController extends AbstractAppController
             $groupRuns[(string) $g->getId()] = $rows;
         }
         foreach ($flows->findByWorkspace($workspace) as $f) {
-            if (null === $f->getFlowGroup()) {
+            if ([] === $f->getGroups()) {
                 $ungrouped[] = $f;
             }
         }
@@ -125,21 +125,36 @@ class FlowGroupController extends AbstractAppController
             throw $this->createNotFoundException();
         }
 
-        $groupId = (string) $httpRequest->request->get('group');
-        if ('' === $groupId) {
-            $flow->setFlowGroup(null);
-        } else {
-            $group = $groups->find($groupId);
-            if ($group instanceof FlowGroup && $group->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122()) {
-                $flow->setFlowGroup($group);
-                $max = -1;
-                foreach ($group->getFlows() as $f) {
-                    $max = max($max, $f->getGroupPosition());
-                }
-                $flow->setGroupPosition($max + 1);
-            }
+        $group = $groups->find((string) $httpRequest->request->get('group'));
+        if ($group instanceof FlowGroup && $group->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122()) {
+            // A flow may belong to many suites; adding here doesn't remove others.
+            $group->addFlow($flow);
+            $em->flush();
         }
-        $em->flush();
+
+        return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()]);
+    }
+
+    #[Route('/unassign', name: 'app_flow_group_unassign', methods: ['POST'])]
+    public function unassign(
+        Workspace $workspace,
+        Request $httpRequest,
+        TestFlowRepository $flows,
+        FlowGroupRepository $groups,
+        EntityManagerInterface $em,
+    ): Response {
+        $this->assertWorkspace($workspace);
+        if (!$this->isCsrfTokenValid('flow-group', (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+        $flow = $flows->find((string) $httpRequest->request->get('flow'));
+        $group = $groups->find((string) $httpRequest->request->get('group'));
+        if ($flow instanceof TestFlow && $group instanceof FlowGroup
+            && $flow->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122()
+            && $group->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122()) {
+            $group->removeFlow($flow);
+            $em->flush();
+        }
 
         return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()]);
     }

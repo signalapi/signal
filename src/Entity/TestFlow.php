@@ -47,13 +47,13 @@ class TestFlow
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $lastScheduledRunAt = null;
 
-    /** Optional suite this flow belongs to (for running a group of flows together). */
-    #[ORM\ManyToOne(targetEntity: FlowGroup::class, inversedBy: 'flows')]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
-    private ?FlowGroup $flowGroup = null;
-
-    #[ORM\Column(options: ['default' => 0])]
-    private int $groupPosition = 0;
+    /**
+     * Suite memberships (a flow can belong to many suites, each with its own order).
+     *
+     * @var Collection<int, FlowGroupItem>
+     */
+    #[ORM\OneToMany(mappedBy: 'flow', targetEntity: FlowGroupItem::class, cascade: ['remove'])]
+    private Collection $groupItems;
 
     /**
      * Visual builder connections: list of [fromStepId, toStepId] pairs. Execution
@@ -81,6 +81,7 @@ class TestFlow
     {
         $this->steps = new ArrayCollection();
         $this->runs = new ArrayCollection();
+        $this->groupItems = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
     }
 
@@ -191,28 +192,20 @@ class TestFlow
         return $this->steps;
     }
 
-    public function getFlowGroup(): ?FlowGroup
+    /** @return Collection<int, FlowGroupItem> */
+    public function getGroupItems(): Collection
     {
-        return $this->flowGroup;
+        return $this->groupItems;
     }
 
-    public function setFlowGroup(?FlowGroup $flowGroup): static
+    /**
+     * The suites this flow belongs to.
+     *
+     * @return FlowGroup[]
+     */
+    public function getGroups(): array
     {
-        $this->flowGroup = $flowGroup;
-
-        return $this;
-    }
-
-    public function getGroupPosition(): int
-    {
-        return $this->groupPosition;
-    }
-
-    public function setGroupPosition(int $groupPosition): static
-    {
-        $this->groupPosition = $groupPosition;
-
-        return $this;
+        return array_map(static fn (FlowGroupItem $i): FlowGroup => $i->getFlowGroup(), $this->groupItems->toArray());
     }
 
     /** @return array<int, array{0: string, 1: string}> */

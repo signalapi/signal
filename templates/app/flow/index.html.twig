@@ -59,12 +59,13 @@
                 <a class="fl-name" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">{{ flow.name }}</a>
                 {% if flow.scheduleEnabled %}<span class="fl-sched" title="{{ flow.cronExpression }}">⏱ {{ flow.cronExpression }}</span>{% endif %}
                 <div class="grow"></div>
+                {% set myGroupIds = flow.groups|map(g => g.id) %}
                 <form class="fl-assign" method="post" action="{{ path('app_flow_group_assign', {workspace: workspace.id}) }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
                     <input type="hidden" name="flow" value="{{ flow.id }}">
-                    <select name="group" onchange="this.form.submit()" title="Suite'e ata">
-                        <option value="">— suite yok —</option>
-                        {% for g in groups %}<option value="{{ g.id }}" {{ flow.flowGroup and flow.flowGroup.id == g.id ? 'selected' }}>🧩 {{ g.name }}</option>{% endfor %}
+                    <select name="group" onchange="this.form.submit()" title="Suite'e ekle">
+                        <option value="">+ suite'e ekle</option>
+                        {% for g in groups|filter(g => g.id not in myGroupIds) %}<option value="{{ g.id }}">🧩 {{ g.name }}</option>{% endfor %}
                     </select>
                 </form>
                 <a class="btn ghost small" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">Aç →</a>
@@ -76,7 +77,11 @@
             <div class="fl-meta">
                 <span><b>{{ flow.steps|length }}</b> adım</span>
                 <span><b>{{ flow.runs|length }}</b> koşum</span>
-                {% if flow.flowGroup %}<span>🧩 {{ flow.flowGroup.name }}</span>{% endif %}
+                {% for g in flow.groups %}<span class="fl-suite">🧩 {{ g.name }}
+                    <form method="post" action="{{ path('app_flow_group_unassign', {workspace: workspace.id}) }}" style="display:inline;" title="Bu suite'ten çıkar">
+                        <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}"><input type="hidden" name="flow" value="{{ flow.id }}"><input type="hidden" name="group" value="{{ g.id }}">
+                        <button type="submit" style="border:none;background:none;cursor:pointer;color:var(--muted);padding:0 2px;">×</button>
+                    </form></span>{% endfor %}
                 <span>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name : 'env yok' }}</span>
                 {% if recent is not empty %}
                     <span class="fl-runs"><span class="lbl">Son</span>

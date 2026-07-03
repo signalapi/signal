@@ -74,16 +74,16 @@
 {% set sc = run.status %}
 {% set sdot = sc == 'passed' ? 'var(--pass)' : (sc == 'running' ? 'var(--accent)' : (sc == 'cancelled' ? 'var(--warn)' : 'var(--fail)')) %}
 
-{% set inGroup = run.trigger == 'group' and run.batchId and run.flow.flowGroup %}
+{% set inGroup = run.trigger == 'group' and run.batchId and suiteGroup %}
 {% set backUrl = inGroup
-    ? path('app_flow_group_run_show', {workspace: workspace.id, group: run.flow.flowGroup.id, batchId: run.batchId})
+    ? path('app_flow_group_run_show', {workspace: workspace.id, group: suiteGroup.id, batchId: run.batchId})
     : path('app_flow_show', {workspace: workspace.id, flow: flow.id}) %}
 <div class="ru-head">
     <div>
-        <a class="backlink" href="{{ backUrl }}">← {{ inGroup ? '🧩 ' ~ run.flow.flowGroup.name ~ ' koşumu' : flow.name }}</a>
+        <a class="backlink" href="{{ backUrl }}">← {{ inGroup ? '🧩 ' ~ suiteGroup.name ~ ' koşumu' : flow.name }}</a>
         <h1>Koşum detayı · {{ flow.name }}</h1>
         <p class="subtitle" style="margin:0;">{{ run.createdAt|date('d.m.Y H:i:s') }}
-            {%- if inGroup %} · <span class="pill" style="background:var(--accent-soft);color:var(--accent);">🧩 {{ run.flow.flowGroup.name }}</span>
+            {%- if inGroup %} · <span class="pill" style="background:var(--accent-soft);color:var(--accent);">🧩 {{ suiteGroup.name }}</span>
             {%- elseif run.batchId %} · <span class="pill" style="background:var(--accent-soft);color:var(--accent);">data #{{ run.iteration + 1 }}</span>{% endif %}</p>
     </div>
     <a class="btn ghost" href="{{ backUrl }}">{{ inGroup ? '← Suite koşumuna dön' : 'Akışa dön' }}</a>
