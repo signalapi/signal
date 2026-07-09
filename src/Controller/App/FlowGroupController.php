@@ -34,6 +34,7 @@ class FlowGroupController extends AbstractAppController
         \App\Repository\FlowGroupRunRepository $groupRunRepo,
         FlowRunRepository $runs,
         TestFlowRepository $flows,
+        EnvironmentRepository $environments,
     ): Response {
         $this->assertWorkspace($workspace);
 
@@ -62,7 +63,32 @@ class FlowGroupController extends AbstractAppController
             'groups' => $groupList,
             'groupRuns' => $groupRuns,
             'ungrouped' => $ungrouped,
+            'allFlows' => $flows->findByWorkspace($workspace),
+            'environments' => $environments->findByWorkspace($workspace),
         ]);
+    }
+
+    #[Route('/{group}/update', name: 'app_flow_group_update', methods: ['POST'])]
+    public function update(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['group' => 'id'])] FlowGroup $group,
+        Request $httpRequest,
+        FlowGroupRepository $groups,
+    ): Response {
+        $this->assertWorkspace($workspace);
+        $this->assertGroup($workspace, $group);
+        if (!$this->isCsrfTokenValid('flow-group-update' . $group->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+        $name = trim((string) $httpRequest->request->get('name'));
+        if ('' !== $name) {
+            $group->setName($name);
+        }
+        $group->setDescription(trim((string) $httpRequest->request->get('description')) ?: null);
+        $groups->save($group);
+        $this->addFlash('success', 'Suite güncellendi.');
+
+        return $this->redirectToRoute('app_flow_suite_index', ['workspace' => $workspace->getId()]);
     }
 
     #[Route('', name: 'app_flow_group_create', methods: ['POST'])]

@@ -248,6 +248,8 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'create_suite', 'description' => 'Yeni bir suite (akış grubu) oluşturur; suiteId döner.',
                 'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => ['name' => ['type' => 'string'], 'description' => ['type' => 'string']]]],
+            ['name' => 'update_suite', 'description' => 'Bir suite\'i günceller: ad (rename) ve/veya açıklama. Yalnızca verilen alan değişir.',
+                'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string'], 'name' => ['type' => 'string'], 'description' => ['type' => 'string']]]],
             ['name' => 'add_flow_to_suite', 'description' => 'Bir akışı suite\'e ekler (sona). Bir akış birden fazla suite\'te olabilir; bu ekleme diğer üyelikleri etkilemez.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'flowId'], 'properties' => ['suiteId' => ['type' => 'string'], 'flowId' => ['type' => 'string']]]],
             ['name' => 'remove_flow_from_suite', 'description' => 'Bir akışı belirtilen suite\'ten çıkarır (akış ve diğer suite üyelikleri korunur).',
@@ -306,6 +308,7 @@ class McpToolRegistry
             'set_flow_order' => $this->setFlowOrder($ws, $args),
             'list_suites' => $this->listSuites($ws),
             'create_suite' => $this->createSuite($ws, $args),
+            'update_suite' => $this->updateSuite($ws, $args),
             'add_flow_to_suite' => $this->addFlowToSuite($ws, $args),
             'remove_flow_from_suite' => $this->removeFlowFromSuite($ws, $args),
             'run_suite' => $this->runSuite($ws, $args),
@@ -1057,6 +1060,24 @@ class McpToolRegistry
         $this->groups->save($group);
 
         return ['suiteId' => (string) $group->getId(), 'name' => $group->getName()];
+    }
+
+    private function updateSuite(Workspace $ws, array $args): array
+    {
+        $suite = $this->requireSuite($ws, (string) ($args['suiteId'] ?? ''));
+        if (isset($args['name'])) {
+            $name = trim((string) $args['name']);
+            if ('' === $name) {
+                throw new \InvalidArgumentException('name boş olamaz.');
+            }
+            $suite->setName($name);
+        }
+        if (\array_key_exists('description', $args)) {
+            $suite->setDescription(null === $args['description'] ? null : (string) $args['description']);
+        }
+        $this->groups->save($suite);
+
+        return ['ok' => true, 'suiteId' => (string) $suite->getId(), 'name' => $suite->getName()];
     }
 
     private function addFlowToSuite(Workspace $ws, array $args): array

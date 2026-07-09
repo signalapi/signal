@@ -50,22 +50,38 @@
             <span class="grp-name">🧩 {{ g.name }}</span>
             <span class="muted-sm">{{ g.flows|length }} akış</span>
             <div style="flex:1"></div>
-            <form method="post" action="{{ path('app_flow_group_run', {workspace: workspace.id, group: g.id}) }}">
+            <form method="post" action="{{ path('app_flow_group_run', {workspace: workspace.id, group: g.id}) }}" style="display:flex;gap:6px;align-items:center;">
                 <input type="hidden" name="_token" value="{{ csrf_token('flow-group-run' ~ g.id) }}">
-                <button class="btn" type="submit" {{ g.flows is empty ? 'disabled' }}>▶ Suite'i çalıştır</button>
+                <select name="environment" title="Bu koşum için environment (boş = her akışın kendi env'i)"
+                        style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 9px;color:var(--text);font-size:12.5px;">
+                    <option value="">env: her akışın kendi</option>
+                    {% for env in environments %}<option value="{{ env.id }}">🌐 {{ env.name }}</option>{% endfor %}
+                </select>
+                <button class="btn" type="submit" {{ g.flows is empty ? 'disabled' }}>▶ Çalıştır</button>
             </form>
+            <details class="grp-edit" style="position:relative;">
+                <summary class="btn ghost" style="list-style:none;">⚙ Düzenle</summary>
+                <form method="post" action="{{ path('app_flow_group_update', {workspace: workspace.id, group: g.id}) }}"
+                      style="position:absolute;right:0;top:38px;z-index:5;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:var(--shadow);padding:12px;width:300px;display:flex;flex-direction:column;gap:8px;">
+                    <input type="hidden" name="_token" value="{{ csrf_token('flow-group-update' ~ g.id) }}">
+                    <input type="text" name="name" value="{{ g.name }}" placeholder="Suite adı" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);">
+                    <input type="text" name="description" value="{{ g.description }}" placeholder="Açıklama (opsiyonel)" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-size:12.5px;">
+                    <button class="btn small" type="submit">Kaydet</button>
+                </form>
+            </details>
             <form method="post" action="{{ path('app_flow_group_delete', {workspace: workspace.id, group: g.id}) }}" onsubmit="return confirm('Suite silinecek (akışlar korunur).');">
                 <input type="hidden" name="_token" value="{{ csrf_token('flow-group-delete' ~ g.id) }}">
                 <button class="btn danger" type="submit">Sil</button>
             </form>
         </div>
+        {% if g.description %}<p class="subtitle" style="margin:8px 0 0;font-size:12.5px;">{{ g.description }}</p>{% endif %}
 
         <div class="grp-flows">
             {% for f in g.flows %}
                 <span class="grp-flow"><b>{{ loop.index }}.</b> <a href="{{ path('app_flow_show', {workspace: workspace.id, flow: f.id}) }}" style="color:inherit;text-decoration:none;">{{ f.name }}</a>
-                    <form method="post" action="{{ path('app_flow_group_assign', {workspace: workspace.id}) }}" title="Suite'den çıkar">
+                    <form method="post" action="{{ path('app_flow_group_unassign', {workspace: workspace.id}) }}" title="Suite'den çıkar">
                         <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
-                        <input type="hidden" name="flow" value="{{ f.id }}"><input type="hidden" name="group" value="">
+                        <input type="hidden" name="flow" value="{{ f.id }}"><input type="hidden" name="group" value="{{ g.id }}">
                         <button class="rm" type="submit">✕</button>
                     </form>
                 </span>
@@ -74,13 +90,15 @@
             {% endfor %}
         </div>
 
-        {% if ungrouped is not empty %}
+        {% set inThis = g.flows|map(x => x.id) %}
+        {% set addable = allFlows|filter(x => x.id not in inThis) %}
+        {% if addable is not empty %}
         <form class="grp-add" method="post" action="{{ path('app_flow_group_assign', {workspace: workspace.id}) }}">
             <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
             <input type="hidden" name="group" value="{{ g.id }}">
             <select name="flow" onchange="this.form.submit()">
                 <option value="">+ Akış ekle…</option>
-                {% for f in ungrouped %}<option value="{{ f.id }}">{{ f.name }}</option>{% endfor %}
+                {% for f in addable %}<option value="{{ f.id }}">{{ f.name }}</option>{% endfor %}
             </select>
         </form>
         {% endif %}
