@@ -30,6 +30,7 @@ class FlowRunner
         private readonly \App\Repository\DataFactoryRepository $factories,
         private readonly ResponseShape $shape,
         private readonly JsonSchema $jsonSchema,
+        private readonly \App\Repository\DbConnectionRepository $dbConnections,
     ) {
     }
 
@@ -242,7 +243,7 @@ class FlowRunner
         $outcome = match (true) {
             $step->isDelay() => $this->runDelayStep($step, $result),
             $step->isSetvar() => $this->runSetvarStep($step, $result, $context),
-            $step->isDb() => $this->runDbStep($step, $result, $context),
+            $step->isDb() => $this->runDbStep($step, $result, $context, $flow->getWorkspace()),
             default => $this->runHttpStep($step, $result, $context, $flow->getWorkspace()),
         };
 
@@ -445,10 +446,22 @@ class FlowRunner
     /**
      * @param array<string, string> $context
      */
-    private function runDbStep(FlowStep $step, StepResult $result, array &$context): string
+    private function runDbStep(FlowStep $step, StepResult $result, array &$context, \App\Entity\Workspace $workspace): string
     {
         $connection = $step->getDbConnection();
         $result->setRequestMethod('DB');
+
+        // Env-aware connection override: if the active environment defines a
+        // `dbConnection` variable naming another connection in this workspace,
+        // run the query against that instead of the step's bound connection.
+        // Lets one flow verify Dev's DB or Pre-Prod's DB purely by env choice.
+        $override = trim((string) ($context['dbConnection'] ?? ''));
+        if ('' !== $override && (null === $connection || $connection->getName() !== $override)) {
+            $resolved = $this->dbConnections->findOneBy(['workspace' => $workspace, 'name' => $override]);
+            if (null !== $resolved) {
+                $connection = $resolved;
+            }
+        }
 
         if (null === $connection) {
             $result->setStatus(StepResult::STATUS_ERROR);
@@ -606,7 +619,7 @@ class FlowRunner
         $assertionResults = [];
         $allPassed = true;
         foreach ($step->getAssertions() as $assertion) {
-            $eval = $this->evaluate($assertion, $statusCode, $rawBody, $decoded, $durationMs, $headers);
+            $eval = $this->evaluate($assertion, $statusCode, $rawBody, $decoded, $durationMs, $headers, $context);
             $assertionResults[] = $eval;
             if (!$eval['ok']) {
                 $allPassed = false;
@@ -624,11 +637,13 @@ class FlowRunner
      *
      * @return array{label: string, ok: bool, actual: string}
      */
-    private function evaluate(array $assertion, ?int $statusCode, string $rawBody, mixed $decoded, float $durationMs, array $headers): array
+    private function evaluate(array $assertion, ?int $statusCode, string $rawBody, mixed $decoded, float $durationMs, array $headers, array $context = []): array
     {
         $kind = $assertion['kind'] ?? '';
         $op = $assertion['op'] ?? 'eq';
-        $expected = (string) ($assertion['expected'] ?? '');
+        // Resolve {{var}} in the expected value so assertions can be env-driven
+        // (e.g. provider_id == {{yunoProviderId}} → 40 on Dev, 144249 on Pre-Prod).
+        $expected = (string) ($this->resolver->resolve((string) ($assertion['expected'] ?? ''), $context) ?? '');
         $token = self::OP_TOKEN[$op] ?? $op;
 
         // Schema validation doesn't fit the target/op/value model.
