@@ -24,12 +24,30 @@ class SqlConnector
             (string) $conn->getDatabaseName(),
         );
 
-        $pdo = new \PDO($dsn, (string) $conn->getUsername(), $password, [
+        $options = [
             \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
             \PDO::ATTR_TIMEOUT => 10,
-        ]);
+        ];
 
-        $stmt = $pdo->query($query);
+        // Connect + query with one reconnect retry: a remote DB over a VPN can
+        // drop the socket mid-handshake and answer "server has gone away"
+        // (2006/2013). A single fresh connection usually rides out a transient blip.
+        $attempt = 0;
+        while (true) {
+            try {
+                $pdo = new \PDO($dsn, (string) $conn->getUsername(), $password, $options);
+                $stmt = $pdo->query($query);
+                break;
+            } catch (\PDOException $e) {
+                if ($attempt < 1 && $this->isTransient($e)) {
+                    ++$attempt;
+                    usleep(400_000);
+                    continue;
+                }
+                throw $e;
+            }
+        }
+
         $rows = [];
         if ($stmt->columnCount() > 0) {
             $rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
@@ -41,6 +59,21 @@ class SqlConnector
         ];
 
         return ['data' => $data, 'display' => $this->jsonDisplay($data)];
+    }
+
+    /**
+     * A dropped-socket / gone-away class of error worth one reconnect.
+     */
+    private function isTransient(\PDOException $e): bool
+    {
+        $msg = strtolower($e->getMessage());
+
+        return str_contains($msg, 'gone away')          // MySQL 2006
+            || str_contains($msg, 'lost connection')     // MySQL 2013
+            || str_contains($msg, 'broken pipe')
+            || str_contains($msg, 'connection reset')
+            || str_contains($msg, 'connection refused')
+            || str_contains($msg, 'timed out');
     }
 
     /**
