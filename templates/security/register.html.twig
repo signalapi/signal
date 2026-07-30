@@ -4,9 +4,9 @@
 {% block brand_title %}{{ 'Start testing in minutes.'|trans }}{% endblock %}
 
 {% block auth_card %}
-    <p class="eyebrow">{{ 'Merchant registration'|trans }}</p>
+    <p class="eyebrow">{{ 'Sign up'|trans }}</p>
     <h1>{{ 'Create an account'|trans }}</h1>
-    <p class="sub">{{ 'Create your company and its first administrator.'|trans }}</p>
+    <p class="sub">{{ 'Start on your own — you can invite your team whenever you want.'|trans }}</p>
 
     {% for error in errors %}
         <div class="flash error">{{ error }}</div>
@@ -14,12 +14,8 @@
 
     <form method="post" action="{{ path('app_register') }}">
         <div class="field">
-            <label for="merchant">{{ 'Company / Merchant name'|trans }}</label>
-            <input type="text" id="merchant" name="merchant" value="{{ old.merchant }}" required autofocus placeholder="Acme Ltd.">
-        </div>
-        <div class="field">
             <label for="name">{{ 'Full name'|trans }}</label>
-            <input type="text" id="name" name="name" value="{{ old.name }}" required placeholder="Ada Lovelace">
+            <input type="text" id="name" name="name" value="{{ old.name }}" required autofocus placeholder="Ada Lovelace">
         </div>
         <div class="field">
             <label for="email">{{ 'Email'|trans }}</label>

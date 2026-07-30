@@ -30,6 +30,15 @@ class Merchant
     #[ORM\Column]
     private bool $active = true;
 
+    /**
+     * A one-person account created by self-registration. Structurally identical
+     * to a company — the whole model still hangs off a merchant — but the UI
+     * hides the company vocabulary until the owner invites someone, at which
+     * point the account is promoted to a team.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $personal = false;
+
     /** @var Collection<int, MerchantMember> */
     #[ORM\OneToMany(mappedBy: 'merchant', targetEntity: MerchantMember::class)]
     private Collection $members;
@@ -85,6 +94,26 @@ class Merchant
     public function setActive(bool $active): static
     {
         $this->active = $active;
+
+        return $this;
+    }
+
+    public function isPersonal(): bool
+    {
+        return $this->personal;
+    }
+
+    public function setPersonal(bool $personal): static
+    {
+        $this->personal = $personal;
+
+        return $this;
+    }
+
+    /** Inviting anyone turns a personal account into a team account. */
+    public function promoteToTeam(): static
+    {
+        $this->personal = false;
 
         return $this;
     }

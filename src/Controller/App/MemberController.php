@@ -53,6 +53,36 @@ class MemberController extends AbstractAppController
         ]);
     }
 
+    /**
+     * Gives a personal account a company name and turns it into a team account.
+     * Inviting someone does this implicitly; this is the explicit route for
+     * people who want the company identity first (invoicing, branding).
+     */
+    #[Route('/convert', name: 'app_member_convert', methods: ['POST'])]
+    public function convertToTeam(Request $request, EntityManagerInterface $em, TranslatorInterface $translator): Response
+    {
+        $merchant = $this->currentMerchant();
+        $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_MEMBERS, $merchant);
+
+        if (!$this->isCsrfTokenValid('member-convert', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $name = trim((string) $request->request->get('company_name'));
+        if ('' === $name) {
+            $this->addFlash('error', $translator->trans('Enter a company name.'));
+
+            return $this->redirectToRoute('app_member_index');
+        }
+
+        $merchant->setName($name);
+        $merchant->promoteToTeam();
+        $em->flush();
+        $this->addFlash('success', $translator->trans('Your account is now the "%name%" team account.', ['%name%' => $name]));
+
+        return $this->redirectToRoute('app_member_index');
+    }
+
     #[Route('/invite', name: 'app_member_invite', methods: ['POST'])]
     public function invite(
         Request $request,
@@ -106,6 +136,8 @@ class MemberController extends AbstractAppController
         $invitation->setTokenHash(hash('sha256', $plaintext));
         $invitation->setInvitedBy($this->currentUser());
         $em->persist($invitation);
+        // Inviting anyone makes this a team account.
+        $merchant->promoteToTeam();
         $em->flush();
 
         $this->addFlash('invite_link', $this->generateUrl('app_invite_show', ['token' => $plaintext], UrlGeneratorInterface::ABSOLUTE_URL));

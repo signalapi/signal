@@ -128,6 +128,8 @@ class WorkspaceMemberController extends AbstractAppController
         $invitation->setTokenHash(hash('sha256', $plaintext));
         $invitation->setInvitedBy($this->currentUser());
         $em->persist($invitation);
+        // Inviting anyone makes this a team account.
+        $workspace->getMerchant()->promoteToTeam();
         $em->flush();
 
         $this->addFlash('invite_link', $this->generateUrl('app_invite_show', ['token' => $plaintext], UrlGeneratorInterface::ABSOLUTE_URL));

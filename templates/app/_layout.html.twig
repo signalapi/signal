@@ -76,9 +76,14 @@
                 {% endif %}
             {% endif %}
             <div style="flex:1"></div>
-            <div class="nav-group">{{ 'Company'|trans }}</div>
-            {% if current_merchant() and is_granted('MERCHANT_MANAGE_MEMBERS', current_merchant()) %}
-                <a href="{{ path('app_member_index') }}" class="{{ route starts with 'app_member' or route starts with 'app_invitation' ? 'active' }}"><span class="ico">🏢</span><span class="label nav-foot-label">{{ 'Users'|trans }}</span></a>
+            {% set cm = current_merchant() %}
+            {# A personal account keeps the company vocabulary out of sight. #}
+            <div class="nav-group">{{ cm and cm.personal ? 'Account'|trans : 'Company'|trans }}</div>
+            {% if cm and is_granted('MERCHANT_MANAGE_MEMBERS', cm) %}
+                <a href="{{ path('app_member_index') }}" class="{{ route starts with 'app_member' or route starts with 'app_invitation' ? 'active' }}">
+                    <span class="ico">{{ cm.personal ? '➕' : '🏢' }}</span>
+                    <span class="label nav-foot-label">{{ cm.personal ? 'Invite your team'|trans : 'Users'|trans }}</span>
+                </a>
             {% endif %}
             <a href="{{ path('app_workspace_index') }}" class="{{ route == 'app_workspace_index' ? 'active' }}"><span class="ico">⚙</span><span class="label nav-foot-label">{{ 'Workspaces'|trans }}</span></a>
         </nav>

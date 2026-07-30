@@ -35,22 +35,18 @@ class RegistrationController extends AbstractController
         }
 
         $errors = [];
-        $old = ['merchant' => '', 'name' => '', 'email' => ''];
+        $old = ['name' => '', 'email' => ''];
 
         if ($request->isMethod('POST')) {
             if (!$this->isCsrfTokenValid('register', (string) $request->request->get('_token'))) {
                 throw $this->createAccessDeniedException();
             }
 
-            $old['merchant'] = trim((string) $request->request->get('merchant'));
             $old['name'] = trim((string) $request->request->get('name'));
             $old['email'] = mb_strtolower(trim((string) $request->request->get('email')));
             $password = (string) $request->request->get('password');
             $confirm = (string) $request->request->get('password_confirm');
 
-            if ('' === $old['merchant']) {
-                $errors[] = $translator->trans('Company/merchant name is required.');
-            }
             if ('' === $old['name']) {
                 $errors[] = $translator->trans('Full name is required.');
             }
@@ -66,9 +62,13 @@ class RegistrationController extends AbstractController
             }
 
             if ([] === $errors) {
+                // Sign-up creates a personal account: no company name is asked
+                // for, and the UI hides the company vocabulary until the owner
+                // invites someone. Everything still hangs off a merchant.
                 $merchant = new Merchant();
-                $merchant->setName($old['merchant']);
-                $merchant->setSlug($slugger->slug($old['merchant'])->lower() . '-' . substr(uniqid(), -5));
+                $merchant->setName($old['name']);
+                $merchant->setSlug($slugger->slug($old['name'])->lower() . '-' . substr(uniqid(), -5));
+                $merchant->setPersonal(true);
                 $merchants->save($merchant, false);
 
                 $user = new User();
@@ -84,9 +84,9 @@ class RegistrationController extends AbstractController
                 $em->persist($membership);
                 $em->flush();
 
-                // Log the new merchant admin straight into the merchant firewall.
+                // Log the new owner straight into the merchant firewall.
                 $security->login($user, 'form_login', 'main');
-                $this->addFlash('success', $translator->trans('Welcome! The "%name%" account has been created.', ['%name%' => $merchant->getName()]));
+                $this->addFlash('success', $translator->trans('Welcome to Signal! Create a workspace to get started.'));
 
                 return $this->redirectToRoute('app_dashboard');
             }

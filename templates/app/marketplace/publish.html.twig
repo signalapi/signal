@@ -61,14 +61,17 @@
                 </span>
             </label>
 
-            <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;{{ can_publish_wide ? '' : 'opacity:.5;' }}">
-                <input type="radio" name="visibility" value="merchant" {{ can_publish_wide ? '' : 'disabled' }}
-                       onchange="document.getElementById('wsPick').style.display='none';">
-                <span>
-                    <strong>🏢 {{ 'Company only'|trans }}</strong><br>
-                    <span class="subtitle" style="font-size:12.5px;">{{ 'Everyone in %company%, in every workspace.'|trans({'%company%': merchant.name}) }}</span>
-                </span>
-            </label>
+            {# Meaningless on a one-person account: they already see all their workspaces. #}
+            {% if not merchant.personal %}
+                <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;{{ can_publish_wide ? '' : 'opacity:.5;' }}">
+                    <input type="radio" name="visibility" value="merchant" {{ can_publish_wide ? '' : 'disabled' }}
+                           onchange="document.getElementById('wsPick').style.display='none';">
+                    <span>
+                        <strong>🏢 {{ 'Company only'|trans }}</strong><br>
+                        <span class="subtitle" style="font-size:12.5px;">{{ 'Everyone in %company%, in every workspace.'|trans({'%company%': merchant.name}) }}</span>
+                    </span>
+                </label>
+            {% endif %}
 
             <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;{{ can_publish_wide ? '' : 'opacity:.5;' }}">
                 <input type="radio" name="visibility" value="public" {{ can_publish_wide ? '' : 'disabled' }}
