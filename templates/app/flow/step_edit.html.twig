@@ -1,478 +1,591 @@
-{% extends 'app/_layout.html.twig' %}
+{# ==========================================================================
+   templates/app/flow/step_edit.html.twig  —  two-pane step editor.
+   REPLACES the single-column stacked form.
 
-{% block title %}{{ 'Edit step'|trans }} · {{ flow.name }}{% endblock %}
+   Controller: no signature change. renderEditor() already passes everything
+   this template needs — step, extractions_text, assertions_text, connections,
+   flows, vc_catalog, is_new, create_ctx.
+
+   IMPORTANT — how the form still posts:
+   the rule / transfer rows are a JS model, serialised on submit into the two
+   hidden textareas 'assertions' and 'extractions' in exactly the DSL that
+   FlowExpressionParser::parseAssertions()/parseExtractions() already reads.
+   Nothing on the PHP side changes.
+   ========================================================================== #}
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ is_new|default(false) ? 'New step'|trans : 'Edit step'|trans }} · {{ flow.name }}{% endblock %}
 
 {% block panel %}
 {% set is_new = is_new|default(false) %}
-{% set kind = step.isCall ? 'Sub-flow'|trans : (step.isDelay ? 'Delay'|trans : (step.isSetvar ? 'Set variable'|trans : (step.isDb ? 'DB query'|trans : 'HTTP request'|trans))) %}
-{% set badge = step.isCall ? 'CALL' : (step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : 'HTTP'))) %}
+{% set badge = step.isCall ? 'CALL' : (step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : step.reqMethod))) %}
+{% set kindCls = step.isCall ? 'm-call' : (step.isDb ? 'm-db' : (step.isSetvar ? 'm-set' : (step.isDelay ? 'm-wait' : 'm-' ~ step.reqMethod|lower))) %}
+{% set cond = step.condition %}
+{% set lp = step.loop %}
+{% set verifiable = not step.isSetvar and not step.isDelay and not step.isCall %}
 
-<a class="backlink" href="{{ is_new ? path('app_flow_step_new', {workspace: workspace.id, flow: flow.id}) : path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ is_new ? 'Step type'|trans : flow.name }}</a>
-<div class="pagehead">
-    <div>
-        <h1>{{ is_new ? 'New step'|trans : 'Edit step'|trans }}</h1>
-        <p class="subtitle"><span class="pill" style="background:var(--accent-soft);color:var(--accent);">{{ badge }}</span> {{ kind }}{% if is_new %} · <span style="color:var(--muted);">{{ 'Not added to the flow until you save'|trans }}</span>{% endif %}</p>
-    </div>
-</div>
-
-<form method="post" id="stepForm"{% if is_new %} action="{{ path('app_flow_step_store', {workspace: workspace.id, flow: flow.id}) }}"{% endif %}>
+<form method="post" id="stepForm" class="editor"
+      {% if is_new %}action="{{ path('app_flow_step_store', {workspace: workspace.id, flow: flow.id}) }}"{% endif %}
+      data-probe="{{ is_new ? '' : path('app_flow_step_probe', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"
+      data-isdb="{{ step.isDb ? '1' : '0' }}">
     <input type="hidden" name="_token" value="{{ is_new ? csrf_token('new-step' ~ flow.id) : csrf_token('edit-step' ~ step.id) }}">
     {% if is_new %}
         <input type="hidden" name="stepType" value="{{ create_ctx.type }}">
         {% if create_ctx.reqId is defined %}<input type="hidden" name="reqId" value="{{ create_ctx.reqId }}">{% endif %}
     {% endif %}
-    <div class="field" style="max-width:480px;">
-        <label>{{ 'Step name'|trans }}</label>
-        <input type="text" name="name" value="{{ step.name }}">
-    </div>
+    {# serialised by JS on submit — the DSL the parser already understands #}
+    <textarea name="assertions" id="assertionsText" hidden>{{ assertions_text }}</textarea>
+    <textarea name="extractions" id="extractionsText" hidden>{{ extractions_text }}</textarea>
 
-    {# ---- run-if condition (all step types) ---- #}
-    {% set cond = step.condition %}
-    {% set condOps = {
-        'eq': 'equals'|trans,
-        'ne': 'not equal'|trans,
-        'contains': 'contains'|trans,
-        'matches': 'matches regex'|trans,
-        'gt': 'greater than'|trans,
-        'lt': 'less than'|trans,
-        'ge': 'at least (≥)'|trans,
-        'le': 'at most (≤)'|trans,
-        'exists': 'exists (not empty)'|trans,
-        'empty': 'is empty'|trans,
-        'notEmpty': 'is not empty'|trans
-    } %}
-    <div class="fgroup" style="max-width:640px;">
-        <div class="fgroup-title">{{ 'Condition'|trans }} <span style="font-weight:400;color:var(--muted);">· {{ 'optional'|trans }}</span></div>
-        <p class="fhint" style="margin:0 0 10px;">{{ 'This step runs only if the condition holds; otherwise it is skipped (not counted as an error). E.g. <code>{{provider}}</code> contains <code>Yuno</code>. Leave empty to always run.'|trans|raw }}</p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <input type="text" name="cond_left" value="{{ cond.left ?? '' }}" placeholder="{{ '{{variable}}' }}" style="flex:1.4;min-width:150px;font-family:var(--font-mono);">
-            <select name="cond_op" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);">
-                {% for val, lbl in condOps %}<option value="{{ val }}" {{ (cond.op ?? 'eq') == val ? 'selected' }}>{{ lbl }}</option>{% endfor %}
-            </select>
-            <input type="text" name="cond_right" value="{{ cond.right ?? '' }}" placeholder="{{ 'value'|trans }}" style="flex:1;min-width:110px;font-family:var(--font-mono);">
+    {# ------------------------------------------------ head #}
+    <div class="editor-head">
+        <div class="crumbs">
+            <a href="{{ path('app_flow_index', {workspace: workspace.id}) }}">{{ 'Tests'|trans }}</a><span>/</span>
+            <a href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">{{ flow.name }}</a><span>/</span>
+            <span style="color:var(--ink);font-weight:600">{{ is_new ? 'New step'|trans : 'Step %n%'|trans({'%n%': step.position + 1}) }}</span>
         </div>
-    </div>
-
-    {# ---- forEach loop (all step types) ---- #}
-    {% set loop_cfg = step.loop %}
-    <div class="fgroup" style="max-width:640px;">
-        <div class="fgroup-title">{{ 'Loop'|trans }} <span style="font-weight:400;color:var(--muted);">· {{ 'optional'|trans }}</span></div>
-        <p class="fhint" style="margin:0 0 10px;">{{ 'Runs this step again for each item of a list. <b>List</b> must be a variable that returns an array (e.g. extracted in a previous step with <code>pkgs = result.packages</code>). The item is available as <code>{{item}}</code>; if it is an object <code>{{item.id}}</code>, the index as <code>{{item_index}}</code>.'|trans|raw }}</p>
-        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-            <span style="font-size:12px;color:var(--muted);">{{ 'each'|trans }}</span>
-            <input type="text" name="loop_as" value="{{ loop_cfg.as ?? '' }}" placeholder="{{ 'item'|trans }}" style="flex:0 0 130px;font-family:var(--font-mono);">
-            <span style="font-size:12px;color:var(--muted);">{{ 'for · list'|trans }}</span>
-            <input type="text" name="loop_over" value="{{ loop_cfg.over ?? '' }}" placeholder="{{ '{{pkgs}}' }}" style="flex:1;min-width:150px;font-family:var(--font-mono);">
+        <div class="editor-title">
+            <span class="kind {{ kindCls }}">{{ badge }}</span>
+            <input class="title-input" type="text" name="name" value="{{ step.name }}"
+                   placeholder="{{ 'Step name'|trans }}" aria-label="{{ 'Step name'|trans }}">
+            <div class="grow"></div>
+            <span class="pill" id="dirtyPill" hidden style="background:var(--warn-soft);color:var(--warn)">
+                <span class="dot" style="background:var(--warn)"></span>{{ 'unsaved changes'|trans }}</span>
+            <a class="btn danger" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">{{ 'Discard'|trans }}</a>
+            <button class="btn" type="submit">{{ ic.i('check', 13, 2.6) }}{{ 'Save step'|trans }}</button>
         </div>
-    </div>
 
-    {% if step.isDelay %}
-        <div class="fgroup" style="max-width:380px;">
-            <div class="fgroup-title">{{ 'Delay'|trans }}</div>
-            <div class="field" style="margin:0;">
-                <label>{{ 'Duration (ms)'|trans }}</label>
-                <input type="number" name="query" value="{{ step.query }}" min="0" max="60000" step="100">
-                <p class="fhint">{{ 'The step waits for the given duration (max 60000 ms). For delays between async operations.'|trans }}</p>
+        {# behaviour chips — one row instead of three stacked cards #}
+        <div class="behaviours">
+            <button type="button" class="bchip {{ cond.left ?? '' ? 'set' }}" data-b="cond">
+                {{ ic.i('git', 13) }}<strong>{{ 'Condition'|trans }}</strong>
+                <span class="val">{{ cond.left ?? '' ? cond.left ~ ' ' ~ cond.op ~ ' ' ~ cond.right : 'always runs'|trans }}</span></button>
+            <button type="button" class="bchip {{ lp.over ?? '' ? 'set' }}" data-b="loop">
+                {{ ic.i('rerun', 13) }}<strong>{{ 'Loop'|trans }}</strong>
+                <span class="val">{{ lp.over ?? '' ? 'each ' ~ lp.as ~ ' in ' ~ lp.over : 'off'|trans }}</span></button>
+            {% if verifiable %}
+            <button type="button" class="bchip {{ step.retryEnabled ? 'set' }}" data-b="retry">
+                {{ ic.i('rerun', 13) }}<strong>{{ 'Retry'|trans }}</strong>
+                <span class="val">{{ step.retryEnabled ? step.retryMax ~ '× / ' ~ step.retryDelayMs ~ 'ms' : 'off'|trans }}</span></button>
+            {% endif %}
+        </div>
+
+        <div class="bpanel" data-panel="cond" hidden>
+            <p class="subtitle" style="margin:0 0 9px">{{ 'The step is skipped when the condition does not hold — not counted as an error.'|trans }}</p>
+            <div class="row">
+                <input type="text" name="cond_left" value="{{ cond.left ?? '' }}" placeholder="{{ '{{' }}variable{{ '}}' }}" class="input-mono" style="flex:1.4 1 150px">
+                <select name="cond_op">
+                    {% for val, lbl in {'eq':'equals','ne':'not equal','contains':'contains','matches':'matches regex','gt':'greater than','lt':'less than','ge':'at least (≥)','le':'at most (≤)','exists':'exists (not empty)','empty':'is empty','notEmpty':'is not empty'} %}
+                        <option value="{{ val }}" {{ (cond.op ?? 'eq') == val ? 'selected' }}>{{ lbl|trans }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="cond_right" value="{{ cond.right ?? '' }}" placeholder="{{ 'value'|trans }}" class="input-mono" style="flex:1 1 110px">
             </div>
         </div>
-    {% elseif step.isSetvar %}
-        <div class="fgroup">
-            <div class="fgroup-title">{{ 'Variable assignments'|trans }}</div>
-            <div class="field" style="margin:0;">
-                <label>{{ 'One <code>name = value</code> per line'|trans|raw }}</label>
-                <textarea name="query" rows="5" style="font-family:var(--font-mono);" placeholder="orderId = {{ '{{data.id}}' }}&#10;label = fixed-value">{{ step.query }}</textarea>
-                <p class="fhint">{{ 'Expressions such as <code>{{variable}}</code> and <code>{{$randomEmail}}</code> are resolved in the value part; the result is passed on to later steps.'|trans|raw }}</p>
+
+        <div class="bpanel" data-panel="loop" hidden>
+            <p class="subtitle" style="margin:0 0 9px">{{ 'Runs once per item of a list variable. The item is available as {{item}}, the index as {{item_index}}.'|trans }}</p>
+            <div class="row">
+                <span class="subtitle">{{ 'each'|trans }}</span>
+                <input type="text" name="loop_as" value="{{ lp.as ?? '' }}" placeholder="item" class="input-mono" style="flex:0 0 130px">
+                <span class="subtitle">{{ 'in'|trans }}</span>
+                <input type="text" name="loop_over" value="{{ lp.over ?? '' }}" placeholder="{{ '{{' }}pkgs{{ '}}' }}" class="input-mono" style="flex:1 1 150px">
             </div>
         </div>
-    {% elseif step.isDb %}
-        <div class="fgroup">
-            <div class="fgroup-title">{{ 'Database query'|trans }}</div>
-            <div class="field">
+
+        {% if verifiable %}
+        <div class="bpanel" data-panel="retry" hidden>
+            <p class="subtitle" style="margin:0 0 9px">{{ 'Re-runs the step until the rules pass — for endpoints that settle asynchronously.'|trans }}</p>
+            <div class="row">
+                <label class="inline-lbl" style="display:inline-flex;align-items:center;gap:7px;font-size:12px">
+                    <input type="checkbox" name="retryEnabled" value="1" {{ step.retryEnabled ? 'checked' }} style="width:auto">
+                    {{ 'Enabled'|trans }}</label>
+                <span class="subtitle">max</span>
+                <input type="number" name="retryMax" value="{{ step.retryMax }}" min="1" max="20" class="input-mono" style="flex:0 0 80px">
+                <span class="subtitle">{{ 'delay (ms)'|trans }}</span>
+                <input type="number" name="retryDelayMs" value="{{ step.retryDelayMs }}" min="0" max="10000" step="100" class="input-mono" style="flex:0 0 100px">
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    {# ------------------------------------------------ panes #}
+    <div class="editor-panes">
+
+        {# ============ LEFT: configure ============ #}
+        <div class="pane left">
+            <div class="pane-head">
+                <span class="cap">{{ 'Configure'|trans }}</span><span class="rule"></span>
+                <span class="subtitle" style="font-size:11px">
+                    {%- if step.isDb %}{{ 'read query — writes are blocked'|trans }}
+                    {%- elseif step.isCall %}{{ 'called by reference'|trans }}
+                    {%- elseif step.isSetvar %}{{ 'for the steps that follow'|trans }}
+                    {%- else %}{{ 'this copy belongs to this step only'|trans }}{% endif -%}
+                </span>
+            </div>
+            <div class="pane-body">
+            {% if step.isDelay %}
+                <label>{{ 'Duration'|trans }}</label>
+                <div style="display:flex;gap:7px;align-items:center;margin-bottom:12px">
+                    <input type="number" name="query" value="{{ step.query }}" min="0" max="60000" step="100"
+                           class="input-mono" style="flex:0 0 130px;text-align:right;font-size:14px;font-weight:700">
+                    <span class="mono subtitle">ms</span>
+                    <div class="grow"></div>
+                    {% for p in [500, 1500, 5000, 15000] %}
+                        <button type="button" class="fchip" data-preset="{{ p }}">{{ p }} ms</button>
+                    {% endfor %}
+                </div>
+                <p class="subtitle">{{ 'A fixed pause so async work — webhook, queue, projection — can finish before the next step reads it.'|trans }}</p>
+
+            {% elseif step.isSetvar %}
+                <label>{{ 'Assignments'|trans }}</label>
+                <p class="subtitle" style="margin:0 0 8px">{{ 'One <code>name = value</code> per line. {{variable}} and {{$generator}} are resolved in the value.'|trans|raw }}</p>
+                <textarea name="query" rows="6" class="input-mono" placeholder="planId = plan_pro_monthly">{{ step.query }}</textarea>
+
+            {% elseif step.isCall %}
+                <label>{{ 'Called flow'|trans }}</label>
+                <div class="picker" style="margin-bottom:12px">
+                    {% for cf in flows %}
+                        <label class="picker-row" style="cursor:pointer">
+                            <input type="radio" name="calledFlow" value="{{ cf.id }}" style="width:auto"
+                                   {{ step.calledFlow and step.calledFlow.id == cf.id ? 'checked' }}>
+                            <span class="kind m-flow">FLOW</span>
+                            <span class="name">{{ cf.name }}<br>
+                                <span class="sub">{{ '%count% steps'|trans({'%count%': cf.steps|length}) }}</span></span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <div class="hintbox" style="background:var(--vio-soft);color:var(--vio)">
+                    {{ ic.i('shield', 15) }}{{ 'By reference: the sub-flow always runs at its current version. Circular calls are blocked.'|trans }}
+                </div>
+
+            {% elseif step.isDb %}
                 <label>{{ 'Connection'|trans }}</label>
-                <select name="connection">
-                    {% for c in connections %}<option value="{{ c.id }}" {{ step.dbConnection and step.dbConnection.id == c.id ? 'selected' }}>{{ c.name }} ({{ c.type }})</option>{% endfor %}
-                </select>
-            </div>
-            <div class="field" style="margin:0;">
-                <label>{{ 'Query (<code>{{variable}}</code> supported)'|trans|raw }}</label>
-                <textarea name="query" rows="4" style="font-family:var(--font-mono);" placeholder="SELECT status FROM subscriptions WHERE user_id = {{ '{{userId}}' }}">{{ step.query }}</textarea>
-                <p class="fhint">{{ 'SQL: a normal query · Redis: <code>GET key</code> · Mongo: <code>{"collection":"x","filter":{...}}</code>'|trans|raw }}</p>
-            </div>
-        </div>
-    {% elseif step.isCall %}
-        <div class="fgroup" style="max-width:520px;">
-            <div class="fgroup-title">{{ 'Called sub-flow'|trans }}</div>
-            <div class="field" style="margin:0;">
-                <label>{{ "This step runs the selected flow's steps here in order (with the same variable context)."|trans }}</label>
-                <select name="calledFlow">
-                    <option value="">{{ '— select flow —'|trans }}</option>
-                    {% for cf in flows %}<option value="{{ cf.id }}" {{ step.calledFlow and step.calledFlow.id == cf.id ? 'selected' }}>{{ cf.name }} ({{ '%count% steps'|trans({'%count%': cf.steps|length}) }})</option>{% endfor %}
-                </select>
-                <p class="fhint">{{ 'By reference: when you change the sub-flow, the current version runs everywhere it is called. Circular calls are blocked automatically.'|trans }}</p>
-            </div>
-        </div>
-    {% else %}
-        <div class="fgroup">
-            <div class="fgroup-title">{{ 'Request · specific to this flow'|trans }}</div>
-            <p class="fhint" style="margin:0 0 12px;">{{ 'This request belongs only to this step; it does not affect the original in the collection or other flows.'|trans }}{% if step.apiRequest %} {{ 'Source:'|trans }} <code>{{ step.apiRequest.collection.name }} / {{ step.apiRequest.name }}</code>{% endif %}</p>
-            <div style="display:flex;gap:8px;margin-bottom:12px;">
-                <select name="method" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-family:var(--font-mono);font-weight:700;">
-                    {% for m in constant('App\\Entity\\ApiRequest::METHODS') %}<option {{ step.reqMethod == m ? 'selected' }}>{{ m }}</option>{% endfor %}
-                </select>
-                <input type="text" name="url" value="{{ step.reqUrl }}" placeholder="https://… ({{ '{{API_URL}}' }}, {{ '{{token}}' }} {{ 'can be used'|trans }})" style="flex:1;font-family:var(--font-mono);">
-            </div>
-            <div class="grid2">
-                <div class="field">
-                    <label>{{ 'Query parameters'|trans }}</label>
-                    <div id="paramRows">
-                        {% for p in step.reqParams %}<div class="kvrow"><input name="param_name[]" value="{{ p.name }}" placeholder="{{ 'name'|trans }}"><input name="param_value[]" value="{{ p.value }}" placeholder="{{ 'value'|trans }}"></div>{% endfor %}
-                        <div class="kvrow"><input name="param_name[]" placeholder="{{ 'name'|trans }}"><input name="param_value[]" placeholder="{{ 'value'|trans }}"></div>
+                <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">
+                    {% for c in connections %}
+                        <label class="typebtn {{ step.dbConnection and step.dbConnection.id == c.id ? 'on' }}">
+                            <input type="radio" name="connection" value="{{ c.id }}" hidden
+                                   {{ step.dbConnection and step.dbConnection.id == c.id ? 'checked' }}>
+                            <span class="ic-box">{{ ic.i('db', 15) }}</span>
+                            <span><span class="t">{{ c.name }}</span>
+                                <span class="s mono">{{ c.type }} · {{ c.host }}{{ c.databaseName ? ' / ' ~ c.databaseName }}</span></span>
+                        </label>
+                    {% endfor %}
+                </div>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <label style="margin:0">{{ 'Query'|trans }}</label><div class="grow"></div>
+                    <span class="mono subtitle" style="font-size:10.5px">sql · redis · mongo</span>
+                </div>
+                <textarea name="query" rows="5" class="input-mono" placeholder="SELECT status FROM subscriptions WHERE id = {{ '{{' }}subId{{ '}}' }}">{{ step.query }}</textarea>
+                <div class="hintbox" style="background:var(--teal-soft);color:var(--teal)">
+                    {{ ic.i('shield', 15) }}{{ 'Variables from earlier steps work here.'|trans }}
+                </div>
+
+            {% else %}
+                <div style="display:flex;gap:7px;align-items:center;margin-bottom:12px">
+                    <select name="method" class="mono" style="width:auto;font-weight:800">
+                        {% for m in constant('App\\Entity\\ApiRequest::METHODS') %}<option {{ step.reqMethod == m ? 'selected' }}>{{ m }}</option>{% endfor %}
+                    </select>
+                    <input type="text" name="url" value="{{ step.reqUrl }}" class="input-mono" data-vc
+                           placeholder="{{ '{{' }}baseUrl{{ '}}' }}/v3/…">
+                </div>
+
+                <div class="tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px">
+                    {% for id, lbl in {'params':'Params','headers':'Headers','body':'Body','auth':'Auth'} %}
+                        <button type="button" class="etab {{ id == 'body' ? 'on' }}" data-tab="{{ id }}">{{ lbl|trans }}</button>
+                    {% endfor %}
+                </div>
+
+                <div data-panel-tab="params" hidden>
+                    {{ include('app/flow/_kvtable.html.twig', {rows: step.reqParams, field: 'param'}) }}
+                </div>
+                <div data-panel-tab="headers" hidden>
+                    {{ include('app/flow/_kvtable.html.twig', {rows: step.reqHeaders, field: 'header'}) }}
+                </div>
+                <div data-panel-tab="body">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+                        <select name="bodyMode" class="mono" style="width:auto;font-weight:700">
+                            {% for m in ['none','raw','json','form'] %}<option {{ step.reqBodyMode == m ? 'selected' }}>{{ m }}</option>{% endfor %}
+                        </select>
+                        <button type="button" class="fchip" id="formatBtn">{{ 'Format'|trans }}</button>
+                        <div class="grow"></div>
+                        <span class="mono" id="jsonState" style="font-size:10.5px;color:var(--pass)"></span>
                     </div>
-                    <button type="button" class="btn ghost small" onclick="addKv('paramRows','param')">+ {{ 'row'|trans }}</button>
+                    <textarea name="body" rows="10" class="input-mono" data-vc>{{ step.reqBody }}</textarea>
                 </div>
-                <div class="field">
-                    <label>{{ 'Headers'|trans }}</label>
-                    <div id="headerRows">
-                        {% for h in step.reqHeaders %}<div class="kvrow"><input name="header_name[]" value="{{ h.name }}" placeholder="{{ 'name'|trans }}"><input name="header_value[]" value="{{ h.value }}" placeholder="{{ 'value'|trans }}"></div>{% endfor %}
-                        <div class="kvrow"><input name="header_name[]" placeholder="{{ 'name'|trans }}"><input name="header_value[]" placeholder="{{ 'value'|trans }}"></div>
+                <div data-panel-tab="auth" hidden>
+                    {% set auth = step.reqAuth %}
+                    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
+                        {% for tp in ['none','bearer','basic','apikey'] %}
+                            <label class="fchip {{ (auth.type ?? 'none') == tp ? 'on' }}">
+                                <input type="radio" name="authType" value="{{ tp }}" hidden {{ (auth.type ?? 'none') == tp ? 'checked' }}>{{ tp }}</label>
+                        {% endfor %}
                     </div>
-                    <button type="button" class="btn ghost small" onclick="addKv('headerRows','header')">+ {{ 'row'|trans }}</button>
+                    <div data-auth="bearer">
+                        <label>{{ 'Bearer token'|trans }}</label>
+                        <input type="text" name="authToken" value="{{ auth.token ?? '' }}" class="input-mono" data-vc placeholder="{{ '{{' }}token{{ '}}' }}">
+                    </div>
+                    <div data-auth="basic" style="display:flex;gap:8px">
+                        <input type="text" name="authUser" value="{{ auth.username ?? '' }}" placeholder="{{ 'username'|trans }}">
+                        <input type="text" name="authPass" value="{{ auth.password ?? '' }}" placeholder="{{ 'password'|trans }}">
+                    </div>
+                    <div data-auth="apikey" style="display:flex;gap:8px">
+                        <input type="text" name="authKey" value="{{ auth.key ?? '' }}" placeholder="{{ 'key name'|trans }}">
+                        <input type="text" name="authVal" value="{{ auth.value ?? '' }}" placeholder="{{ 'value'|trans }}" class="input-mono">
+                        <select name="authAddTo" style="width:auto">
+                            <option value="header" {{ (auth.addTo ?? 'header') == 'header' ? 'selected' }}>header</option>
+                            <option value="query" {{ (auth.addTo ?? '') == 'query' ? 'selected' }}>query</option>
+                        </select>
+                    </div>
                 </div>
-            </div>
-            <div class="field">
-                <label>{{ 'Body'|trans }}</label>
-                <select name="bodyMode" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);margin-bottom:8px;">
-                    {% for m in ['none','raw','json','form'] %}<option {{ step.reqBodyMode == m ? 'selected' }}>{{ m }}</option>{% endfor %}
-                </select>
-                <textarea name="body" rows="6" style="font-family:var(--font-mono);" placeholder='{"amount": 100, "token": "{{ '{{token}}' }}"}'>{{ step.reqBody }}</textarea>
-            </div>
-            <div class="field" style="margin-bottom:0;">
-                <label>{{ 'Authentication'|trans }}</label>
-                {% set auth = step.reqAuth %}
-                <select name="authType" id="authType" onchange="authToggle()" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);">
-                    {% for t in ['none','bearer','basic','apikey'] %}<option value="{{ t }}" {{ (auth.type ?? 'none') == t ? 'selected' }}>{{ t }}</option>{% endfor %}
-                </select>
-                <div data-auth="bearer" style="margin-top:8px;"><input type="text" name="authToken" value="{{ auth.token ?? '' }}" placeholder="Bearer token ({{ '{{token}}' }})" style="font-family:var(--font-mono);"></div>
-                <div data-auth="basic" style="margin-top:8px;display:flex;gap:8px;"><input type="text" name="authUser" value="{{ auth.username ?? '' }}" placeholder="{{ 'username'|trans }}"><input type="text" name="authPass" value="{{ auth.password ?? '' }}" placeholder="{{ 'password'|trans }}"></div>
-                <div data-auth="apikey" style="margin-top:8px;display:flex;gap:8px;"><input type="text" name="authKey" value="{{ auth.key ?? '' }}" placeholder="{{ 'key name'|trans }}"><input type="text" name="authVal" value="{{ auth.value ?? '' }}" placeholder="{{ 'value'|trans }}"><select name="authAddTo" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);"><option value="header" {{ (auth.addTo ?? 'header') == 'header' ? 'selected' }}>header</option><option value="query" {{ (auth.addTo ?? '') == 'query' ? 'selected' }}>query</option></select></div>
+            {% endif %}
             </div>
         </div>
-    {% endif %}
 
-    {% if not step.isSetvar and not step.isDelay and not step.isCall %}
-    <div class="fgroup" id="ruleBuilder"
-         {% if not is_new %}data-probe="{{ path('app_flow_step_probe', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"{% else %}data-probe=""{% endif %}
-         data-isdb="{{ step.isDb ? '1' : '0' }}">
-        <script type="application/json" id="seedAssert">{{ step.assertions|json_encode|raw }}</script>
-        <script type="application/json" id="seedExt">{{ step.extractions|json_encode|raw }}</script>
-
-        <div class="fgroup-title" style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span>{{ 'Validation rules'|trans }}</span>
-            {% if not is_new %}<button type="button" class="btn ghost small" id="probeBtn">↧ {{ 'Pick from response'|trans }}</button>{% endif %}
-        </div>
-        <p class="fhint" style="margin:0 0 12px;">{{ 'Each rule compares a field of the response with the value you expect.'|trans }}{% if is_new %} {{ 'After saving the step you can add fields by clicking them via <b>Pick from response</b>.'|trans|raw }}{% else %} {{ 'Press <b>Pick from response</b> and click a field — you do not need to type the path.'|trans|raw }}{% endif %}</p>
-
-        <div id="treePanel" style="display:none;background:var(--panel-2);border:1px solid var(--border);border-radius:10px;padding:10px 12px;margin-bottom:14px;">
-            <div id="treeStatus" style="font-size:12.5px;color:var(--muted);margin-bottom:8px;"></div>
-            <div id="tree" style="font-family:var(--font-mono);font-size:12.5px;line-height:1.7;max-height:280px;overflow:auto;"></div>
-        </div>
-
-        <div id="ruleRows"></div>
-        <button type="button" class="btn ghost small" id="addRule">+ {{ 'rule'|trans }}</button>
-
-        <div class="fgroup-title" style="margin-top:20px;">{{ 'Value transfer'|trans }}</div>
-        <p class="fhint" style="margin:0 0 10px;">{{ 'Take a field from this response into a variable; use it in later steps as <code>{{variable}}</code>.'|trans|raw }}</p>
-        <div id="extRows"></div>
-        <button type="button" class="btn ghost small" id="addExt">+ {{ 'transfer'|trans }}</button>
-
-        {# ---- JSON schema validation ---- #}
-        {% set schemaAssert = step.assertions|filter(a => (a.kind ?? '') == 'schema')|first %}
-        <div class="fgroup-title" style="margin-top:20px;display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <span>{{ 'JSON schema validation'|trans }} <span style="font-weight:400;color:var(--muted);">· {{ 'optional'|trans }}</span></span>
-            <button type="button" class="btn ghost small" id="genSchemaBtn">🧬 {{ 'Generate from response'|trans }}</button>
-        </div>
-        <p class="fhint" style="margin:0 0 8px;">{{ 'If filled in, the step <b>fails</b> when the response does not match this JSON schema (type/properties/required/items). Use <b>Generate from response</b> to build it automatically from the current response, then narrow it down by hand.'|trans|raw }}</p>
-        <textarea name="schema" id="schemaBox" rows="6" style="font-family:var(--font-mono);font-size:12px;" placeholder='{&#10;  "type": "object",&#10;  "required": ["result"],&#10;  "properties": { "result": { "type": "object" } }&#10;}'>{{ schemaAssert.schema ?? '' }}</textarea>
-
-        <div style="margin-top:16px;">
-            <a href="#" id="advToggle" class="fhint" style="text-decoration:underline;cursor:pointer;">⚙ {{ 'Advanced — edit as text'|trans }}</a>
-        </div>
-        <div id="advBox" style="display:none;margin-top:10px;">
-            <div class="grid2">
-                <div class="field">
-                    <label>{{ 'Extractions (<code>variable = path</code>)'|trans|raw }}</label>
-                    <textarea name="extractions" rows="6" style="font-family:var(--font-mono);">{{ extractions_text }}</textarea>
+        {# ============ RIGHT: verify ============ #}
+        {% if verifiable %}
+        <div class="pane right">
+            <div class="pane-head">
+                <span class="cap">{{ 'Verify'|trans }}</span><span class="rule"></span>
+                {% if not is_new %}
+                    <button type="button" class="btn ghost small" id="probeBtn">{{ ic.i('import', 13) }}{{ 'Run this step'|trans }}</button>
+                {% endif %}
+            </div>
+            <div class="pane-body">
+                {# probe result — filled by JS #}
+                <div id="probeWrap" style="margin-bottom:16px">
+                    <div class="probe-empty" id="probeEmpty">
+                        <div class="ic-box">{{ ic.i('import', 17) }}</div>
+                        <div style="font-size:13px;font-weight:700;color:var(--ink)">{{ 'Run the step once'|trans }}</div>
+                        <p class="subtitle" style="max-width:280px;margin:5px auto 0">{{ 'Signal sends it with the flow variables from the last run, then you pick fields from the real response instead of typing paths.'|trans }}</p>
+                    </div>
+                    <div id="probeResult" hidden>
+                        <div class="probe-meta">
+                            <span class="pill passed" id="probeStatus"></span>
+                            <span class="mono subtitle" id="probeMeta" style="font-size:11px"></span>
+                            <div class="grow"></div>
+                            <span class="subtitle" style="font-size:11px">{{ 'click a field to build a rule'|trans }}</span>
+                        </div>
+                        <div class="tree" id="tree"></div>
+                    </div>
                 </div>
-                <div class="field">
-                    <label>{{ 'Assertions (one rule per line)'|trans }}</label>
-                    <textarea name="assertions" rows="6" style="font-family:var(--font-mono);">{{ assertions_text }}</textarea>
+
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <span style="font-size:12.5px;font-weight:700;color:var(--ink)">{{ 'Rules'|trans }}</span>
+                    <span class="chip" id="ruleCount">0</span>
+                    <div class="grow"></div>
+                    <span class="subtitle" style="font-size:11px">{{ 'all must pass'|trans }}</span>
                 </div>
+                <div id="ruleRows"></div>
+                <button type="button" class="add-dashed" id="addRule" style="margin-bottom:18px">+ {{ 'rule'|trans }}</button>
+
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <span style="font-size:12.5px;font-weight:700;color:var(--ink)">{{ 'Value transfer'|trans }}</span>
+                    <span class="chip" id="extCount">0</span>
+                    <div class="grow"></div>
+                    <span class="subtitle" style="font-size:11px">{{ 'available later as {{name}}'|trans }}</span>
+                </div>
+                <div id="extRows"></div>
+                <button type="button" class="add-dashed" id="addExt" style="margin-bottom:18px">+ {{ 'transfer'|trans }}</button>
+
+                {% set schemaAssert = step.assertions|filter(a => (a.kind ?? '') == 'schema')|first %}
+                <details class="fold" {{ schemaAssert ? 'open' }}>
+                    <summary>
+                        <span class="ic-box vio">{{ ic.i('shield', 15) }}</span>
+                        <span><span class="t">{{ 'JSON schema'|trans }}</span>
+                            <span class="s">{{ 'fail when the response shape changes'|trans }}</span></span>
+                        <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+                    </summary>
+                    <div class="fold-body">
+                        <textarea name="schema" id="schemaBox" rows="7" class="input-mono">{{ schemaAssert.schema ?? '' }}</textarea>
+                        <div class="fold-actions">
+                            <button type="button" class="btn small" id="genSchemaBtn">{{ 'Generate from response'|trans }}</button>
+                            <button type="button" class="btn ghost small" id="clearSchemaBtn">{{ 'Clear'|trans }}</button>
+                        </div>
+                    </div>
+                </details>
+
+                {% if not is_new %}
+                <details class="fold">
+                    <summary>
+                        <span class="ic-box warn">{{ ic.i('clock', 15) }}</span>
+                        <span><span class="t">{{ 'Response baseline'|trans }}</span>
+                            <span class="s">{{ 'compare every run against a captured response'|trans }}</span></span>
+                        <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+                    </summary>
+                    <div class="fold-body">
+                        <div class="code" id="baselineBox">{{ 'No baseline captured yet.'|trans }}</div>
+                        <div class="fold-actions">
+                            <button type="button" class="btn ghost small"
+                                    formaction="{{ path('app_flow_step_reset_baseline', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"
+                                    formmethod="post">{{ 'Reset baseline'|trans }}</button>
+                        </div>
+                    </div>
+                </details>
+                {% endif %}
+
+                <details class="fold">
+                    <summary>
+                        <span class="ic-box">{{ ic.i('terminal', 15) }}</span>
+                        <span><span class="t">{{ 'Advanced — edit as text'|trans }}</span>
+                            <span class="s">{{ 'the same DSL the API accepts'|trans }}</span></span>
+                        <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+                    </summary>
+                    <div class="fold-body">
+                        <textarea id="advAssert" rows="5" class="input-mono" placeholder="status == 200">{{ assertions_text }}</textarea>
+                        <textarea id="advExt" rows="4" class="input-mono" placeholder="subId = id" style="margin-top:8px">{{ extractions_text }}</textarea>
+                        <div class="fold-actions">
+                            <button type="button" class="btn small" id="advApply">{{ 'Apply to rows'|trans }}</button>
+                        </div>
+                    </div>
+                </details>
             </div>
-            <p class="fhint">{{ 'Operators: <code>== != &gt; &lt; &gt;= &lt;= contains matches exists empty notEmpty</code>. Changes here sync with the builder above.'|trans|raw }}</p>
         </div>
+        {% endif %}
     </div>
 
-    <div class="fgroup">
-        <label class="inline-lbl" style="font-weight:600;font-size:14px;"><input type="checkbox" name="retryEnabled" value="1" {{ step.retryEnabled ? 'checked' }} style="width:auto;"> ↻ {{ 'Retry until the assertions pass (poll)'|trans }}</label>
-        <p class="fhint" style="margin:6px 0 12px;">{{ 'For async operations: the step runs again at the given interval until the assertions pass. (Only active when assertions are defined.)'|trans }}</p>
-        <div style="display:flex;gap:18px;align-items:center;flex-wrap:wrap;">
-            <label style="font-size:13px;color:var(--muted);">{{ 'Max attempts'|trans }}
-                <input type="number" name="retryMax" value="{{ step.retryMax }}" min="1" max="20" style="width:70px;margin-left:6px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);">
-            </label>
-            <label style="font-size:13px;color:var(--muted);">{{ 'Interval (ms)'|trans }}
-                <input type="number" name="retryDelayMs" value="{{ step.retryDelayMs }}" min="0" max="10000" step="100" style="width:90px;margin-left:6px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);">
-            </label>
-        </div>
-    </div>
-    {% endif %}
-
-    <div class="form-actions">
-        <button class="btn" type="submit">{{ 'Save'|trans }}</button>
-        <a class="btn ghost" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">{{ 'Cancel'|trans }}</a>
-    </div>
+    <script type="application/json" id="vcCatalog">{{ vc_catalog|json_encode|raw }}</script>
 </form>
+{% endblock %}
 
-{% if not is_new and not step.isDb and not step.isSetvar and not step.isDelay and not step.isCall %}
-<div class="fgroup" style="max-width:640px;margin-top:18px;">
-    <div class="fgroup-title">{{ 'Contract monitoring'|trans }}</div>
-    <p class="fhint" style="margin:0 0 10px;">{{ 'On the first successful run the response shape (fields + types) is taken as a baseline; if the shape changes in later runs — even when the assertions pass — a <b>⚠ Contract changed</b> warning appears in the run detail.'|trans|raw }}</p>
-    {% if step.contractBaselineAt %}
-        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-            <span class="pill" style="background:var(--pass-soft,#e6f4ec);color:var(--pass);">{{ 'baseline taken · %date%'|trans({'%date%': step.contractBaselineAt|date('d.m.Y H:i')}) }}</span>
-            <form method="post" action="{{ path('app_flow_step_reset_baseline', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" onsubmit="return confirm('{{ 'The baseline will be reset; the response of the next successful run becomes the new baseline.'|trans|e('js') }}');">
-                <input type="hidden" name="_token" value="{{ csrf_token('reset-baseline' ~ step.id) }}">
-                <button class="btn ghost small" type="submit">↺ {{ 'Reset baseline'|trans }}</button>
-            </form>
-        </div>
-    {% else %}
-        <span class="fhint">{{ 'No baseline yet — it will be taken on the first successful run.'|trans }}</span>
-    {% endif %}
-</div>
-{% endif %}
-
-<style>
-    .kvrow { display: flex; gap: 6px; margin-bottom: 5px; }
-    .kvrow input { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 7px 9px; color: var(--text); font-family: var(--font-mono); font-size: 12.5px; }
-    [data-auth] { display: none; }
-    .rrow { display: flex; gap: 6px; margin-bottom: 6px; align-items: center; }
-    .rrow input, .rrow select { background: var(--panel-2); border: 1px solid var(--border); border-radius: 7px; padding: 8px 9px; color: var(--text); font-size: 12.5px; }
-    .rrow .f-field { flex: 2; font-family: var(--font-mono); }
-    .rrow .f-val { flex: 1.5; font-family: var(--font-mono); }
-    .rrow select { flex: 1.2; }
-    .rrow .rm { cursor: pointer; color: var(--muted); padding: 6px 9px; border: 1px solid var(--border); border-radius: 7px; background: transparent; line-height: 1; }
-    .rrow .rm:hover { color: var(--danger, #e5484d); border-color: var(--danger, #e5484d); }
-    .tnode { padding-left: 14px; }
-    .tleaf { cursor: pointer; padding: 1px 6px; border-radius: 5px; display: inline-block; }
-    .tleaf:hover { background: var(--accent-soft); }
-    .tkey { color: var(--muted); } .tval { color: var(--accent); }
-    .tvar { cursor: pointer; font-size: 11px; color: var(--muted); border: 1px solid var(--border); border-radius: 5px; padding: 0 6px; margin-left: 6px; background: transparent; }
-    .tvar:hover { color: var(--accent); border-color: var(--accent); }
-</style>
+{% block javascripts %}
+{{ parent() }}
+{% verbatim %}
 <script>
-    function addKv(containerId, prefix) {
-        var box = document.getElementById(containerId);
-        var row = document.createElement('div'); row.className = 'kvrow';
-        row.innerHTML = '<input name="' + prefix + '_name[]" placeholder="{{ 'name'|trans|e('js') }}"><input name="' + prefix + '_value[]" placeholder="{{ 'value'|trans|e('js') }}">';
-        box.appendChild(row);
+(function () {
+    var form = document.getElementById('stepForm');
+    if (!form) return;
+
+    // ---- dirty tracking ------------------------------------------------
+    var pill = document.getElementById('dirtyPill');
+    form.addEventListener('input', function () { if (pill) pill.hidden = false; });
+    form.addEventListener('change', function () { if (pill) pill.hidden = false; });
+
+    // ---- behaviour chips ----------------------------------------------
+    form.querySelectorAll('.bchip').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var key = b.dataset.b, panel = form.querySelector('[data-panel="' + key + '"]');
+            var opening = panel.hidden;
+            form.querySelectorAll('.bpanel').forEach(function (p) { p.hidden = true; });
+            form.querySelectorAll('.bchip').forEach(function (c) { c.classList.remove('open'); });
+            if (opening) { panel.hidden = false; b.classList.add('open'); }
+        });
+    });
+
+    // ---- request tabs -------------------------------------------------
+    form.querySelectorAll('.etab').forEach(function (t) {
+        t.addEventListener('click', function () {
+            form.querySelectorAll('.etab').forEach(function (x) { x.classList.remove('on'); });
+            t.classList.add('on');
+            form.querySelectorAll('[data-panel-tab]').forEach(function (p) {
+                p.hidden = p.dataset.panelTab !== t.dataset.tab;
+            });
+        });
+    });
+
+    // ---- delay presets ------------------------------------------------
+    form.querySelectorAll('[data-preset]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var i = form.querySelector('input[name=query]');
+            if (i) { i.value = b.dataset.preset; if (pill) pill.hidden = false; }
+        });
+    });
+
+    // ---- rule / transfer model ---------------------------------------
+    // Serialised back into the DSL the PHP parser reads. One rule per line:
+    //   <path> <op> <expected>        e.g.  body.status == active
+    //   status == 200
+    // One transfer per line:  <name> = <path>
+    var OPS = ['==','!=','contains','matches','>','<','>=','<=','exists','empty','notEmpty'];
+    var rules = parseRules(document.getElementById('assertionsText').value);
+    var exts  = parseExts(document.getElementById('extractionsText').value);
+
+    function parseRules(text) {
+        return (text || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean).map(function (l) {
+            var m = l.match(/^(\S+)\s+(==|!=|contains|matches|>=|<=|>|<|exists|empty|notEmpty)\s*(.*)$/);
+            return m ? { path: m[1], op: m[2], expected: m[3] } : { path: l, op: '==', expected: '' };
+        });
     }
-    function authToggle() {
-        var t = document.getElementById('authType').value;
-        document.querySelectorAll('[data-auth]').forEach(function (el) { el.style.display = el.dataset.auth === t ? (el.dataset.auth === 'bearer' ? 'block' : 'flex') : 'none'; });
+    function parseExts(text) {
+        return (text || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean).map(function (l) {
+            var i = l.indexOf('=');
+            return i === -1 ? { name: l, path: '' } : { name: l.slice(0, i).trim(), path: l.slice(i + 1).trim() };
+        });
     }
-    document.addEventListener('DOMContentLoaded', authToggle);
+    function serialise() {
+        document.getElementById('assertionsText').value = rules
+            .filter(function (r) { return r.path; })
+            .map(function (r) { return (r.path + ' ' + r.op + ' ' + (r.expected || '')).trim(); }).join('\n');
+        document.getElementById('extractionsText').value = exts
+            .filter(function (e) { return e.name && e.path; })
+            .map(function (e) { return e.name + ' = ' + e.path; }).join('\n');
+    }
 
-    // ---- Response-driven rule builder ----
-    (function () {
-        var root = document.getElementById('ruleBuilder');
-        if (!root) return;
+    function renderRules() {
+        var host = document.getElementById('ruleRows');
+        if (!host) return;
+        host.innerHTML = '';
+        rules.forEach(function (r, i) {
+            var row = document.createElement('div');
+            row.className = 'rule-row';
+            row.innerHTML =
+                '<span class="status-ic"></span>' +
+                '<input class="path" value="">' +
+                '<select class="op">' + OPS.map(function (o) {
+                    return '<option' + (o === r.op ? ' selected' : '') + '>' + o + '</option>';
+                }).join('') + '</select>' +
+                '<input class="expected" placeholder="expected">' +
+                '<button type="button" class="rm">×</button>';
+            row.querySelector('.path').value = r.path;
+            row.querySelector('.expected').value = r.expected;
+            row.querySelector('.path').addEventListener('input', function (e) { r.path = e.target.value; serialise(); });
+            row.querySelector('.expected').addEventListener('input', function (e) { r.expected = e.target.value; serialise(); });
+            row.querySelector('.op').addEventListener('change', function (e) { r.op = e.target.value; serialise(); });
+            row.querySelector('.rm').addEventListener('click', function () { rules.splice(i, 1); renderRules(); serialise(); });
+            host.appendChild(row);
+        });
+        document.getElementById('ruleCount').textContent = rules.length;
+    }
 
-        var OPS = [
-            {t: '==', tr: '{{ 'equals'|trans|e('js') }}', val: true},
-            {t: '!=', tr: '{{ 'not equal'|trans|e('js') }}', val: true},
-            {t: 'contains', tr: '{{ 'contains'|trans|e('js') }}', val: true},
-            {t: 'matches', tr: '{{ 'matches regex'|trans|e('js') }}', val: true},
-            {t: '>', tr: '{{ 'greater than'|trans|e('js') }}', val: true},
-            {t: '<', tr: '{{ 'less than'|trans|e('js') }}', val: true},
-            {t: '>=', tr: '{{ 'at least (≥)'|trans|e('js') }}', val: true},
-            {t: '<=', tr: '{{ 'at most (≤)'|trans|e('js') }}', val: true},
-            {t: 'exists', tr: '{{ 'exists (not empty)'|trans|e('js') }}', val: false},
-            {t: 'empty', tr: '{{ 'is empty'|trans|e('js') }}', val: false},
-            {t: 'notEmpty', tr: '{{ 'is not empty'|trans|e('js') }}', val: false}
-        ];
-        var NAME2TOKEN = {eq:'==',ne:'!=',gt:'>',lt:'<',ge:'>=',le:'<=',contains:'contains',matches:'matches',exists:'exists',empty:'empty',notEmpty:'notEmpty'};
-        var NOVAL = {exists:1, empty:1, notEmpty:1};
+    function renderExts() {
+        var host = document.getElementById('extRows');
+        if (!host) return;
+        host.innerHTML = '';
+        exts.forEach(function (x, i) {
+            var row = document.createElement('div');
+            row.className = 'rule-row';
+            row.innerHTML =
+                '<input class="name" value="">' +
+                '<span class="mono" style="color:var(--faint)">=</span>' +
+                '<input class="path" value="">' +
+                '<button type="button" class="rm">×</button>';
+            row.querySelector('.name').value = x.name;
+            row.querySelector('.path').value = x.path;
+            row.querySelector('.name').addEventListener('input', function (e) { x.name = e.target.value; serialise(); });
+            row.querySelector('.path').addEventListener('input', function (e) { x.path = e.target.value; serialise(); });
+            row.querySelector('.rm').addEventListener('click', function () { exts.splice(i, 1); renderExts(); serialise(); });
+            host.appendChild(row);
+        });
+        document.getElementById('extCount').textContent = exts.length;
+    }
 
-        var isDb = root.getAttribute('data-isdb') === '1';
-        var probeUrl = root.getAttribute('data-probe');
-        var ruleRows = document.getElementById('ruleRows');
-        var extRows = document.getElementById('extRows');
-        var taAssert = document.querySelector('#advBox textarea[name="assertions"]');
-        var taExt = document.querySelector('#advBox textarea[name="extractions"]');
-        var token = (document.querySelector('input[name="_token"]') || {}).value || '';
+    var addRule = document.getElementById('addRule');
+    if (addRule) addRule.addEventListener('click', function () { rules.push({ path: '', op: '==', expected: '' }); renderRules(); });
+    var addExt = document.getElementById('addExt');
+    if (addExt) addExt.addEventListener('click', function () { exts.push({ name: '', path: '' }); renderExts(); });
 
-        function opNoVal(t) { for (var i=0;i<OPS.length;i++) if (OPS[i].t===t) return !OPS[i].val; return false; }
+    var advApply = document.getElementById('advApply');
+    if (advApply) advApply.addEventListener('click', function () {
+        rules = parseRules(document.getElementById('advAssert').value);
+        exts = parseExts(document.getElementById('advExt').value);
+        renderRules(); renderExts(); serialise();
+    });
 
-        function serialize() {
-            var aLines = [];
-            ruleRows.querySelectorAll('.rrow').forEach(function (row) {
-                var f = row.querySelector('.f-field').value.trim();
-                var op = row.querySelector('select').value;
-                var v = row.querySelector('.f-val').value.trim();
-                if (!f) return;
-                aLines.push(opNoVal(op) ? (f + ' ' + op) : (f + ' ' + op + ' ' + v));
+    form.addEventListener('submit', serialise);
+    renderRules(); renderExts();
+
+    // ---- probe: run the step, render the response as clickable fields --
+    var probeBtn = document.getElementById('probeBtn');
+    var lastResponse = null;
+
+    function flatten(obj, prefix, out) {
+        out = out || [];
+        Object.keys(obj || {}).forEach(function (k) {
+            var path = prefix ? prefix + '.' + k : k, v = obj[k];
+            if (v && typeof v === 'object' && !Array.isArray(v)) {
+                out.push({ path: path, value: '{ ' + Object.keys(v).length + ' }', type: 'object' });
+                flatten(v, path, out);
+            } else if (Array.isArray(v)) {
+                out.push({ path: path, value: '[ ' + v.length + ' ]', type: 'array' });
+                if (v.length && typeof v[0] === 'object') flatten(v[0], path + '.0', out);
+            } else {
+                out.push({ path: path, value: JSON.stringify(v), type: typeof v });
+            }
+        });
+        return out;
+    }
+
+    function renderTree(payload) {
+        var tree = document.getElementById('tree');
+        tree.innerHTML = '';
+        flatten(payload, '', []).forEach(function (f) {
+            var row = document.createElement('div');
+            row.className = 'tree-row';
+            row.innerHTML =
+                '<span class="path"></span><span class="val"></span><span class="type">' + f.type + '</span>' +
+                '<span class="acts"><button type="button" class="mini assert">assert</button>' +
+                '<button type="button" class="mini extract">extract</button></span>';
+            row.querySelector('.path').textContent = f.path;
+            row.querySelector('.val').textContent = f.value;
+            row.querySelector('.assert').addEventListener('click', function () {
+                rules.push({ path: f.path, op: '==', expected: String(f.value).replace(/^"|"$/g, '') });
+                renderRules(); serialise();
             });
-            var eLines = [];
-            extRows.querySelectorAll('.rrow').forEach(function (row) {
-                var vr = row.querySelector('.e-var').value.trim();
-                var f = row.querySelector('.e-field').value.trim();
-                if (vr && f) eLines.push(vr + ' = ' + f);
+            row.querySelector('.extract').addEventListener('click', function () {
+                exts.push({ name: f.path.split('.').pop(), path: f.path });
+                renderExts(); serialise();
             });
-            taAssert.value = aLines.join('\n');
-            taExt.value = eLines.join('\n');
-        }
+            tree.appendChild(row);
+        });
+    }
 
-        function valToggle(row) {
-            var op = row.querySelector('select').value;
-            row.querySelector('.f-val').style.visibility = opNoVal(op) ? 'hidden' : 'visible';
-        }
+    if (probeBtn) probeBtn.addEventListener('click', function () {
+        var url = form.dataset.probe;
+        if (!url) return;
+        probeBtn.disabled = true;
+        fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+            .then(function (r) { return r.json(); })
+            .then(function (d) {
+                probeBtn.disabled = false;
+                lastResponse = d.body !== undefined ? d.body : d;
+                document.getElementById('probeEmpty').hidden = true;
+                document.getElementById('probeResult').hidden = false;
+                var st = document.getElementById('probeStatus');
+                st.textContent = d.status ? d.status : (d.rowCount !== undefined ? d.rowCount + ' row(s)' : 'ok');
+                st.className = 'pill ' + ((d.status && d.status < 400) || d.rowCount !== undefined ? 'passed' : 'failed');
+                document.getElementById('probeMeta').textContent =
+                    [d.durationMs ? d.durationMs + ' ms' : null, d.size ? d.size : null].filter(Boolean).join(' · ');
+                renderTree(lastResponse);
+            })
+            .catch(function () { probeBtn.disabled = false; });
+    });
 
-        function ruleRow(field, opToken, value) {
-            var row = document.createElement('div'); row.className = 'rrow';
-            var fi = document.createElement('input'); fi.className = 'f-field'; fi.placeholder = isDb ? '{{ 'field (e.g. rows.0.status)'|trans|e('js') }}' : '{{ 'response field'|trans|e('js') }}'; fi.value = field || '';
-            var sel = document.createElement('select');
-            OPS.forEach(function (o) { var op = document.createElement('option'); op.value = o.t; op.textContent = o.tr; if (o.t === opToken) op.selected = true; sel.appendChild(op); });
-            var vi = document.createElement('input'); vi.className = 'f-val'; vi.placeholder = '{{ 'expected value'|trans|e('js') }}'; vi.value = value || '';
-            var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '×';
-            rm.onclick = function () { row.remove(); serialize(); };
-            [fi, vi].forEach(function (e) { e.addEventListener('input', serialize); });
-            sel.addEventListener('change', function () { valToggle(row); serialize(); });
-            row.appendChild(fi); row.appendChild(sel); row.appendChild(vi); row.appendChild(rm);
-            ruleRows.appendChild(row); valToggle(row);
-            return row;
+    // ---- schema generation from the probed response --------------------
+    var gen = document.getElementById('genSchemaBtn');
+    if (gen) gen.addEventListener('click', function () {
+        if (!lastResponse) return;
+        function schemaOf(v) {
+            if (Array.isArray(v)) return { type: 'array', items: v.length ? schemaOf(v[0]) : {} };
+            if (v && typeof v === 'object') {
+                var props = {};
+                Object.keys(v).forEach(function (k) { props[k] = schemaOf(v[k]); });
+                return { type: 'object', required: Object.keys(v), properties: props };
+            }
+            return { type: v === null ? 'null' : typeof v };
         }
+        document.getElementById('schemaBox').value = JSON.stringify(schemaOf(lastResponse), null, 2);
+        if (pill) pill.hidden = false;
+    });
+    var clr = document.getElementById('clearSchemaBtn');
+    if (clr) clr.addEventListener('click', function () { document.getElementById('schemaBox').value = ''; });
 
-        function extRow(varName, field) {
-            var row = document.createElement('div'); row.className = 'rrow';
-            var vr = document.createElement('input'); vr.className = 'e-var'; vr.placeholder = '{{ 'variable name'|trans|e('js') }}'; vr.value = varName || '';
-            var arrow = document.createElement('span'); arrow.textContent = '='; arrow.style.color = 'var(--muted)';
-            var fi = document.createElement('input'); fi.className = 'e-field f-field'; fi.placeholder = '{{ 'response field'|trans|e('js') }}'; fi.value = field || '';
-            var rm = document.createElement('button'); rm.type = 'button'; rm.className = 'rm'; rm.textContent = '×';
-            rm.onclick = function () { row.remove(); serialize(); };
-            [vr, fi].forEach(function (e) { e.addEventListener('input', serialize); });
-            row.appendChild(vr); row.appendChild(arrow); row.appendChild(fi); row.appendChild(rm);
-            extRows.appendChild(row);
-            return row;
-        }
-
-        function structToRule(a) {
-            var field;
-            if (a.kind === 'status') field = 'status';
-            else if (a.kind === 'responseTime') field = 'responseTime';
-            else if (a.kind === 'body') field = 'body';
-            else if (a.kind === 'header') field = 'header ' + (a.name || '');
-            else field = a.path || '';
-            return {field: field, op: NAME2TOKEN[a.op] || '==', value: a.expected || ''};
-        }
-
-        // Seed from stored structures.
-        try {
-            var seedA = JSON.parse(document.getElementById('seedAssert').textContent || '[]');
-            seedA.forEach(function (a) { var r = structToRule(a); ruleRow(r.field, r.op, r.value); });
-            var seedE = JSON.parse(document.getElementById('seedExt').textContent || '[]');
-            seedE.forEach(function (e) { extRow(e.var, e.path); });
-        } catch (e) {}
-
-        document.getElementById('addRule').onclick = function () { ruleRow('', '==', ''); serialize(); };
-        document.getElementById('addExt').onclick = function () { extRow('', ''); serialize(); };
-        document.getElementById('advToggle').onclick = function (ev) {
-            ev.preventDefault();
-            var box = document.getElementById('advBox');
-            box.style.display = box.style.display === 'none' ? 'block' : 'none';
-        };
-
-        // ---- probe + tree ----
-        function preview(v) {
-            if (v === null) return 'null';
-            if (typeof v === 'string') return '"' + (v.length > 40 ? v.slice(0, 40) + '…' : v) + '"';
-            return String(v);
-        }
-        function leaf(path, key, value) {
-            var wrap = document.createElement('div');
-            var span = document.createElement('span'); span.className = 'tleaf';
-            var k = document.createElement('span'); k.className = 'tkey'; k.textContent = key + ': ';
-            var val = document.createElement('span'); val.className = 'tval'; val.textContent = preview(value);
-            span.appendChild(k); span.appendChild(val);
-            span.title = '{{ 'Add a rule for this field:'|trans|e('js') }} ' + path;
-            span.onclick = function () { addRuleFromPath(path, value); };
-            var vb = document.createElement('button'); vb.type = 'button'; vb.className = 'tvar'; vb.textContent = '⇒ {{ 'variable'|trans|e('js') }}';
-            vb.title = '{{ 'Extract this field into a variable'|trans|e('js') }}';
-            vb.onclick = function () { addExtFromPath(path); };
-            wrap.appendChild(span); wrap.appendChild(vb);
-            return wrap;
-        }
-        function renderNode(container, obj, prefix) {
-            if (obj === null || typeof obj !== 'object') { container.appendChild(leaf(prefix || '$', prefix || '{{ 'value'|trans|e('js') }}', obj)); return; }
-            Object.keys(obj).forEach(function (key) {
-                var path = prefix ? (prefix + '.' + key) : key;
-                var v = obj[key];
-                if (v !== null && typeof v === 'object') {
-                    var head = document.createElement('div'); head.className = 'tkey'; head.textContent = key + (Array.isArray(v) ? ' [' + v.length + ']' : ' {}');
-                    container.appendChild(head);
-                    var child = document.createElement('div'); child.className = 'tnode';
-                    renderNode(child, v, path); container.appendChild(child);
-                } else {
-                    container.appendChild(leaf(path, key, v));
-                }
-            });
-        }
-        function addRuleFromPath(path, value) {
-            var v = (value !== null && typeof value !== 'object') ? String(value) : '';
-            var r = ruleRow(path, '==', v); serialize();
-            r.scrollIntoView({block: 'nearest'}); r.querySelector('.f-val').focus();
-        }
-        function addExtFromPath(path) {
-            var suggested = path.split('.').pop().replace(/[^a-zA-Z0-9_]/g, '');
-            var r = extRow(suggested, path); serialize();
-            r.scrollIntoView({block: 'nearest'});
-        }
-
-        var panel = document.getElementById('treePanel');
-        var treeEl = document.getElementById('tree');
-        var statusEl = document.getElementById('treeStatus');
-        var probeBtn = document.getElementById('probeBtn');
-        if (probeBtn) probeBtn.onclick = function () {
-            panel.style.display = 'block';
-            statusEl.textContent = '{{ 'Fetching response…'|trans|e('js') }}'; treeEl.innerHTML = '';
-            var fd = new FormData(); fd.append('_token', token);
-            fetch(probeUrl, {method: 'POST', body: fd, headers: {'X-Requested-With': 'fetch'}})
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    if (!d.ok && d.error) { statusEl.textContent = '{{ 'Error'|trans|e('js') }}: ' + d.error + (d.status ? ' (HTTP ' + d.status + ')' : ''); }
-                    else { statusEl.textContent = (d.kind === 'db' ? '{{ 'DB result'|trans|e('js') }}' : 'HTTP ' + (d.status || '')) + '{{ ' — click a field: rule · “⇒ variable”: transfer'|trans|e('js') }}'; }
-                    if (d.json !== null && d.json !== undefined) { renderNode(treeEl, d.json, ''); }
-                    else if (d.rawBody) { var pre = document.createElement('div'); pre.style.whiteSpace = 'pre-wrap'; pre.textContent = d.rawBody; treeEl.appendChild(pre); statusEl.textContent += '{{ ' (not JSON — enter the path manually)'|trans|e('js') }}'; }
-                })
-                .catch(function () { statusEl.textContent = '{{ 'Request failed.'|trans|e('js') }}'; });
-        };
-
-        // "Generate from response": probe the step, fill the schema box from the inferred schema.
-        var genBtn = document.getElementById('genSchemaBtn'), schemaBox = document.getElementById('schemaBox');
-        if (genBtn && schemaBox) genBtn.onclick = function () {
-            genBtn.disabled = true; var lbl = genBtn.textContent; genBtn.textContent = '{{ 'Generating…'|trans|e('js') }}';
-            var fd = new FormData(); fd.append('_token', token);
-            fetch(probeUrl, {method: 'POST', body: fd, headers: {'X-Requested-With': 'fetch'}})
-                .then(function (r) { return r.json(); })
-                .then(function (d) {
-                    genBtn.disabled = false; genBtn.textContent = lbl;
-                    if (d.inferredSchema) { schemaBox.value = JSON.stringify(d.inferredSchema, null, 2); }
-                    else { schemaBox.placeholder = d.error ? ('{{ 'Could not get the response:'|trans|e('js') }} ' + d.error) : '{{ 'The response is not JSON — schema could not be generated.'|trans|e('js') }}'; }
-                })
-                .catch(function () { genBtn.disabled = false; genBtn.textContent = lbl; });
-        };
-
-        serialize();
-    })();
+    // ---- json body validity + format ----------------------------------
+    var body = form.querySelector('textarea[name=body]'), state = document.getElementById('jsonState');
+    function checkJson() {
+        if (!body || !state) return;
+        var mode = form.querySelector('select[name=bodyMode]');
+        if (!mode || mode.value !== 'json' || !body.value.trim()) { state.textContent = ''; return; }
+        try { JSON.parse(body.value); state.textContent = 'valid json'; state.style.color = 'var(--pass)'; }
+        catch (e) { state.textContent = 'invalid json'; state.style.color = 'var(--fail)'; }
+    }
+    if (body) body.addEventListener('input', checkJson);
+    var fmt = document.getElementById('formatBtn');
+    if (fmt) fmt.addEventListener('click', function () {
+        try { body.value = JSON.stringify(JSON.parse(body.value), null, 2); checkJson(); } catch (e) {}
+    });
+    checkJson();
+})();
 </script>
-
-{% include 'app/_var_autocomplete.html.twig' with {catalog: vc_catalog, scope: '#stepForm'} %}
+{% endverbatim %}
 {% endblock %}

@@ -17,18 +17,41 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[IsGranted('ROLE_USER')]
 class FlowController extends AbstractAppController
 {
+    /**
+     * The Tests page renders suites and flows together — it replaced the separate
+     * suites page, so it needs that page's data too.
+     */
     #[Route('', name: 'app_flow_index', methods: ['GET'])]
     public function index(
         Workspace $workspace,
         TestFlowRepository $flows,
         \App\Repository\FlowGroupRepository $groups,
+        \App\Repository\FlowGroupRunRepository $groupRunRepo,
+        \App\Repository\FlowRunRepository $runs,
+        \App\Repository\EnvironmentRepository $environments,
     ): Response {
         $this->assertWorkspace($workspace);
+
+        $groupList = $groups->findByWorkspace($workspace);
+        $groupRuns = [];
+        foreach ($groupList as $group) {
+            $rows = [];
+            foreach ($groupRunRepo->recentForGroup($group, 6) as $groupRun) {
+                $passed = \count(array_filter(
+                    $runs->findByBatch($groupRun->getBatchId()),
+                    static fn ($r) => 'passed' === $r->getStatus(),
+                ));
+                $rows[] = ['run' => $groupRun, 'passed' => $passed];
+            }
+            $groupRuns[(string) $group->getId()] = $rows;
+        }
 
         return $this->render('app/flow/index.html.twig', [
             'workspace' => $workspace,
             'flows' => $flows->findByWorkspace($workspace),
-            'groups' => $groups->findByWorkspace($workspace), // for the per-flow "assign to suite" dropdown
+            'groups' => $groupList,
+            'groupRuns' => $groupRuns,
+            'environments' => $environments->findByWorkspace($workspace),
         ]);
     }
 

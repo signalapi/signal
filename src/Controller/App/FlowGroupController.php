@@ -28,45 +28,16 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[IsGranted('ROLE_USER')]
 class FlowGroupController extends AbstractAppController
 {
+    /**
+     * Suites merged into the Tests page; kept as a permanent redirect so old
+     * bookmarks and links keep working.
+     */
     #[Route('', name: 'app_flow_suite_index', methods: ['GET'])]
-    public function index(
-        Workspace $workspace,
-        FlowGroupRepository $groups,
-        \App\Repository\FlowGroupRunRepository $groupRunRepo,
-        FlowRunRepository $runs,
-        TestFlowRepository $flows,
-        EnvironmentRepository $environments,
-    ): Response {
+    public function index(Workspace $workspace): Response
+    {
         $this->assertWorkspace($workspace);
 
-        $groupList = $groups->findByWorkspace($workspace);
-        $groupRuns = [];
-        $ungrouped = [];
-        foreach ($groupList as $g) {
-            $rows = [];
-            foreach ($groupRunRepo->recentForGroup($g, 6) as $gr) {
-                $passed = \count(array_filter(
-                    $runs->findByBatch($gr->getBatchId()),
-                    static fn ($r) => 'passed' === $r->getStatus(),
-                ));
-                $rows[] = ['run' => $gr, 'passed' => $passed];
-            }
-            $groupRuns[(string) $g->getId()] = $rows;
-        }
-        foreach ($flows->findByWorkspace($workspace) as $f) {
-            if ([] === $f->getGroups()) {
-                $ungrouped[] = $f;
-            }
-        }
-
-        return $this->render('app/flow/suites.html.twig', [
-            'workspace' => $workspace,
-            'groups' => $groupList,
-            'groupRuns' => $groupRuns,
-            'ungrouped' => $ungrouped,
-            'allFlows' => $flows->findByWorkspace($workspace),
-            'environments' => $environments->findByWorkspace($workspace),
-        ]);
+        return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()], Response::HTTP_MOVED_PERMANENTLY);
     }
 
     #[Route('/{group}/update', name: 'app_flow_group_update', methods: ['POST'])]

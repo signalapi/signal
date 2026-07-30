@@ -1,0 +1,29 @@
+{# ==========================================================================
+   templates/app/flow/_kvtable.html.twig
+   Params / headers table. Posts param_name[]/param_value[] (or header_*),
+   exactly as FlowStepController::kvFromArrays() expects.
+   Args: rows (array of {name, value}), field ('param' | 'header')
+   ========================================================================== #}
+<div class="kvtable" data-kv="{{ field }}">
+    <div class="kvhead">
+        <span style="width:34px"></span>
+        <span style="flex:0 0 38%">{{ 'Name'|trans }}</span>
+        <span style="flex:1">{{ 'Value'|trans }}</span>
+        <span style="width:34px"></span>
+    </div>
+    {% for r in rows %}
+        <div class="kvrow">
+            <span class="box"><span class="tickbox on">{{ include('_check.svg.twig', {}, ignore_missing = true) }}</span></span>
+            <input class="k" name="{{ field }}_name[]" value="{{ r.name }}" placeholder="{{ 'Name'|trans }}">
+            <input class="v" name="{{ field }}_value[]" value="{{ r.value }}" placeholder="{{ 'Value'|trans }}">
+            <button type="button" class="rm" aria-label="{{ 'Remove'|trans }}">×</button>
+        </div>
+    {% endfor %}
+    <div class="kvrow">
+        <span class="box"><span class="tickbox on"></span></span>
+        <input class="k" name="{{ field }}_name[]" placeholder="{{ 'Name'|trans }}">
+        <input class="v" name="{{ field }}_value[]" placeholder="{{ 'Value'|trans }}">
+        <button type="button" class="rm" aria-label="{{ 'Remove'|trans }}">×</button>
+    </div>
+</div>
+<p class="subtitle" style="margin:9px 0 0">{{ 'A new empty row appears as you fill the last one.'|trans }}</p>

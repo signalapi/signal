@@ -1,98 +1,206 @@
-{% extends 'app/_layout.html.twig' %}
+{# ==========================================================================
+   templates/app/flow/index.html.twig  —  the unified Tests page.
+   REPLACES both the old flow/index.html.twig and flow/suites.html.twig.
 
-{% block title %}{{ 'Flows'|trans }} · {{ workspace.name }}{% endblock %}
+   Controller change required (FlowController::index): pass the same data the
+   old suites page had, so one page can render both levels —
+
+     return $this->render('app/flow/index.html.twig', [
+         'workspace'    => $workspace,
+         'groups'       => $groupRepo->findByWorkspace($workspace),   // suites
+         'flows'        => $flowRepo->findByWorkspace($workspace),    // all flows
+         'environments' => $envRepo->findByWorkspace($workspace),
+         'groupRuns'    => $reporter->recentBatchesByGroup($workspace),
+     ]);
+
+   Keep the old suites route as a 301 to this one so bookmarks survive.
+   ========================================================================== #}
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Tests'|trans }} · {{ workspace.name }}{% endblock %}
+
+{% macro flow_row(workspace, flow, ic) %}
+    {% set last = flow.runs|first %}
+    <div class="flow-row" data-flow="{{ flow.id }}">
+        <span class="grip" title="{{ 'Drag to reorder'|trans }}">{{ ic.i('grip', 12) }}</span>
+        <span class="dot {{ last ? last.status }}"></span>
+        <a href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}" style="flex:1;min-width:0;color:inherit">
+            <span class="name">{{ flow.name }}</span>
+            <span class="meta">
+                <span>{{ '%count% steps'|trans({'%count%': flow.steps|length}) }}</span>
+                <span>·</span>
+                <span>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name : 'no env'|trans }}</span>
+                {% if flow.scheduleEnabled %}<span class="cron">{{ flow.cronExpression }}</span>{% endif %}
+                {% set subs = flow.steps|filter(s => s.isCall)|length %}
+                {% if subs %}<span class="sub">{{ '%count% sub-flows'|trans({'%count%': subs}) }}</span>{% endif %}
+            </span>
+        </a>
+        <span class="strip">
+            {% for run in flow.runs|slice(0, 10)|reverse %}
+                <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
+                   title="{{ run.status }} · {{ run.passedSteps }}/{{ run.totalSteps }} · {{ run.createdAt|date('d.m H:i') }}"><i class="{{ run.status }}"></i></a>
+            {% endfor %}
+        </span>
+        <span class="p95">{{ last and last.durationMs ? (last.durationMs / 1000)|number_format(1) ~ ' s' : '—' }}</span>
+        <span class="pill {{ last ? last.status : '' }}">{{ last ? last.status|trans : 'never'|trans }}</span>
+        <a class="icon-btn" style="width:24px;height:24px;border-color:transparent;background:none"
+           href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">{{ ic.i('chevron-r', 13) }}</a>
+    </div>
+{% endmacro %}
 
 {% block panel %}
-<style>
-    .fl-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 4px; }
-    .fl-head h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; }
-    .fl-head .subtitle { margin: 6px 0 0; }
-    .fl-list { margin-top: 22px; }
+{% import _self as t %}
 
-    /* suite-style stacked row cards */
-    .fl-row { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 14px 18px;
-        box-shadow: var(--shadow); margin-bottom: 10px; transition: border-color .16s; }
-    .fl-row:hover { border-color: #d3d3ca; }
-    .fl-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-    .fl-status { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; background: var(--border); }
-    .fl-status.passed { background: var(--pass); } .fl-status.running { background: var(--accent); animation: pulse 1s infinite; }
-    .fl-status.failed, .fl-status.error { background: var(--fail); } .fl-status.cancelled { background: var(--warn); }
-    .fl-name { font-weight: 600; font-size: 15.5px; color: var(--ink); text-decoration: none; }
-    .fl-name:hover { color: var(--accent); }
-    .fl-sched { font-family: var(--font-mono); font-size: 10px; color: var(--pass); background: var(--pass-soft); border-radius: 6px; padding: 2px 7px; }
-    .fl-top .grow { flex: 1; }
-    .fl-top form { display: inline; }
-    .fl-assign select { background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 6px 9px; color: var(--muted); font-size: 12px; }
-
-    .fl-meta { display: flex; align-items: center; gap: 14px; margin-top: 11px; padding-top: 11px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
-    .fl-meta b { color: var(--ink); font-weight: 600; }
-    .fl-runs { display: flex; align-items: center; gap: 5px; margin-left: auto; }
-    .fl-runs .lbl { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; }
-    .fl-runs .rdot { width: 10px; height: 10px; border-radius: 3px; background: var(--border); display: block; }
-    .fl-runs .rdot.passed { background: var(--pass); } .fl-runs .rdot.running { background: var(--accent); animation: pulse 1s infinite; }
-    .fl-runs .rdot.failed, .fl-runs .rdot.error { background: var(--fail); } .fl-runs .rdot.cancelled { background: var(--warn); }
-
-    .fl-empty { color: var(--muted); padding: 30px; text-align: center; border: 1px dashed var(--border); border-radius: 14px; }
-</style>
-
-<div class="fl-head">
+<div class="pagehead">
     <div>
-        <h1>{{ 'Flows'|trans }}</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ '%count% flows · see suites and history in the left menu'|trans({'%count%': flows|length}) }}</p>
+        <h1>{{ 'Tests'|trans }}</h1>
+        <p class="subtitle">{{ '%suites% suites · %flows% flows · group, reorder, run'|trans({'%suites%': groups|length, '%flows%': flows|length}) }}</p>
     </div>
-    <div style="display:flex;gap:8px;">
-        <a class="btn" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">+ {{ 'New flow'|trans }}</a>
-        <a class="btn ghost" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+    <div class="actions">
+        <form method="post" action="{{ path('app_flow_group_create', {workspace: workspace.id}) }}" style="display:flex;gap:6px">
+            <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
+            <input type="text" name="name" placeholder="{{ 'New suite name'|trans }}" style="width:180px">
+            <button class="btn ghost small" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Suite'|trans }}</button>
+        </form>
+        <a class="btn" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">{{ ic.i('plus', 13, 2.2) }}{{ 'New flow'|trans }}</a>
     </div>
 </div>
 
-<div class="fl-list stagger">
-    {% if flows is empty %}
-        <div class="fl-empty">{{ 'No flows yet.'|trans }} <a href="{{ path('app_flow_new', {workspace: workspace.id}) }}">{{ 'Create a new flow'|trans }}</a>.</div>
-    {% endif %}
-    {% for flow in flows %}
-        {% set last = flow.runs|first %}
-        {% set recent = flow.runs|slice(0, 8) %}
-        <div class="fl-row">
-            <div class="fl-top">
-                <span class="fl-status {{ last ? last.status }}"></span>
-                <a class="fl-name" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">{{ flow.name }}</a>
-                {% if flow.scheduleEnabled %}<span class="fl-sched" title="{{ flow.cronExpression }}">⏱ {{ flow.cronExpression }}</span>{% endif %}
-                <div class="grow"></div>
-                {% set myGroupIds = flow.groups|map(g => g.id) %}
-                <form class="fl-assign" method="post" action="{{ path('app_flow_group_assign', {workspace: workspace.id}) }}">
+<div class="filterbar">
+    <label class="search">
+        {{ ic.i('search', 14, 2) }}
+        <input type="text" id="flowSearch" placeholder="{{ 'Search flows, steps, endpoints…'|trans }}" autocomplete="off">
+    </label>
+    <button class="fchip on" data-filter="all">{{ 'All'|trans }} <span class="mono">{{ flows|length }}</span></button>
+    <button class="fchip" data-filter="failed"><span class="dot failed"></span>{{ 'Failing'|trans }}</button>
+    <button class="fchip" data-filter="running"><span class="dot running"></span>{{ 'Running'|trans }}</button>
+    <button class="fchip" data-filter="scheduled"><span class="dot" style="background:var(--teal)"></span>{{ 'Scheduled'|trans }}</button>
+    <div class="grow"></div>
+    <div class="segment" id="grouping">
+        <button class="on" data-group="suite">{{ 'By suite'|trans }}</button>
+        <button data-group="flat">{{ 'Flat'|trans }}</button>
+    </div>
+</div>
+
+<div id="suiteList">
+{% for g in groups %}
+    {% set gflows = g.flows %}
+    <section class="suite" data-suite="{{ g.id }}">
+        <div class="suite-head">
+            <button class="suite-toggle" type="button">{{ ic.i('chevron', 12, 2.4) }}</button>
+            <span class="suite-badge">SUITE</span>
+            <span class="name">{{ g.name }}</span>
+            <span class="count">{{ '%count% flows'|trans({'%count%': gflows|length}) }}</span>
+            {% if g.description %}<span class="desc">{{ g.description }}</span>{% endif %}
+            <div class="grow"></div>
+            <span class="strip">
+                {% for row in (groupRuns[g.id] ?? [])|slice(0, 10)|reverse %}<i class="{{ row.run.status }}"></i>{% endfor %}
+            </span>
+            <form method="post" action="{{ path('app_flow_group_run', {workspace: workspace.id, group: g.id}) }}" style="display:flex;gap:6px">
+                <input type="hidden" name="_token" value="{{ csrf_token('flow-group-run' ~ g.id) }}">
+                <select name="environment" style="width:auto">
+                    <option value="">{{ 'each flow uses its own env'|trans }}</option>
+                    {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+                </select>
+                <button class="btn ghost small" type="submit" {{ gflows is empty ? 'disabled' }}>{{ ic.i('flows', 11) }}{{ 'Run'|trans }}</button>
+            </form>
+            <form method="post" action="{{ path('app_flow_group_delete', {workspace: workspace.id, group: g.id}) }}"
+                  onsubmit="return confirm('{{ 'The suite will be deleted (flows are kept).'|trans|e('js') }}');">
+                <input type="hidden" name="_token" value="{{ csrf_token('flow-group-delete' ~ g.id) }}">
+                <button class="btn danger small" type="submit">{{ ic.i('trash', 13) }}</button>
+            </form>
+        </div>
+        <div class="suite-body">
+            {% for flow in gflows %}{{ t.flow_row(workspace, flow, ic) }}{% endfor %}
+            {% if gflows is empty %}<div class="flow-row" style="color:var(--faint)">{{ 'Empty — add a flow below.'|trans }}</div>{% endif %}
+            {% set inThis = gflows|map(x => x.id) %}
+            {% set addable = flows|filter(x => x.id not in inThis) %}
+            {% if addable is not empty %}
+                <form method="post" action="{{ path('app_flow_group_assign', {workspace: workspace.id}) }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
-                    <input type="hidden" name="flow" value="{{ flow.id }}">
-                    <select name="group" onchange="this.form.submit()" title="{{ 'Add to suite'|trans }}">
-                        <option value="">+ {{ 'Add to suite'|trans }}</option>
-                        {% for g in groups|filter(g => g.id not in myGroupIds) %}<option value="{{ g.id }}">🧩 {{ g.name }}</option>{% endfor %}
+                    <input type="hidden" name="group" value="{{ g.id }}">
+                    <select name="flow" onchange="this.form.submit()" class="suite-add" style="appearance:none">
+                        <option value="">+ {{ 'Add flow to this suite'|trans }}</option>
+                        {% for f in addable %}<option value="{{ f.id }}">{{ f.name }}</option>{% endfor %}
                     </select>
                 </form>
-                <a class="btn ghost small" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">{{ 'Open'|trans }} →</a>
-                <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('{{ 'The flow and its run history will be deleted. Are you sure?'|trans|e('js') }}');">
-                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ flow.id) }}">
-                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
-                </form>
-            </div>
-            <div class="fl-meta">
-                <span><b>{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>
-                <span><b>{{ flow.runs|length }}</b> {{ 'runs'|trans }}</span>
-                {% for g in flow.groups %}<span class="fl-suite">🧩 {{ g.name }}
-                    <form method="post" action="{{ path('app_flow_group_unassign', {workspace: workspace.id}) }}" style="display:inline;" title="{{ 'Remove from this suite'|trans }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}"><input type="hidden" name="flow" value="{{ flow.id }}"><input type="hidden" name="group" value="{{ g.id }}">
-                        <button type="submit" style="border:none;background:none;cursor:pointer;color:var(--muted);padding:0 2px;">×</button>
-                    </form></span>{% endfor %}
-                <span>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name : 'no env'|trans }}</span>
-                {% if recent is not empty %}
-                    <span class="fl-runs"><span class="lbl">{{ 'Last'|trans }}</span>
-                        {% for run in recent|reverse %}
-                            <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
-                               title="{{ run.status }} · {{ run.passedSteps }}/{{ run.totalSteps }} · {{ run.createdAt|date('d.m H:i') }}"><span class="rdot {{ run.status }}"></span></a>
-                        {% endfor %}
-                    </span>
-                {% endif %}
-            </div>
+            {% endif %}
         </div>
-    {% endfor %}
+    </section>
+{% endfor %}
+
+{# flows that belong to no suite — always last, never hidden #}
+{% set loose = flows|filter(f => f.groups|length == 0) %}
+{% if loose is not empty %}
+    <section class="suite" data-suite="none">
+        <div class="suite-head">
+            <button class="suite-toggle" type="button">{{ ic.i('chevron', 12, 2.4) }}</button>
+            <span class="suite-badge shared">{{ 'UNGROUPED'|trans }}</span>
+            <span class="name">{{ 'Not in a suite'|trans }}</span>
+            <span class="count">{{ '%count% flows'|trans({'%count%': loose|length}) }}</span>
+        </div>
+        <div class="suite-body">
+            {% for flow in loose %}{{ t.flow_row(workspace, flow, ic) }}{% endfor %}
+        </div>
+    </section>
+{% endif %}
+
+{% if flows is empty %}
+    <div class="empty">{{ 'No flows yet.'|trans }}
+        <a href="{{ path('app_flow_new', {workspace: workspace.id}) }}">{{ 'Create the first one'|trans }}</a>.</div>
+{% endif %}
 </div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+(function () {
+    // collapse a suite (remembered per suite id)
+    document.querySelectorAll('.suite-toggle').forEach(function (b) {
+        var sec = b.closest('.suite'), id = 'sg_suite_' + sec.dataset.suite;
+        if (localStorage.getItem(id) === '0') sec.classList.add('collapsed');
+        b.addEventListener('click', function () {
+            sec.classList.toggle('collapsed');
+            localStorage.setItem(id, sec.classList.contains('collapsed') ? '0' : '1');
+        });
+    });
+
+    // client-side search + status filter
+    var q = document.getElementById('flowSearch'), filter = 'all';
+    function apply() {
+        var term = (q.value || '').toLowerCase().trim();
+        document.querySelectorAll('.flow-row[data-flow]').forEach(function (row) {
+            var text = row.textContent.toLowerCase();
+            var okText = !term || text.indexOf(term) !== -1;
+            var okState = filter === 'all'
+                || (filter === 'scheduled' ? !!row.querySelector('.meta .cron')
+                                           : !!row.querySelector('.dot.' + filter));
+            row.hidden = !(okText && okState);
+        });
+        document.querySelectorAll('.suite').forEach(function (sec) {
+            sec.hidden = sec.querySelectorAll('.flow-row[data-flow]:not([hidden])').length === 0;
+        });
+    }
+    if (q) q.addEventListener('input', apply);
+    document.querySelectorAll('.fchip').forEach(function (c) {
+        c.addEventListener('click', function () {
+            document.querySelectorAll('.fchip').forEach(function (x) { x.classList.remove('on'); });
+            c.classList.add('on'); filter = c.dataset.filter; apply();
+        });
+    });
+
+    // flat vs grouped
+    document.querySelectorAll('#grouping button').forEach(function (b) {
+        b.addEventListener('click', function () {
+            document.querySelectorAll('#grouping button').forEach(function (x) { x.classList.remove('on'); });
+            b.classList.add('on');
+            document.getElementById('suiteList').classList.toggle('flat', b.dataset.group === 'flat');
+            document.querySelectorAll('.suite-head').forEach(function (h) { h.hidden = b.dataset.group === 'flat'; });
+            document.querySelectorAll('.suite').forEach(function (s) { s.classList.remove('collapsed'); });
+        });
+    });
+})();
+</script>
 {% endblock %}
