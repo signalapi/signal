@@ -3,30 +3,41 @@
 {% block title %}{{ 'New Merchant'|trans }} · {{ 'Super Admin'|trans }}{% endblock %}
 
 {% block panel %}
-<h1>{{ 'New Merchant'|trans }}</h1>
-<p class="subtitle">{{ 'Create the merchant and its first admin (merchant admin) user.'|trans }}</p>
+<a class="backlink" href="{{ path('admin_merchant_index') }}">← {{ 'Merchants'|trans }}</a>
+<div class="pagehead">
+    <div>
+        <h1>{{ 'New Merchant'|trans }}</h1>
+        <p class="subtitle">{{ 'Create the merchant and its first admin (merchant admin) user.'|trans }}</p>
+    </div>
+</div>
 
-<div class="formcard">
+<div class="formcard" style="max-width:520px;">
     {{ form_start(form) }}
-        <div class="field">
-            {{ form_label(form.name) }}
-            {{ form_widget(form.name) }}
+        <div class="fgroup">
+            <div class="field">
+                {{ form_label(form.name) }}
+                {{ form_widget(form.name) }}
+            </div>
         </div>
-        <hr style="border:none;border-top:1px solid var(--border);margin:20px 0;">
-        <div class="field">
-            {{ form_label(form.adminName) }}
-            {{ form_widget(form.adminName) }}
+        <div class="fgroup">
+            <div class="fgroup-title">{{ 'Admins'|trans }}</div>
+            <div class="field">
+                {{ form_label(form.adminName) }}
+                {{ form_widget(form.adminName) }}
+            </div>
+            <div class="field">
+                {{ form_label(form.adminEmail) }}
+                {{ form_widget(form.adminEmail) }}
+            </div>
+            <div class="field">
+                {{ form_label(form.adminPassword) }}
+                {{ form_widget(form.adminPassword) }}
+            </div>
         </div>
-        <div class="field">
-            {{ form_label(form.adminEmail) }}
-            {{ form_widget(form.adminEmail) }}
+        <div class="form-actions">
+            <button class="btn" type="submit">{{ 'Create'|trans }}</button>
+            <a class="btn ghost" href="{{ path('admin_merchant_index') }}">{{ 'Cancel'|trans }}</a>
         </div>
-        <div class="field">
-            {{ form_label(form.adminPassword) }}
-            {{ form_widget(form.adminPassword) }}
-        </div>
-        <button class="btn" type="submit">{{ 'Create'|trans }}</button>
-        <a class="btn ghost" href="{{ path('admin_merchant_index') }}">{{ 'Cancel'|trans }}</a>
     {{ form_end(form) }}
 </div>
 {% endblock %}

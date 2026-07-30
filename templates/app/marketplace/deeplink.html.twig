@@ -1,35 +1,41 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ api.name }} · {{ 'Add to Signal'|trans }}{% endblock %}
 
 {% block panel %}
+<a class="backlink" href="{{ path('app_marketplace') }}">← {{ 'Browse the Marketplace'|trans }}</a>
 <div class="pagehead">
     <div>
-        <h1>{{ api.logo ?? '🔌' }} {{ api.name }}</h1>
+        <h1>{{ api.logo ? api.logo ~ ' ' }}{{ api.name }}</h1>
         <p class="subtitle">{{ api.publisher ?? '' }}{{ api.category ? (api.publisher ? ' · ' : '') ~ api.category }} · {{ 'add to Signal from the docs'|trans }}</p>
     </div>
 </div>
 
 <div class="card" style="max-width:560px;">
-    {% if api.description %}<p class="subtitle" style="margin:0 0 10px;">{{ api.description }}</p>{% endif %}
-    <p class="subtitle" style="margin:0 0 14px;font-size:13px;">
-        {{ 'Version'|trans }} <strong>{{ version.label }}</strong> · {{ version.spec.paths|length }} endpoint · {{ version.createdAt|date('d.m.Y') }}<br>
-        {{ 'Endpoints, an environment with %baseUrl% and secret templates are copied into your workspace.'|trans({'%baseUrl%': '<code>{{baseUrl}}</code>'})|raw }}
-    </p>
+    <div class="card-head">
+        {{ ic.i('marketplace', 14) }}<span class="t">{{ 'Add to Signal'|trans }}</span>
+    </div>
+    <div class="card-body">
+        {% if api.description %}<p class="subtitle" style="margin-bottom:10px;">{{ api.description }}</p>{% endif %}
+        <p class="subtitle" style="margin-bottom:14px;">
+            {{ 'Version'|trans }} <strong class="mono">{{ version.label }}</strong> · {{ version.spec.paths|length }} endpoint · {{ version.createdAt|date('d.m.Y') }}<br>
+            {{ 'Endpoints, an environment with %baseUrl% and secret templates are copied into your workspace.'|trans({'%baseUrl%': '<code class="mono">{{baseUrl}}</code>'})|raw }}
+        </p>
 
-    {% if workspaces is empty %}
-        <div class="flash error">{{ 'You have no workspace you can import into (editor+ permission).'|trans }} {{ 'An administrator needs to add you to a workspace.'|trans }}</div>
-    {% else %}
-        <form method="post" action="{{ path('app_marketplace_add', {slug: api.slug}) }}" style="display:flex;gap:8px;">
-            <select name="workspace_id" style="flex:1;">
-                {% for w in workspaces %}
-                    <option value="{{ w.id }}">{{ w.name }}</option>
-                {% endfor %}
-            </select>
-            <input type="hidden" name="_token" value="{{ csrf_token('marketplace-add') }}">
-            <button class="btn" type="submit">{{ 'Add to workspace'|trans }}</button>
-        </form>
-    {% endif %}
-    <p class="alt" style="margin-top:12px;"><a href="{{ path('app_marketplace') }}">← {{ 'Browse the Marketplace'|trans }}</a></p>
+        {% if workspaces is empty %}
+            <div class="flash error" style="margin-bottom:0;">{{ ic.i('x', 14, 2.6) }}<span>{{ 'You have no workspace you can import into (editor+ permission).'|trans }} {{ 'An administrator needs to add you to a workspace.'|trans }}</span></div>
+        {% else %}
+            <form method="post" action="{{ path('app_marketplace_add', {slug: api.slug}) }}" style="display:flex;gap:8px;">
+                <select name="workspace_id" class="grow">
+                    {% for w in workspaces %}
+                        <option value="{{ w.id }}">{{ w.name }}</option>
+                    {% endfor %}
+                </select>
+                <input type="hidden" name="_token" value="{{ csrf_token('marketplace-add') }}">
+                <button class="btn" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Add to workspace'|trans }}</button>
+            </form>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}

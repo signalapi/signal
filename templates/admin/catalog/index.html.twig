@@ -1,22 +1,43 @@
 {% extends 'admin/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'API Catalog'|trans }} · {{ 'Super Admin'|trans }}{% endblock %}
 
 {% block panel %}
-<div class="toolbar">
-    <div><h1>{{ 'API Catalog'|trans }}</h1><p class="subtitle" style="margin:0;">{{ 'APIs published on the marketplace.'|trans }}</p></div>
+<div class="pagehead">
+    <div>
+        <h1>{{ 'API Catalog'|trans }}</h1>
+        <p class="subtitle">{{ 'APIs published on the marketplace.'|trans }}</p>
+    </div>
 </div>
 
-<form class="card" method="post" action="{{ path('admin_catalog_new') }}" style="margin-bottom:18px;">
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'New catalog entry'|trans }}</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="flex:2;min-width:180px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'API name'|trans }}</label><input type="text" name="name" required placeholder="Zotlo Payment API" style="width:100%;"></div>
-        <div style="flex:1;min-width:130px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Publisher'|trans }}</label><input type="text" name="publisher" placeholder="Zotlo" style="width:100%;"></div>
-        <div style="flex:1;min-width:120px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Category'|trans }}</label><input type="text" name="category" placeholder="Payments" style="width:100%;"></div>
-        <div style="width:70px;"><label style="display:block;font-size:12px;margin-bottom:4px;">Logo</label><input type="text" name="logo" placeholder="💳" maxlength="8" style="width:100%;"></div>
-        <button class="btn" type="submit">{{ '+ Add'|trans }}</button>
+<form class="formcard" method="post" action="{{ path('admin_catalog_new') }}" style="margin-bottom:18px;">
+    <div class="fgroup-title">{{ 'New catalog entry'|trans }}</div>
+    <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 84px;gap:10px;">
+        <div class="field">
+            <label>{{ 'API name'|trans }}</label>
+            <input type="text" name="name" required placeholder="Zotlo Payment API">
+        </div>
+        <div class="field">
+            <label>{{ 'Publisher'|trans }}</label>
+            <input type="text" name="publisher" placeholder="Zotlo">
+        </div>
+        <div class="field">
+            <label>{{ 'Category'|trans }}</label>
+            <input type="text" name="category" placeholder="Payments">
+        </div>
+        <div class="field">
+            <label>Logo</label>
+            <input type="text" name="logo" maxlength="8">
+        </div>
     </div>
-    <div style="margin-top:10px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Description'|trans }}</label><input type="text" name="description" placeholder="{{ 'Short description'|trans }}" style="width:100%;"></div>
+    <div class="field" style="margin-bottom:0;">
+        <label>{{ 'Description'|trans }}</label>
+        <input type="text" name="description" placeholder="{{ 'Short description'|trans }}">
+    </div>
+    <div class="form-actions">
+        <button class="btn" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Add'|trans }}</button>
+    </div>
     <input type="hidden" name="_token" value="{{ csrf_token('catalog-new') }}">
 </form>
 
@@ -31,34 +52,48 @@
                 <td style="font-weight:600;">{{ a.logo }} <a href="{{ path('admin_catalog_show', {id: a.id}) }}">{{ a.name }}</a></td>
                 <td>
                     {% if a.platformCurated %}
-                        <span class="pill on">{{ 'platform'|trans }}</span>
+                        <span class="pill running">{{ 'platform'|trans }}</span>
                     {% else %}
                         {{ a.ownerMerchant.name }}{% if a.ownerWorkspace %} · {{ a.ownerWorkspace.name }}{% endif %}
                     {% endif %}
                 </td>
-                <td>
+                <td style="white-space:nowrap;">
                     <span class="pill">{{ a.visibility }}</span>
                     {% if a.visibility == 'public' %}
-                        {% if a.verified %}<span class="pill on">✓ {{ 'verified'|trans }}</span>{% else %}<span class="pill off">{{ 'unverified'|trans }}</span>{% endif %}
+                        {%- if a.verified -%}
+                            <span class="pill passed">{{ ic.i('check', 11, 2.8) }}{{ 'verified'|trans }}</span>
+                        {%- else -%}
+                            <span class="pill">{{ 'unverified'|trans }}</span>
+                        {%- endif -%}
                     {% endif %}
                 </td>
                 <td>{{ a.latestVersion ? '%label% (%count% versions)'|trans({'%label%': a.latestVersion.label, '%count%': a.versions|length}) : 'not published'|trans }}</td>
-                <td>{% if a.active %}<span class="pill on">{{ 'active'|trans }}</span>{% else %}<span class="pill off">{{ 'inactive'|trans }}</span>{% endif %}</td>
+                <td>
+                    {%- if a.active -%}
+                        <span class="pill passed"><span class="dot passed"></span>{{ 'active'|trans }}</span>
+                    {%- else -%}
+                        <span class="pill">{{ 'inactive'|trans }}</span>
+                    {%- endif -%}
+                </td>
                 <td style="text-align:right;white-space:nowrap;">
-                    {% if a.visibility == 'public' and not a.platformCurated %}
-                        <form class="inline" method="post" action="{{ path('admin_catalog_verify', {id: a.id}) }}">
-                            <input type="hidden" name="_token" value="{{ csrf_token('catalog-verify' ~ a.id) }}">
-                            <button class="btn ghost small" type="submit">{{ a.verified ? 'Unverify'|trans : 'Verify'|trans }}</button>
+                    <div style="display:inline-flex;gap:7px;justify-content:flex-end;">
+                        {% if a.visibility == 'public' and not a.platformCurated %}
+                            <form method="post" action="{{ path('admin_catalog_verify', {id: a.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('catalog-verify' ~ a.id) }}">
+                                <button class="btn ghost small" type="submit">
+                                    {{ ic.i('shield', 12) }}{{ a.verified ? 'Unverify'|trans : 'Verify'|trans }}</button>
+                            </form>
+                        {% endif %}
+                        <form method="post" action="{{ path('admin_catalog_toggle', {id: a.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('catalog-toggle' ~ a.id) }}">
+                            <button class="btn ghost small" type="submit">
+                                {{ ic.i(a.active ? 'pause' : 'check', 12, 2.4) }}{{ a.active ? 'Deactivate'|trans : 'Activate'|trans }}</button>
                         </form>
-                    {% endif %}
-                    <form class="inline" method="post" action="{{ path('admin_catalog_toggle', {id: a.id}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('catalog-toggle' ~ a.id) }}">
-                        <button class="btn ghost small" type="submit">{{ a.active ? 'Deactivate'|trans : 'Activate'|trans }}</button>
-                    </form>
-                    <form class="inline" method="post" action="{{ path('admin_catalog_delete', {id: a.id}) }}" onsubmit="return confirm('{{ 'The catalog entry and its versions will be deleted.'|trans|e('js') }}');">
-                        <input type="hidden" name="_token" value="{{ csrf_token('catalog-delete' ~ a.id) }}">
-                        <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
-                    </form>
+                        <form method="post" action="{{ path('admin_catalog_delete', {id: a.id}) }}" onsubmit="return confirm('{{ 'The catalog entry and its versions will be deleted.'|trans|e('js') }}');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('catalog-delete' ~ a.id) }}">
+                            <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}{{ 'Delete'|trans }}</button>
+                        </form>
+                    </div>
                 </td>
             </tr>
         {% endfor %}

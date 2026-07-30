@@ -1,4 +1,5 @@
 {% extends 'admin/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Overview'|trans }} · {{ 'Super Admin'|trans }}{% endblock %}
 
@@ -8,23 +9,32 @@
     <h1>{{ 'Overview'|trans }}</h1>
     <p class="lead">{{ 'Platform-wide status: merchants, workspaces and users.'|trans }}</p>
     <div class="actions">
-        <a class="btn" href="{{ path('admin_merchant_new') }}">{{ '+ New Merchant'|trans }}</a>
+        <a class="btn" href="{{ path('admin_merchant_new') }}">{{ ic.i('plus', 13, 2.2) }}{{ 'New Merchant'|trans }}</a>
         <a class="btn ghost" href="{{ path('admin_merchant_index') }}">{{ 'Manage merchants'|trans }}</a>
     </div>
 </div>
 
-<div class="metric-grid">
-    <a class="metric" href="{{ path('admin_merchant_index') }}">
-        <div class="ic">🏢</div><div class="num">{{ merchant_count }}</div>
-        <div class="cap"><span>Merchant</span><span class="go">→</span></div>
+<div class="metric-grid stagger" style="grid-template-columns:repeat(3,minmax(0,1fr));">
+    <a class="metric card-hover" href="{{ path('admin_merchant_index') }}">
+        <div class="cap">
+            <span class="l">Merchant</span>
+            <span style="color:var(--faint);display:inline-flex;">{{ ic.i('chevron-r', 13) }}</span>
+        </div>
+        <div class="row"><span class="num">{{ merchant_count }}</span></div>
     </a>
     <div class="metric">
-        <div class="ic">🧩</div><div class="num">{{ workspace_count }}</div>
-        <div class="cap"><span>Workspace</span></div>
+        <div class="cap">
+            <span class="l">Workspace</span>
+            <span style="color:var(--faint);display:inline-flex;">{{ ic.i('folder', 14) }}</span>
+        </div>
+        <div class="row"><span class="num">{{ workspace_count }}</span></div>
     </div>
     <div class="metric">
-        <div class="ic">👤</div><div class="num">{{ user_count }}</div>
-        <div class="cap"><span>{{ 'Users'|trans }}</span></div>
+        <div class="cap">
+            <span class="l">{{ 'Users'|trans }}</span>
+            <span style="color:var(--faint);display:inline-flex;">{{ ic.i('members', 14) }}</span>
+        </div>
+        <div class="row"><span class="num">{{ user_count }}</span></div>
     </div>
 </div>
 
@@ -37,11 +47,17 @@
         <tbody>
         {% for m in recent_merchants %}
             <tr>
-                <td>{{ m.name }}</td>
-                <td><code>{{ m.slug }}</code></td>
-                <td>{% if m.active %}<span class="pill on">{{ 'active'|trans }}</span>{% else %}<span class="pill off">{{ 'inactive'|trans }}</span>{% endif %}</td>
-                <td>{{ m.workspaces|length }}</td>
-                <td>{{ m.createdAt|date('d.m.Y H:i') }}</td>
+                <td style="font-weight:600;">{{ m.name }}</td>
+                <td><code class="mono">{{ m.slug }}</code></td>
+                <td>
+                    {%- if m.active -%}
+                        <span class="pill passed"><span class="dot passed"></span>{{ 'active'|trans }}</span>
+                    {%- else -%}
+                        <span class="pill">{{ 'inactive'|trans }}</span>
+                    {%- endif -%}
+                </td>
+                <td class="mono">{{ m.workspaces|length }}</td>
+                <td class="mono" style="color:var(--muted);">{{ m.createdAt|date('d.m.Y H:i') }}</td>
             </tr>
         {% endfor %}
         </tbody>

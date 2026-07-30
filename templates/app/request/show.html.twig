@@ -1,95 +1,107 @@
 {% extends 'app/_layout.html.twig' %}
 {% import 'app/collection/_tree.html.twig' as tree %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ request.name }}{% endblock %}
 
 {% block panel %}
-<div class="toolbar">
+<a class="backlink" href="{{ path('app_collection_show', {workspace: workspace.id, collection: request.collection.id}) }}">← {{ request.collection.name }}</a>
+<div class="pagehead">
     <div>
         <h1>{{ request.name }}</h1>
-        <p class="subtitle" style="margin:0;">
-            <a href="{{ path('app_collection_show', {workspace: workspace.id, collection: request.collection.id}) }}">← {{ request.collection.name }}</a>
-        </p>
+        <p class="subtitle mono" style="font-size:11.5px;">{{ request.method }} {{ request.url }}</p>
     </div>
-    <form class="inline" method="post" action="{{ path('app_request_delete', {workspace: workspace.id, request: request.id}) }}" onsubmit="return confirm('{{ 'The request will be deleted. Are you sure?'|trans|e('js') }}');">
-        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ request.id) }}">
-        <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
-    </form>
+    <div class="actions">
+        <form method="post" action="{{ path('app_request_delete', {workspace: workspace.id, request: request.id}) }}" onsubmit="return confirm('{{ 'The request will be deleted. Are you sure?'|trans|e('js') }}');">
+            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ request.id) }}">
+            <button class="btn danger" type="submit">{{ ic.i('trash', 13) }}{{ 'Delete'|trans }}</button>
+        </form>
+    </div>
 </div>
 
 <form method="post" action="{{ path('app_request_send', {workspace: workspace.id, request: request.id}) }}">
     <input type="hidden" name="_token" value="{{ csrf_token('save-request' ~ request.id) }}">
 
-    <div class="field">
-        <label>{{ 'Request name'|trans }}</label>
-        <input type="text" name="name" value="{{ request.name }}">
+    <div class="card" style="margin-bottom:14px;">
+        <div class="pane-head">
+            <span class="kind m-{{ request.method|lower }}">{{ request.method }}</span>
+            <input class="title-input" type="text" name="name" value="{{ request.name }}" style="font-size:15px;"
+                   placeholder="{{ 'Request name'|trans }}" aria-label="{{ 'Request name'|trans }}">
+        </div>
+        <div class="pane-body">
+            <div style="display:flex;gap:7px;align-items:center;flex-wrap:wrap;">
+                <select name="method" class="mono" style="width:auto;font-weight:800;">
+                    {% for m in constant('App\\Entity\\ApiRequest::METHODS') %}
+                        <option value="{{ m }}" {{ request.method == m ? 'selected' }}>{{ m }}</option>
+                    {% endfor %}
+                </select>
+                <input type="text" name="url" value="{{ request.url }}" class="input-mono" style="flex:1 1 260px;"
+                       placeholder="https://api.example.com/{{ '{{basePath}}' }}">
+                <button class="btn" type="submit">{{ ic.i('flows', 11) }}{{ 'Send'|trans }}</button>
+                <button class="btn ghost" type="submit" formaction="{{ path('app_request_save', {workspace: workspace.id, request: request.id}) }}">{{ ic.i('check', 13, 2.6) }}{{ 'Save'|trans }}</button>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;margin-top:11px;flex-wrap:wrap;">
+                <label style="margin:0;font-size:11.5px;font-weight:600;color:var(--muted);">{{ 'Environment'|trans }}</label>
+                <select name="environment" style="width:auto;">
+                    <option value="">— {{ 'none'|trans }} —</option>
+                    {% for env in environments %}
+                        <option value="{{ env.id }}" {{ (selected_env is defined and selected_env == env.id) ? 'selected' }}>{{ env.name }}</option>
+                    {% endfor %}
+                </select>
+                <span class="subtitle" style="font-size:11px;">{{ 'The {{variable}} syntax is supported.'|trans }}</span>
+            </div>
+        </div>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
-        <div style="display:flex;gap:8px;align-items:center;">
-            <select name="method" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);font-weight:600;">
-                {% for m in constant('App\\Entity\\ApiRequest::METHODS') %}
-                    <option value="{{ m }}" {{ request.method == m ? 'selected' }}>{{ m }}</option>
-                {% endfor %}
-            </select>
-            <input type="text" name="url" value="{{ request.url }}" placeholder="https://api.example.com/{{ '{{basePath}}' }}" style="flex:1;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:monospace;">
-            <button class="btn" type="submit">{{ 'Send'|trans }} ▸</button>
-            <button class="btn ghost" type="submit" formaction="{{ path('app_request_save', {workspace: workspace.id, request: request.id}) }}">{{ 'Save'|trans }}</button>
-        </div>
-        <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
-            <label style="color:var(--muted);font-size:13px;">{{ 'Environment'|trans }}:</label>
-            <select name="environment" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);">
-                <option value="">— {{ 'none'|trans }} —</option>
-                {% for env in environments %}
-                    <option value="{{ env.id }}" {{ (selected_env is defined and selected_env == env.id) ? 'selected' }}>{{ env.name }}</option>
-                {% endfor %}
-            </select>
-            <span class="subtitle" style="margin:0;font-size:12px;">{{ 'The {{variable}} syntax is supported.'|trans }}</span>
-        </div>
-    </div>
-
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
-        <div class="field">
-            <label>{{ 'Headers (one <code>Name: value</code> per line)'|trans|raw }}</label>
-            <textarea name="headers" rows="5" style="font-family:monospace;">{% for h in request.headers %}{{ h.name }}: {{ h.value }}
+    <div class="formcard">
+        <div class="grid2">
+            <div class="field">
+                <label>{{ 'Headers (one <code>Name: value</code> per line)'|trans|raw }}</label>
+                <textarea name="headers" rows="5" class="input-mono">{% for h in request.headers %}{{ h.name }}: {{ h.value }}
 {% endfor %}</textarea>
-        </div>
-        <div class="field">
-            <label>{{ 'Query parameters (one <code>name=value</code> per line)'|trans|raw }}</label>
-            <textarea name="params" rows="5" style="font-family:monospace;">{% for p in request.queryParams %}{{ p.name }}={{ p.value }}
+            </div>
+            <div class="field">
+                <label>{{ 'Query parameters (one <code>name=value</code> per line)'|trans|raw }}</label>
+                <textarea name="params" rows="5" class="input-mono">{% for p in request.queryParams %}{{ p.name }}={{ p.value }}
 {% endfor %}</textarea>
+            </div>
         </div>
-    </div>
-
-    <div class="field">
-        <label>{{ 'Body mode'|trans }}</label>
-        <select name="bodyMode" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);">
-            {% for mode in ['none', 'raw', 'json', 'form'] %}
-                <option value="{{ mode }}" {{ request.bodyMode == mode ? 'selected' }}>{{ mode }}</option>
-            {% endfor %}
-        </select>
-    </div>
-    <div class="field">
-        <label>Body</label>
-        <textarea name="body" rows="8" style="font-family:monospace;">{{ request.body }}</textarea>
+        <div class="fgroup">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;">
+                <label style="margin:0;font-size:11.5px;font-weight:600;color:var(--muted);">{{ 'Body mode'|trans }}</label>
+                <select name="bodyMode" class="mono" style="width:auto;font-weight:700;">
+                    {% for mode in ['none', 'raw', 'json', 'form'] %}
+                        <option value="{{ mode }}" {{ request.bodyMode == mode ? 'selected' }}>{{ mode }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field" style="margin-bottom:0;">
+                <label>Body</label>
+                <textarea name="body" rows="8" class="input-mono">{{ request.body }}</textarea>
+            </div>
+        </div>
     </div>
 </form>
 
 {% if result %}
-    <h1 style="font-size:18px;margin-top:28px;">{{ 'Response'|trans }}</h1>
+    <div class="section-title">{{ 'Response'|trans }}</div>
     {% if result.ok %}
         {% set sc = result.statusCode %}
-        {% set color = sc < 300 ? 'var(--accent-2)' : (sc < 400 ? 'var(--warn)' : 'var(--danger)') %}
+        {% set state = sc < 300 ? 'passed' : (sc < 400 ? 'cancelled' : 'failed') %}
         <div class="card">
-            <div style="display:flex;gap:20px;align-items:center;margin-bottom:14px;">
-                <span style="font-size:20px;font-weight:700;color:{{ color }};">{{ sc }}</span>
-                <span class="subtitle" style="margin:0;">{{ result.durationMs|number_format(0) }} ms</span>
+            <div class="pane-head">
+                <span class="pill {{ state }}" style="font-size:12px;font-weight:800;">
+                    <span class="dot {{ state }}"></span>{{ sc }}</span>
+                <span class="mono subtitle" style="font-size:11px;">{{ result.durationMs|number_format(0) }} ms</span>
+                <span class="rule"></span>
+                <span class="cap">Body</span>
             </div>
-            <label style="color:var(--muted);font-size:12px;text-transform:uppercase;">Body</label>
-            <pre style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow:auto;max-height:420px;font-size:13px;">{{ result.prettyBody() }}</pre>
+            <div class="pane-body">
+                <pre class="codebox" style="max-height:420px;overflow:auto;">{{ result.prettyBody() }}</pre>
+            </div>
         </div>
     {% else %}
-        <div class="flash error">{{ 'Request failed: %error%'|trans({'%error%': result.error}) }}</div>
+        <div class="flash error">{{ ic.i('x', 14, 2.6) }}{{ 'Request failed: %error%'|trans({'%error%': result.error}) }}</div>
     {% endif %}
 {% endif %}
 {% endblock %}

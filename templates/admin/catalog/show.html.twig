@@ -1,42 +1,62 @@
 {% extends 'admin/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ api.name }} · {{ 'API Catalog'|trans }}{% endblock %}
 
 {% block panel %}
-<div class="toolbar">
+<a class="backlink" href="{{ path('admin_catalog_index') }}">← {{ 'Catalog'|trans }}</a>
+<div class="pagehead">
     <div>
         <h1>{{ api.logo }} {{ api.name }}</h1>
-        <p class="subtitle" style="margin:0;"><code>{{ api.slug }}</code>{{ api.publisher ? ' · ' ~ api.publisher }}{{ api.category ? ' · ' ~ api.category }}</p>
+        <p class="subtitle">
+            <code class="mono">{{ api.slug }}</code>{{ api.publisher ? ' · ' ~ api.publisher }}{{ api.category ? ' · ' ~ api.category }}
+        </p>
     </div>
-    <a class="btn ghost" href="{{ path('admin_catalog_index') }}">← {{ 'Catalog'|trans }}</a>
 </div>
 
-{% if api.description %}<p class="subtitle">{{ api.description }}</p>{% endif %}
+{% if api.description %}<p class="subtitle" style="margin-bottom:16px;">{{ api.description }}</p>{% endif %}
 
-<form class="card" method="post" action="{{ path('admin_catalog_publish', {id: api.id}) }}" enctype="multipart/form-data" style="margin-bottom:18px;">
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Publish new version'|trans }}</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="flex:2;min-width:200px;"><label style="display:block;font-size:12px;margin-bottom:4px;">OpenAPI spec (.json / .yaml)</label><input type="file" name="spec" required accept="application/json,.json,.yaml,.yml"></div>
-        <div style="flex:1;min-width:110px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Label'|trans }}</label><input type="text" name="label" placeholder="{{ 'now'|date('Y-m-d') }}" style="width:100%;"></div>
-        <button class="btn" type="submit">{{ 'Publish'|trans }}</button>
+<form class="formcard" method="post" action="{{ path('admin_catalog_publish', {id: api.id}) }}" enctype="multipart/form-data" style="margin-bottom:18px;">
+    <div class="fgroup-title">{{ 'Publish new version'|trans }}</div>
+    <div style="display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:10px;">
+        <div class="field">
+            <label>OpenAPI spec (.json / .yaml)</label>
+            <input type="file" name="spec" required accept="application/json,.json,.yaml,.yml">
+        </div>
+        <div class="field">
+            <label>{{ 'Label'|trans }}</label>
+            <input type="text" name="label" placeholder="{{ 'now'|date('Y-m-d') }}">
+        </div>
     </div>
-    <div style="margin-top:10px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Changelog (optional)'|trans }}</label><input type="text" name="changelog" placeholder="{{ 'What changed?'|trans }}" style="width:100%;"></div>
+    <div class="field" style="margin-bottom:0;">
+        <label>{{ 'Changelog (optional)'|trans }}</label>
+        <input type="text" name="changelog" placeholder="{{ 'What changed?'|trans }}">
+    </div>
+    <p class="fhint">{{ 'Versions are immutable — every upload always creates a new version; an identical spec is rejected.'|trans }}</p>
     <input type="hidden" name="_token" value="{{ csrf_token('catalog-publish' ~ api.id) }}">
-    <p class="subtitle" style="margin:10px 0 0;font-size:12px;">{{ 'Versions are immutable — every upload always creates a new version; an identical spec is rejected.'|trans }}</p>
+    <div class="form-actions">
+        <button class="btn" type="submit">{{ ic.i('import', 13) }}{{ 'Publish'|trans }}</button>
+    </div>
 </form>
 
 {% if api.versions is not empty %}
     <div class="card" style="margin-bottom:18px;">
-        <div class="subtitle" style="margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ '"Add to Signal" badge'|trans }}</div>
-        <p class="subtitle" style="margin:0 0 8px;font-size:13px;">{{ 'Put this snippet in your API docs — a user who clicks it (signing in if needed) adds the API to their workspace in one step.'|trans }}</p>
-        {% set deeplink = url('app_deeplink', {slug: api.slug}) %}
-        <pre class="codebox" id="badgeSnippet">&lt;a href="{{ deeplink }}" target="_blank" rel="noopener"
+        <div class="card-head">
+            {{ ic.i('marketplace', 14) }}<span class="t">{{ '"Add to Signal" badge'|trans }}</span>
+        </div>
+        <div class="card-body">
+            <p class="subtitle" style="margin-bottom:10px;">{{ 'Put this snippet in your API docs — a user who clicks it (signing in if needed) adds the API to their workspace in one step.'|trans }}</p>
+            {% set deeplink = url('app_deeplink', {slug: api.slug}) %}
+            <pre class="codebox" id="badgeSnippet">&lt;a href="{{ deeplink }}" target="_blank" rel="noopener"
    style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;
           background:#4f46e5;color:#fff;font:600 13px system-ui;text-decoration:none;"&gt;
   ⚡ Signal'e Ekle
 &lt;/a&gt;</pre>
-        <button class="btn ghost small" type="button" onclick="navigator.clipboard.writeText(document.getElementById('badgeSnippet').textContent)">{{ 'Copy'|trans }}</button>
-        <span class="subtitle" style="font-size:12px;margin-left:8px;">Link: <code>{{ deeplink }}</code></span>
+            <div style="display:flex;align-items:center;gap:9px;margin-top:11px;flex-wrap:wrap;">
+                <button class="btn ghost small" type="button" onclick="navigator.clipboard.writeText(document.getElementById('badgeSnippet').textContent)">{{ 'Copy'|trans }}</button>
+                <span class="subtitle" style="font-size:11.5px;">Link: <code class="mono">{{ deeplink }}</code></span>
+            </div>
+        </div>
     </div>
 {% endif %}
 
@@ -48,11 +68,11 @@
         <tbody>
         {% for v in api.versions %}
             <tr>
-                <td style="font-weight:600;">{{ v.label }}{% if loop.first %} <span class="pill on">{{ 'latest'|trans }}</span>{% endif %}</td>
-                <td>{{ v.spec.paths|length }}</td>
-                <td><code>{{ v.specHash[:8] }}</code></td>
+                <td style="font-weight:600;">{{ v.label }}{% if loop.first %} <span class="pill passed">{{ 'latest'|trans }}</span>{% endif %}</td>
+                <td class="mono">{{ v.spec.paths|length }}</td>
+                <td><code class="mono">{{ v.specHash[:8] }}</code></td>
                 <td>{{ v.changelog ?? '—' }}</td>
-                <td>{{ v.createdAt|date('d.m.Y H:i') }}</td>
+                <td class="mono" style="color:var(--muted);">{{ v.createdAt|date('d.m.Y H:i') }}</td>
             </tr>
         {% endfor %}
         </tbody>

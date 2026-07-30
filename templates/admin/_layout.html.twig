@@ -1,27 +1,71 @@
+{# ==========================================================================
+   templates/admin/_layout.html.twig  —  the super-admin shell.
+   Same three nav destinations and the same admin_logout route as before; only
+   the markup follows app/_layout.html.twig now (brand · nav · userbox).
+   ========================================================================== #}
 {% extends 'base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block body %}
+{% set route = app.request.attributes.get('_route') %}
+
 <div class="layout">
-    <aside class="sidebar">
-        <div class="brand">🧪 API Test<small>{{ 'Super Admin'|trans }}</small></div>
+    <aside class="sidebar" id="sidebar">
+        <div class="brand">
+            <span class="brand-mark">{{ ic.i('terminal', 15, 2.4) }}</span>
+            <span class="brand-txt">
+                <span class="t">Signal</span>
+                <span class="s">{{ 'Super Admin'|trans }}</span>
+            </span>
+            <button class="icon-btn" id="collapseBtn" style="margin-left:auto;width:26px;height:26px"
+                    title="{{ 'Collapse menu'|trans }}" aria-label="{{ 'Collapse menu'|trans }}">{{ ic.i('chevron-r', 13) }}</button>
+        </div>
+
         <nav class="nav">
-            <a href="{{ path('admin_dashboard') }}" class="{{ app.request.attributes.get('_route') == 'admin_dashboard' ? 'active' }}">{{ 'Overview'|trans }}</a>
-            <a href="{{ path('admin_merchant_index') }}" class="{{ app.request.attributes.get('_route') starts with 'admin_merchant' ? 'active' }}">{{ 'Merchants'|trans }}</a>
-            <a href="{{ path('admin_catalog_index') }}" class="{{ app.request.attributes.get('_route') starts with 'admin_catalog' ? 'active' }}">{{ 'API Catalog'|trans }}</a>
+            <a href="{{ path('admin_dashboard') }}" class="{{ route == 'admin_dashboard' ? 'active' }}">
+                {{ ic.i('overview') }}<span class="label">{{ 'Overview'|trans }}</span></a>
+            <a href="{{ path('admin_merchant_index') }}" class="{{ route starts with 'admin_merchant' ? 'active' }}">
+                {{ ic.i('company') }}<span class="label">{{ 'Merchants'|trans }}</span></a>
+            <a href="{{ path('admin_catalog_index') }}" class="{{ route starts with 'admin_catalog' ? 'active' }}">
+                {{ ic.i('marketplace') }}<span class="label">{{ 'API Catalog'|trans }}</span></a>
+            <div class="grow"></div>
         </nav>
+
         <div class="userbox">
-            <div class="name">{{ app.user.name }}</div>
-            <div>{{ app.user.email }}</div>
-            <div style="margin-top:8px;"><a href="{{ path('admin_logout') }}">{{ 'Sign out'|trans }}</a></div>
+            <span class="avatar">{{ app.user.name|slice(0,1)|upper }}</span>
+            <span class="userbox-txt">
+                <span class="name">{{ app.user.name }}</span>
+                <span class="email">{{ app.user.email }}</span>
+            </span>
+            <button class="icon-btn" data-theme-toggle title="{{ 'Theme'|trans }}" aria-label="{{ 'Theme'|trans }}">{{ ic.i('moon', 14) }}</button>
+        </div>
+        <div class="userbox-foot">
+            <a href="{{ path('admin_logout') }}">{{ 'Sign out'|trans }}</a>
         </div>
     </aside>
+
     <main class="content">
         {% for label, messages in app.flashes %}
             {% for message in messages %}
-                <div class="flash {{ label }}">{{ message }}</div>
+                <div class="flash {{ label }}">{{ ic.i(label == 'success' ? 'check' : 'x', 14, 2.6) }}{{ message }}</div>
             {% endfor %}
         {% endfor %}
         {% block panel %}{% endblock %}
     </main>
 </div>
+{% endblock %}
+
+{% block javascripts %}
+<script>
+(function () {
+    var sb = document.getElementById('sidebar');
+    if (!sb) return;
+    if (localStorage.getItem('sb_collapsed') === '1') sb.classList.add('collapsed');
+    var b = document.getElementById('collapseBtn');
+    if (b) b.addEventListener('click', function () {
+        sb.classList.toggle('collapsed');
+        localStorage.setItem('sb_collapsed', sb.classList.contains('collapsed') ? '1' : '0');
+    });
+})();
+</script>
 {% endblock %}

@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Publish an API'|trans }} · API Marketplace{% endblock %}
 
@@ -15,57 +16,59 @@
     <form method="post" enctype="multipart/form-data">
         <input type="hidden" name="_token" value="{{ csrf_token('marketplace-publish') }}">
 
-        <div class="field">
-            <label>{{ 'API name'|trans }}</label>
-            <input type="text" name="name" required placeholder="{{ 'Payments API'|trans }}">
-        </div>
-        <div class="row2">
+        <div class="fgroup">
             <div class="field">
-                <label>{{ 'Publisher'|trans }}</label>
-                <input type="text" name="publisher" placeholder="{{ merchant.name }}">
+                <label>{{ 'API name'|trans }}</label>
+                <input type="text" name="name" required placeholder="{{ 'Payments API'|trans }}">
             </div>
-            <div class="field">
-                <label>{{ 'Category'|trans }}</label>
-                <input type="text" name="category" placeholder="Payments">
+            <div class="grid2">
+                <div class="field">
+                    <label>{{ 'Publisher'|trans }}</label>
+                    <input type="text" name="publisher" placeholder="{{ merchant.name }}">
+                </div>
+                <div class="field">
+                    <label>{{ 'Category'|trans }}</label>
+                    <input type="text" name="category" placeholder="Payments">
+                </div>
             </div>
-        </div>
-        <div class="row2">
-            <div class="field">
-                <label>{{ 'Logo (emoji)'|trans }}</label>
-                <input type="text" name="logo" maxlength="8" placeholder="💳">
+            <div class="grid2">
+                <div class="field">
+                    <label>{{ 'Logo (emoji)'|trans }}</label>
+                    <input type="text" name="logo" maxlength="8">
+                </div>
+                <div class="field">
+                    <label>{{ 'Version label'|trans }}</label>
+                    <input type="text" name="label" placeholder="{{ 'now'|date('Y-m-d') }}">
+                </div>
             </div>
-            <div class="field">
-                <label>{{ 'Version label'|trans }}</label>
-                <input type="text" name="label" placeholder="{{ 'now'|date('Y-m-d') }}">
+            <div class="field" style="margin-bottom:0;">
+                <label>{{ 'Description'|trans }}</label>
+                <input type="text" name="description" placeholder="{{ 'Short description'|trans }}">
             </div>
-        </div>
-        <div class="field">
-            <label>{{ 'Description'|trans }}</label>
-            <input type="text" name="description" placeholder="{{ 'Short description'|trans }}">
         </div>
 
         <div class="fgroup">
             <div class="fgroup-title">{{ 'What to publish'|trans }}</div>
 
             <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;">
-                <input type="radio" name="source" value="collection" checked
+                <input type="radio" name="source" value="collection" checked style="width:auto;margin-top:2px;"
                        onchange="document.getElementById('srcCollection').style.display='';document.getElementById('srcFile').style.display='none';">
                 <span>
-                    <strong>{{ 'One of your collections'|trans }}</strong><br>
-                    <span class="subtitle" style="font-size:12.5px;">{{ 'Signal turns it into an OpenAPI spec — endpoints, saved examples and folders become tags.'|trans }}</span>
+                    <strong style="color:var(--ink);">{{ 'One of your collections'|trans }}</strong><br>
+                    <span class="subtitle" style="font-size:11.5px;">{{ 'Signal turns it into an OpenAPI spec — endpoints, saved examples and folders become tags.'|trans }}</span>
                 </span>
             </label>
             <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;">
-                <input type="radio" name="source" value="file"
+                <input type="radio" name="source" value="file" style="width:auto;margin-top:2px;"
                        onchange="document.getElementById('srcCollection').style.display='none';document.getElementById('srcFile').style.display='';">
-                <span><strong>{{ 'An OpenAPI spec file'|trans }}</strong></span>
+                <span><strong style="color:var(--ink);">{{ 'An OpenAPI spec file'|trans }}</strong></span>
             </label>
 
             <div id="srcCollection" style="margin-top:10px;">
                 {% if collections is empty %}
                     <p class="fhint">{{ 'You have no collections yet.'|trans }}</p>
                 {% else %}
-                    <select name="collection_id" style="width:100%;">
+                    <select name="collection_id">
                         {% for c in collections %}
                             <option value="{{ c.id }}">{{ c.workspace.name }} · {{ c.name }} ({{ '%count% requests'|trans({'%count%': c.requests|length}) }})</option>
                         {% endfor %}
@@ -77,36 +80,36 @@
             </div>
         </div>
 
-        <div class="fgroup" style="margin-top:6px;">
+        <div class="fgroup">
             <div class="fgroup-title">{{ 'Who can see it'|trans }}</div>
 
             <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;">
-                <input type="radio" name="visibility" value="workspace" checked
+                <input type="radio" name="visibility" value="workspace" checked style="width:auto;margin-top:2px;"
                        onchange="document.getElementById('wsPick').style.display='';">
                 <span>
-                    <strong>🔒 {{ 'Workspace only'|trans }}</strong><br>
-                    <span class="subtitle" style="font-size:12.5px;">{{ 'Only people with access to the chosen workspace. Requires admin on that workspace.'|trans }}</span>
+                    <strong style="display:inline-flex;align-items:center;gap:6px;color:var(--ink);">{{ ic.i('shield', 13) }}{{ 'Workspace only'|trans }}</strong><br>
+                    <span class="subtitle" style="font-size:11.5px;">{{ 'Only people with access to the chosen workspace. Requires admin on that workspace.'|trans }}</span>
                 </span>
             </label>
 
             {# Meaningless on a one-person account: they already see all their workspaces. #}
             {% if not merchant.personal %}
                 <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;{{ can_publish_wide ? '' : 'opacity:.5;' }}">
-                    <input type="radio" name="visibility" value="merchant" {{ can_publish_wide ? '' : 'disabled' }}
+                    <input type="radio" name="visibility" value="merchant" {{ can_publish_wide ? '' : 'disabled' }} style="width:auto;margin-top:2px;"
                            onchange="document.getElementById('wsPick').style.display='none';">
                     <span>
-                        <strong>🏢 {{ 'Company only'|trans }}</strong><br>
-                        <span class="subtitle" style="font-size:12.5px;">{{ 'Everyone in %company%, in every workspace.'|trans({'%company%': merchant.name}) }}</span>
+                        <strong style="display:inline-flex;align-items:center;gap:6px;color:var(--ink);">{{ ic.i('company', 13) }}{{ 'Company only'|trans }}</strong><br>
+                        <span class="subtitle" style="font-size:11.5px;">{{ 'Everyone in %company%, in every workspace.'|trans({'%company%': merchant.name}) }}</span>
                     </span>
                 </label>
             {% endif %}
 
             <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;{{ can_publish_wide ? '' : 'opacity:.5;' }}">
-                <input type="radio" name="visibility" value="public" {{ can_publish_wide ? '' : 'disabled' }}
+                <input type="radio" name="visibility" value="public" {{ can_publish_wide ? '' : 'disabled' }} style="width:auto;margin-top:2px;"
                        onchange="document.getElementById('wsPick').style.display='none';">
                 <span>
-                    <strong>🌍 {{ 'Public'|trans }}</strong><br>
-                    <span class="subtitle" style="font-size:12.5px;">{{ 'Everyone on the platform. It is listed as unverified until the platform reviews it.'|trans }}</span>
+                    <strong style="display:inline-flex;align-items:center;gap:6px;color:var(--ink);">{{ ic.i('environments', 13) }}{{ 'Public'|trans }}</strong><br>
+                    <span class="subtitle" style="font-size:11.5px;">{{ 'Everyone on the platform. It is listed as unverified until the platform reviews it.'|trans }}</span>
                 </span>
             </label>
 
@@ -115,26 +118,30 @@
             {% endif %}
 
             <div id="wsPick" style="margin-top:10px;">
-                <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Workspace'|trans }}</label>
-                {% if admin_workspaces is empty %}
-                    <p class="fhint">{{ 'You are not an admin of any workspace, so you cannot publish a workspace-scoped API.'|trans }}</p>
-                {% else %}
-                    <select name="workspace_id" style="width:100%;">
-                        {% for w in admin_workspaces %}
-                            <option value="{{ w.id }}">{{ w.name }}</option>
-                        {% endfor %}
-                    </select>
-                {% endif %}
+                <div class="field" style="margin-bottom:0;">
+                    <label>{{ 'Workspace'|trans }}</label>
+                    {% if admin_workspaces is empty %}
+                        <p class="fhint" style="margin-top:0;">{{ 'You are not an admin of any workspace, so you cannot publish a workspace-scoped API.'|trans }}</p>
+                    {% else %}
+                        <select name="workspace_id">
+                            {% for w in admin_workspaces %}
+                                <option value="{{ w.id }}">{{ w.name }}</option>
+                            {% endfor %}
+                        </select>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
-        <div class="field">
-            <label>{{ 'Changelog (optional)'|trans }}</label>
-            <input type="text" name="changelog" placeholder="{{ 'What changed?'|trans }}">
+        <div class="fgroup">
+            <div class="field" style="margin-bottom:0;">
+                <label>{{ 'Changelog (optional)'|trans }}</label>
+                <input type="text" name="changelog" placeholder="{{ 'What changed?'|trans }}">
+            </div>
         </div>
 
         <div class="form-actions">
-            <button class="btn" type="submit">{{ 'Publish'|trans }}</button>
+            <button class="btn" type="submit">{{ ic.i('import', 13) }}{{ 'Publish'|trans }}</button>
             <a class="btn ghost" href="{{ path('app_marketplace') }}">{{ 'Cancel'|trans }}</a>
         </div>
     </form>
