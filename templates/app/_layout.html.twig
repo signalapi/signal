@@ -12,9 +12,11 @@
         </div>
 
         {% set memberships = merchant_memberships() %}
-        {% if memberships|length > 1 %}
+        {% set multiMerchant = memberships|length > 1 %}
+        {% if multiMerchant %}
             {% set cm = current_merchant() %}
             <div class="ws-switch">
+                <div class="switch-cap">Şirket</div>
                 <form method="post" action="" id="merchantSwitchForm">
                     <input type="hidden" name="_token" value="{{ csrf_token('switch-merchant') }}">
                     <select aria-label="Merchant seç"
@@ -28,7 +30,8 @@
         {% endif %}
 
         <div class="ws-switch">
-            <select onchange="if(this.value)location.href=this.value;" aria-label="Workspace seç">
+            {% if multiMerchant %}<div class="switch-cap">Workspace</div>{% endif %}
+            <select onchange="if(this.value)location.href=this.value;" aria-label="Workspace seç" {% if not multiMerchant %}style="margin-top:12px;"{% endif %}>
                 {% for w in merchant_workspaces() %}
                     <option value="{{ path('app_workspace_show', {id: w.id}) }}" {{ ws and ws.id == w.id ? 'selected' }}>{{ w.name }}</option>
                 {% else %}
@@ -57,18 +60,21 @@
                 <div class="nav-group">Altyapı</div>
                 <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_dbconn' ? 'active' }}"><span class="ico">🗄</span><span class="label">DB Bağlantıları</span></a>
                 <a href="{{ path('app_factory_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_factory' ? 'active' }}"><span class="ico">🎲</span><span class="label">Veri Fabrikaları</span></a>
-                <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_apitoken' ? 'active' }}"><span class="ico">🔑</span><span class="label">API & MCP</span></a>
                 <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_cookie' ? 'active' }}"><span class="ico">🍪</span><span class="label">Cookie'ler</span></a>
+
+                <div class="nav-group">Yönetim</div>
+                <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_apitoken' ? 'active' }}"><span class="ico">🔑</span><span class="label">API & MCP</span></a>
                 {% if is_granted('WORKSPACE_ADMIN', ws) %}
                     <a href="{{ path('app_ws_member_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_ws_member' ? 'active' }}"><span class="ico">👥</span><span class="label">Üyeler</span></a>
                 {% endif %}
             {% endif %}
             <div style="flex:1"></div>
+            <div class="nav-group">Şirket</div>
             <a href="{{ path('app_marketplace') }}" class="{{ route starts with 'app_marketplace' ? 'active' }}"><span class="ico">🛒</span><span class="label nav-foot-label">API Marketplace</span></a>
             {% if current_merchant() and is_granted('MERCHANT_MANAGE_MEMBERS', current_merchant()) %}
-                <a href="{{ path('app_member_index') }}" class="{{ route starts with 'app_member' or route starts with 'app_invitation' ? 'active' }}"><span class="ico">🏢</span><span class="label nav-foot-label">Şirket kullanıcıları</span></a>
+                <a href="{{ path('app_member_index') }}" class="{{ route starts with 'app_member' or route starts with 'app_invitation' ? 'active' }}"><span class="ico">🏢</span><span class="label nav-foot-label">Kullanıcılar</span></a>
             {% endif %}
-            <a href="{{ path('app_workspace_index') }}" class="{{ route == 'app_workspace_index' ? 'active' }}"><span class="ico">⚙</span><span class="label nav-foot-label">Workspace'leri yönet</span></a>
+            <a href="{{ path('app_workspace_index') }}" class="{{ route == 'app_workspace_index' ? 'active' }}"><span class="ico">⚙</span><span class="label nav-foot-label">Workspace'ler</span></a>
         </nav>
 
         <div class="userbox">
