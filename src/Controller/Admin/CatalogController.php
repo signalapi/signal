@@ -60,6 +60,9 @@ class CatalogController extends AbstractController
         $api->setCategory(trim((string) $request->request->get('category')) ?: null);
         $api->setDescription(trim((string) $request->request->get('description')) ?: null);
         $api->setLogo(trim((string) $request->request->get('logo')) ?: null);
+        // Platform-curated: no owner company, public, verified by definition.
+        $api->setVisibility(CatalogApi::VISIBILITY_PUBLIC);
+        $api->setVerified(true);
 
         if (null !== $catalog->findOneBy(['slug' => $api->getSlug()])) {
             $this->addFlash('error', $translator->trans('A catalog entry with this name already exists.'));
@@ -130,6 +133,23 @@ class CatalogController extends AbstractController
         $this->addFlash('success', $translator->trans('Version "%label%" has been published.', ['%label%' => $version->getLabel()]));
 
         return $this->redirectToRoute('admin_catalog_show', ['id' => $api->getId()]);
+    }
+
+    /** Promotes a company-published public entry to "verified" (or back). */
+    #[Route('/{id}/verify', name: 'admin_catalog_verify', methods: ['POST'])]
+    public function verify(CatalogApi $api, Request $request, EntityManagerInterface $em): Response
+    {
+        if (!$this->isCsrfTokenValid('catalog-verify' . $api->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $api->setVerified(!$api->isVerified());
+        $em->flush();
+        $this->addFlash('success', $api->isVerified()
+            ? 'Entry marked as verified.'
+            : 'Verification removed.');
+
+        return $this->redirectToRoute('admin_catalog_index');
     }
 
     #[Route('/{id}/toggle', name: 'admin_catalog_toggle', methods: ['POST'])]

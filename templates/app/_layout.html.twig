@@ -69,8 +69,11 @@
                 {% endif %}
             {% endif %}
             <div style="flex:1"></div>
-            <div class="nav-group">{{ 'Company'|trans }}</div>
+            {# Platform-wide, above any single company or workspace. #}
+            <div class="nav-group">{{ 'Discover'|trans }}</div>
             <a href="{{ path('app_marketplace') }}" class="{{ route starts with 'app_marketplace' ? 'active' }}"><span class="ico">🛒</span><span class="label nav-foot-label">API Marketplace</span></a>
+
+            <div class="nav-group">{{ 'Company'|trans }}</div>
             {% if current_merchant() and is_granted('MERCHANT_MANAGE_MEMBERS', current_merchant()) %}
                 <a href="{{ path('app_member_index') }}" class="{{ route starts with 'app_member' or route starts with 'app_invitation' ? 'active' }}"><span class="ico">🏢</span><span class="label nav-foot-label">{{ 'Users'|trans }}</span></a>
             {% endif %}

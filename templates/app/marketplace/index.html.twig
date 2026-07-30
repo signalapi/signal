@@ -2,16 +2,32 @@
 
 {% block title %}API Marketplace{% endblock %}
 
+{% macro visibility_pill(api) %}
+    {% if api.visibility == 'public' %}
+        <span class="pill">🌍 {{ 'Public'|trans }}</span>
+        {% if api.verified %}<span class="pill on">✓ {{ 'Verified'|trans }}</span>{% endif %}
+    {% elseif api.visibility == 'merchant' %}
+        <span class="pill">🏢 {{ 'Company only'|trans }}</span>
+    {% else %}
+        <span class="pill">🔒 {{ 'Workspace only'|trans }}</span>
+    {% endif %}
+{% endmacro %}
+
 {% block panel %}
 <div class="pagehead">
     <div>
         <h1>API Marketplace</h1>
-        <p class="subtitle">{{ 'Add ready-made API definitions to your workspace with one click — complete with endpoints, environment and secret templates'|trans }}</p>
+        <p class="subtitle">{{ 'A platform-wide catalog: add ready-made API definitions to your workspace with one click, or publish your own.'|trans }}</p>
     </div>
+    {% if can_publish %}
+        <div class="actions">
+            <a class="btn" href="{{ path('app_marketplace_publish') }}">+ {{ 'Publish an API'|trans }}</a>
+        </div>
+    {% endif %}
 </div>
 
 {% if apis is empty %}
-    <div class="empty" style="text-align:left;padding:24px;">{{ 'No published APIs in the catalog yet.'|trans }}</div>
+    <div class="empty" style="text-align:left;padding:24px;">{{ 'No APIs available to you yet.'|trans }}</div>
 {% elseif workspaces is empty %}
     <div class="flash error">{{ 'You have no workspace you can import into (editor+ permission).'|trans }}</div>
 {% endif %}
@@ -26,7 +42,8 @@
                     <div class="s">{{ a.publisher ?? '' }}{{ a.category ? (a.publisher ? ' · ' : '') ~ a.category }}</div>
                 </div>
             </div>
-            {% if a.description %}<p class="subtitle" style="margin:12px 0 0;font-size:13px;">{{ a.description }}</p>{% endif %}
+            <div style="margin-top:10px;">{{ _self.visibility_pill(a) }}</div>
+            {% if a.description %}<p class="subtitle" style="margin:10px 0 0;font-size:13px;">{{ a.description }}</p>{% endif %}
             <p class="subtitle" style="margin:8px 0 0;font-size:12px;">
                 {{ 'Version'|trans }} <strong>{{ a.latestVersion.label }}</strong> · {{ a.latestVersion.spec.paths|length }} endpoint · {{ a.latestVersion.createdAt|date('d.m.Y') }}
             </p>
@@ -46,4 +63,32 @@
         </div>
     {% endfor %}
 </div>
+
+{% if my_published is not empty %}
+    <div class="pagehead" style="margin-top:30px;">
+        <div>
+            <div class="subtitle" style="margin:0 0 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Published by your company'|trans }}</div>
+            <p class="subtitle" style="font-size:13px;">{{ 'Entries your company offers in the marketplace.'|trans }}</p>
+        </div>
+    </div>
+    <table>
+        <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Reach'|trans }}</th><th>{{ 'Scope'|trans }}</th><th>{{ 'Version'|trans }}</th><th></th></tr></thead>
+        <tbody>
+        {% for a in my_published %}
+            <tr>
+                <td style="font-weight:600;">{{ a.logo }} {{ a.name }}</td>
+                <td>{{ _self.visibility_pill(a) }}</td>
+                <td>{{ a.ownerWorkspace ? a.ownerWorkspace.name : '—' }}</td>
+                <td>{{ a.latestVersion ? a.latestVersion.label : 'not published'|trans }}</td>
+                <td style="text-align:right;">
+                    <form class="inline" method="post" action="{{ path('app_marketplace_unpublish', {slug: a.slug}) }}" onsubmit="return confirm('{{ 'The entry and all its versions will be removed from the marketplace.'|trans|e('js') }}');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('marketplace-unpublish' ~ a.id) }}">
+                        <button class="btn danger" type="submit">{{ 'Remove'|trans }}</button>
+                    </form>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
 {% endblock %}

@@ -3,6 +3,7 @@
 namespace App\Controller\App;
 
 use App\Repository\CatalogApiRepository;
+use App\Service\CatalogVisibility;
 use App\Service\WorkspaceContext;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -19,10 +20,15 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 class DeepLinkController extends AbstractAppController
 {
     #[Route('/{slug}', name: 'app_deeplink', methods: ['GET'])]
-    public function landing(string $slug, CatalogApiRepository $catalog, WorkspaceContext $context): Response
-    {
+    public function landing(
+        string $slug,
+        CatalogApiRepository $catalog,
+        WorkspaceContext $context,
+        CatalogVisibility $visibility,
+    ): Response {
         $api = $catalog->findOneBy(['slug' => $slug, 'active' => true]);
-        if (null === $api || null === $api->getLatestVersion()) {
+        // A private entry must not be reachable through a shared link either.
+        if (null === $api || null === $api->getLatestVersion() || !$visibility->isVisibleTo($api, $this->currentUser())) {
             throw $this->createNotFoundException();
         }
 

@@ -1,0 +1,111 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}{{ 'Publish an API'|trans }} · API Marketplace{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_marketplace') }}">← API Marketplace</a>
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Publish an API'|trans }}</h1>
+        <p class="subtitle">{{ 'Upload your OpenAPI spec and choose how far it reaches. Whoever adds it gets endpoints, an environment and secret placeholders in their own workspace.'|trans }}</p>
+    </div>
+</div>
+
+<div class="formcard" style="max-width:640px;">
+    <form method="post" enctype="multipart/form-data">
+        <input type="hidden" name="_token" value="{{ csrf_token('marketplace-publish') }}">
+
+        <div class="field">
+            <label>{{ 'API name'|trans }}</label>
+            <input type="text" name="name" required placeholder="{{ 'Payments API'|trans }}">
+        </div>
+        <div class="row2">
+            <div class="field">
+                <label>{{ 'Publisher'|trans }}</label>
+                <input type="text" name="publisher" placeholder="{{ merchant.name }}">
+            </div>
+            <div class="field">
+                <label>{{ 'Category'|trans }}</label>
+                <input type="text" name="category" placeholder="Payments">
+            </div>
+        </div>
+        <div class="row2">
+            <div class="field">
+                <label>{{ 'Logo (emoji)'|trans }}</label>
+                <input type="text" name="logo" maxlength="8" placeholder="💳">
+            </div>
+            <div class="field">
+                <label>{{ 'Version label'|trans }}</label>
+                <input type="text" name="label" placeholder="{{ 'now'|date('Y-m-d') }}">
+            </div>
+        </div>
+        <div class="field">
+            <label>{{ 'Description'|trans }}</label>
+            <input type="text" name="description" placeholder="{{ 'Short description'|trans }}">
+        </div>
+
+        <div class="field">
+            <label>{{ 'OpenAPI spec (.json / .yaml)'|trans }}</label>
+            <input type="file" name="spec" required accept="application/json,.json,.yaml,.yml">
+        </div>
+
+        <div class="fgroup" style="margin-top:6px;">
+            <div class="fgroup-title">{{ 'Who can see it'|trans }}</div>
+
+            <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;">
+                <input type="radio" name="visibility" value="workspace" checked
+                       onchange="document.getElementById('wsPick').style.display='';">
+                <span>
+                    <strong>🔒 {{ 'Workspace only'|trans }}</strong><br>
+                    <span class="subtitle" style="font-size:12.5px;">{{ 'Only people with access to the chosen workspace. Requires admin on that workspace.'|trans }}</span>
+                </span>
+            </label>
+
+            <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;{{ can_publish_wide ? '' : 'opacity:.5;' }}">
+                <input type="radio" name="visibility" value="merchant" {{ can_publish_wide ? '' : 'disabled' }}
+                       onchange="document.getElementById('wsPick').style.display='none';">
+                <span>
+                    <strong>🏢 {{ 'Company only'|trans }}</strong><br>
+                    <span class="subtitle" style="font-size:12.5px;">{{ 'Everyone in %company%, in every workspace.'|trans({'%company%': merchant.name}) }}</span>
+                </span>
+            </label>
+
+            <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;{{ can_publish_wide ? '' : 'opacity:.5;' }}">
+                <input type="radio" name="visibility" value="public" {{ can_publish_wide ? '' : 'disabled' }}
+                       onchange="document.getElementById('wsPick').style.display='none';">
+                <span>
+                    <strong>🌍 {{ 'Public'|trans }}</strong><br>
+                    <span class="subtitle" style="font-size:12.5px;">{{ 'Everyone on the platform. It is listed as unverified until the platform reviews it.'|trans }}</span>
+                </span>
+            </label>
+
+            {% if not can_publish_wide %}
+                <p class="fhint">{{ 'Company-wide and public publishing is reserved for owners and company admins.'|trans }}</p>
+            {% endif %}
+
+            <div id="wsPick" style="margin-top:10px;">
+                <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Workspace'|trans }}</label>
+                {% if admin_workspaces is empty %}
+                    <p class="fhint">{{ 'You are not an admin of any workspace, so you cannot publish a workspace-scoped API.'|trans }}</p>
+                {% else %}
+                    <select name="workspace_id" style="width:100%;">
+                        {% for w in admin_workspaces %}
+                            <option value="{{ w.id }}">{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="field">
+            <label>{{ 'Changelog (optional)'|trans }}</label>
+            <input type="text" name="changelog" placeholder="{{ 'What changed?'|trans }}">
+        </div>
+
+        <div class="form-actions">
+            <button class="btn" type="submit">{{ 'Publish'|trans }}</button>
+            <a class="btn ghost" href="{{ path('app_marketplace') }}">{{ 'Cancel'|trans }}</a>
+        </div>
+    </form>
+</div>
+{% endblock %}

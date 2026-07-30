@@ -24,16 +24,33 @@
     <div class="empty">{{ 'The catalog is empty. Add the first API.'|trans }}</div>
 {% else %}
     <table>
-        <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Publisher'|trans }}</th><th>{{ 'Category'|trans }}</th><th>{{ 'Version'|trans }}</th><th>{{ 'Status'|trans }}</th><th></th></tr></thead>
+        <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Owner'|trans }}</th><th>{{ 'Reach'|trans }}</th><th>{{ 'Version'|trans }}</th><th>{{ 'Status'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for a in apis %}
             <tr>
                 <td style="font-weight:600;">{{ a.logo }} <a href="{{ path('admin_catalog_show', {id: a.id}) }}">{{ a.name }}</a></td>
-                <td>{{ a.publisher ?? '—' }}</td>
-                <td>{{ a.category ?? '—' }}</td>
+                <td>
+                    {% if a.platformCurated %}
+                        <span class="pill on">{{ 'platform'|trans }}</span>
+                    {% else %}
+                        {{ a.ownerMerchant.name }}{% if a.ownerWorkspace %} · {{ a.ownerWorkspace.name }}{% endif %}
+                    {% endif %}
+                </td>
+                <td>
+                    <span class="pill">{{ a.visibility }}</span>
+                    {% if a.visibility == 'public' %}
+                        {% if a.verified %}<span class="pill on">✓ {{ 'verified'|trans }}</span>{% else %}<span class="pill off">{{ 'unverified'|trans }}</span>{% endif %}
+                    {% endif %}
+                </td>
                 <td>{{ a.latestVersion ? '%label% (%count% versions)'|trans({'%label%': a.latestVersion.label, '%count%': a.versions|length}) : 'not published'|trans }}</td>
                 <td>{% if a.active %}<span class="pill on">{{ 'active'|trans }}</span>{% else %}<span class="pill off">{{ 'inactive'|trans }}</span>{% endif %}</td>
                 <td style="text-align:right;white-space:nowrap;">
+                    {% if a.visibility == 'public' and not a.platformCurated %}
+                        <form class="inline" method="post" action="{{ path('admin_catalog_verify', {id: a.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('catalog-verify' ~ a.id) }}">
+                            <button class="btn ghost small" type="submit">{{ a.verified ? 'Unverify'|trans : 'Verify'|trans }}</button>
+                        </form>
+                    {% endif %}
                     <form class="inline" method="post" action="{{ path('admin_catalog_toggle', {id: a.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('catalog-toggle' ~ a.id) }}">
                         <button class="btn ghost small" type="submit">{{ a.active ? 'Deactivate'|trans : 'Activate'|trans }}</button>

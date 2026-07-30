@@ -11,15 +11,26 @@ use Symfony\Bridge\Doctrine\Types\UuidType;
 use Symfony\Component\Uid\Uuid;
 
 /**
- * A publicly offered API in the marketplace catalog. Global — belongs to no
- * merchant; curated from the super-admin panel. The spec itself lives in
- * immutable CatalogApiVersion snapshots.
+ * An API offered in the marketplace. The marketplace itself is a platform-level
+ * catalog that lives above companies: an entry is either curated by the platform
+ * (no owner) or published by a company, and its reach is set by $visibility.
+ * The spec lives in immutable CatalogApiVersion snapshots.
  */
 #[ORM\Entity(repositoryClass: CatalogApiRepository::class)]
 #[ORM\Table(name: 'catalog_api')]
 #[ORM\UniqueConstraint(name: 'uniq_catalog_api_slug', columns: ['slug'])]
+#[ORM\Index(name: 'idx_catalog_visibility', columns: ['visibility'])]
 class CatalogApi
 {
+    /** Everyone on the platform can see and import it. */
+    public const VISIBILITY_PUBLIC = 'public';
+    /** Only members of the owning company. */
+    public const VISIBILITY_MERCHANT = 'merchant';
+    /** Only people with access to the owning workspace. */
+    public const VISIBILITY_WORKSPACE = 'workspace';
+
+    public const VISIBILITIES = [self::VISIBILITY_PUBLIC, self::VISIBILITY_MERCHANT, self::VISIBILITY_WORKSPACE];
+
     #[ORM\Id]
     #[ORM\Column(type: UuidType::NAME, unique: true)]
     #[ORM\GeneratedValue(strategy: 'CUSTOM')]
@@ -47,6 +58,26 @@ class CatalogApi
 
     #[ORM\Column]
     private bool $active = true;
+
+    #[ORM\Column(length: 20, options: ['default' => self::VISIBILITY_PUBLIC])]
+    private string $visibility = self::VISIBILITY_PUBLIC;
+
+    /**
+     * Platform-curated entries are verified by definition; company-published
+     * public entries start unverified and a super admin promotes them.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $verified = false;
+
+    /** Null for platform-curated entries. */
+    #[ORM\ManyToOne(targetEntity: Merchant::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    private ?Merchant $ownerMerchant = null;
+
+    /** Set only when $visibility is workspace-scoped. */
+    #[ORM\ManyToOne(targetEntity: Workspace::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    private ?Workspace $ownerWorkspace = null;
 
     /** @var Collection<int, CatalogApiVersion> */
     #[ORM\OneToMany(mappedBy: 'catalogApi', targetEntity: CatalogApiVersion::class, cascade: ['remove'])]
@@ -149,6 +180,63 @@ class CatalogApi
         $this->active = $active;
 
         return $this;
+    }
+
+    public function getVisibility(): string
+    {
+        return $this->visibility;
+    }
+
+    public function setVisibility(string $visibility): static
+    {
+        if (!\in_array($visibility, self::VISIBILITIES, true)) {
+            throw new \InvalidArgumentException(sprintf('Invalid catalog visibility: "%s"', $visibility));
+        }
+        $this->visibility = $visibility;
+
+        return $this;
+    }
+
+    public function isVerified(): bool
+    {
+        return $this->verified;
+    }
+
+    public function setVerified(bool $verified): static
+    {
+        $this->verified = $verified;
+
+        return $this;
+    }
+
+    public function getOwnerMerchant(): ?Merchant
+    {
+        return $this->ownerMerchant;
+    }
+
+    public function setOwnerMerchant(?Merchant $ownerMerchant): static
+    {
+        $this->ownerMerchant = $ownerMerchant;
+
+        return $this;
+    }
+
+    public function getOwnerWorkspace(): ?Workspace
+    {
+        return $this->ownerWorkspace;
+    }
+
+    public function setOwnerWorkspace(?Workspace $ownerWorkspace): static
+    {
+        $this->ownerWorkspace = $ownerWorkspace;
+
+        return $this;
+    }
+
+    /** Curated by the platform rather than published by a company. */
+    public function isPlatformCurated(): bool
+    {
+        return null === $this->ownerMerchant;
     }
 
     /** @return Collection<int, CatalogApiVersion> */
