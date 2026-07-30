@@ -7,6 +7,7 @@
         <nav class="nav">
             <a href="{{ path('admin_dashboard') }}" class="{{ app.request.attributes.get('_route') == 'admin_dashboard' ? 'active' }}">Genel Bakış</a>
             <a href="{{ path('admin_merchant_index') }}" class="{{ app.request.attributes.get('_route') starts with 'admin_merchant' ? 'active' }}">Merchant'lar</a>
+            <a href="{{ path('admin_catalog_index') }}" class="{{ app.request.attributes.get('_route') starts with 'admin_catalog' ? 'active' }}">API Kataloğu</a>
         </nav>
         <div class="userbox">
             <div class="name">{{ app.user.name }}</div>

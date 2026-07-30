@@ -1,0 +1,46 @@
+{% extends 'admin/_layout.html.twig' %}
+
+{% block title %}{{ api.name }} · API Kataloğu{% endblock %}
+
+{% block panel %}
+<div class="toolbar">
+    <div>
+        <h1>{{ api.logo }} {{ api.name }}</h1>
+        <p class="subtitle" style="margin:0;"><code>{{ api.slug }}</code>{{ api.publisher ? ' · ' ~ api.publisher }}{{ api.category ? ' · ' ~ api.category }}</p>
+    </div>
+    <a class="btn ghost" href="{{ path('admin_catalog_index') }}">← Katalog</a>
+</div>
+
+{% if api.description %}<p class="subtitle">{{ api.description }}</p>{% endif %}
+
+<form class="card" method="post" action="{{ path('admin_catalog_publish', {id: api.id}) }}" enctype="multipart/form-data" style="margin-bottom:18px;">
+    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Yeni versiyon yayınla</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="flex:2;min-width:200px;"><label style="display:block;font-size:12px;margin-bottom:4px;">OpenAPI spec (.json / .yaml)</label><input type="file" name="spec" required accept="application/json,.json,.yaml,.yml"></div>
+        <div style="flex:1;min-width:110px;"><label style="display:block;font-size:12px;margin-bottom:4px;">Etiket</label><input type="text" name="label" placeholder="{{ 'now'|date('Y-m-d') }}" style="width:100%;"></div>
+        <button class="btn" type="submit">Yayınla</button>
+    </div>
+    <div style="margin-top:10px;"><label style="display:block;font-size:12px;margin-bottom:4px;">Changelog (opsiyonel)</label><input type="text" name="changelog" placeholder="Neler değişti?" style="width:100%;"></div>
+    <input type="hidden" name="_token" value="{{ csrf_token('catalog-publish' ~ api.id) }}">
+    <p class="subtitle" style="margin:10px 0 0;font-size:12px;">Versiyonlar değişmezdir — yeni yükleme her zaman yeni bir versiyon açar; birebir aynı spec reddedilir.</p>
+</form>
+
+{% if api.versions is empty %}
+    <div class="empty">Henüz versiyon yayınlanmadı — marketplace'te görünmez.</div>
+{% else %}
+    <table>
+        <thead><tr><th>Etiket</th><th>Endpoint sayısı</th><th>Hash</th><th>Changelog</th><th>Yayın tarihi</th></tr></thead>
+        <tbody>
+        {% for v in api.versions %}
+            <tr>
+                <td style="font-weight:600;">{{ v.label }}{% if loop.first %} <span class="pill on">güncel</span>{% endif %}</td>
+                <td>{{ v.spec.paths|length }}</td>
+                <td><code>{{ v.specHash[:8] }}</code></td>
+                <td>{{ v.changelog ?? '—' }}</td>
+                <td>{{ v.createdAt|date('d.m.Y H:i') }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+{% endblock %}

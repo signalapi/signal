@@ -1,0 +1,49 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}API Marketplace{% endblock %}
+
+{% block panel %}
+<div class="pagehead">
+    <div>
+        <h1>API Marketplace</h1>
+        <p class="subtitle">Hazır API tanımlarını tek tıkla workspace'inize ekleyin — endpoint'ler, environment ve secret şablonlarıyla birlikte</p>
+    </div>
+</div>
+
+{% if apis is empty %}
+    <div class="empty" style="text-align:left;padding:24px;">Katalogda henüz yayınlanmış API yok.</div>
+{% elseif workspaces is empty %}
+    <div class="flash error">İçe aktarabileceğiniz (editor+ yetkili) bir workspace yok.</div>
+{% endif %}
+
+<div class="res-grid stagger">
+    {% for a in apis %}
+        <div class="res-card">
+            <div class="rc-top">
+                <div class="ic">{{ a.logo ?? '🔌' }}</div>
+                <div class="rc-name">
+                    <span style="font-weight:600;color:var(--ink);">{{ a.name }}</span>
+                    <div class="s">{{ a.publisher ?? '' }}{{ a.category ? (a.publisher ? ' · ' : '') ~ a.category }}</div>
+                </div>
+            </div>
+            {% if a.description %}<p class="subtitle" style="margin:12px 0 0;font-size:13px;">{{ a.description }}</p>{% endif %}
+            <p class="subtitle" style="margin:8px 0 0;font-size:12px;">
+                Versiyon <strong>{{ a.latestVersion.label }}</strong> · {{ a.latestVersion.spec.paths|length }} endpoint · {{ a.latestVersion.createdAt|date('d.m.Y') }}
+            </p>
+            {% if workspaces is not empty %}
+            <div class="rc-foot">
+                <form method="post" action="{{ path('app_marketplace_add', {slug: a.slug}) }}" style="display:flex;gap:8px;width:100%;">
+                    <select name="workspace_id" style="flex:1;">
+                        {% for w in workspaces %}
+                            <option value="{{ w.id }}">{{ w.name }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="hidden" name="_token" value="{{ csrf_token('marketplace-add') }}">
+                    <button class="btn" type="submit">Ekle</button>
+                </form>
+            </div>
+            {% endif %}
+        </div>
+    {% endfor %}
+</div>
+{% endblock %}

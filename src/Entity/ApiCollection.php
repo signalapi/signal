@@ -30,6 +30,15 @@ class ApiCollection
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
 
+    /** Where this collection came from: 'postman' | 'openapi' | 'catalog' | null (hand-made). */
+    #[ORM\Column(length: 20, nullable: true)]
+    private ?string $sourceType = null;
+
+    /** The exact catalog snapshot this was imported from — enables "update available". */
+    #[ORM\ManyToOne(targetEntity: CatalogApiVersion::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?CatalogApiVersion $sourceVersion = null;
+
     /** @var Collection<int, Folder> */
     #[ORM\OneToMany(mappedBy: 'collection', targetEntity: Folder::class, cascade: ['remove'])]
     private Collection $folders;
@@ -86,6 +95,30 @@ class ApiCollection
     public function setDescription(?string $description): static
     {
         $this->description = $description;
+
+        return $this;
+    }
+
+    public function getSourceType(): ?string
+    {
+        return $this->sourceType;
+    }
+
+    public function setSourceType(?string $sourceType): static
+    {
+        $this->sourceType = $sourceType;
+
+        return $this;
+    }
+
+    public function getSourceVersion(): ?CatalogApiVersion
+    {
+        return $this->sourceVersion;
+    }
+
+    public function setSourceVersion(?CatalogApiVersion $sourceVersion): static
+    {
+        $this->sourceVersion = $sourceVersion;
 
         return $this;
     }
