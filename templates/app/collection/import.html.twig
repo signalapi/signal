@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Import'|trans }}{% endblock %}
 
@@ -23,15 +24,17 @@
         </div>
         <input type="hidden" name="_token" value="{{ csrf_token('import') }}">
         <div class="form-actions">
-            <button class="btn" type="submit">⬆ {{ 'Import'|trans }}</button>
+            <button class="btn" type="submit">{{ ic.i('import', 13) }}{{ 'Import'|trans }}</button>
             <a class="btn ghost" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
         </div>
     </form>
 </div>
 
-<div class="fgroup" style="max-width:560px;margin-top:16px;">
-    <p class="fhint" style="margin:0 0 8px;">📦 {{ 'In Postman: right-click a collection → <em>Export</em> → <code>Collection v2.1</code>. For environments: Environments → ⋯ → <em>Export</em>.'|trans|raw }}</p>
-    <p class="fhint" style="margin:0 0 8px;">📜 {{ 'For OpenAPI specs: tags become folders, and an environment with <code>{{baseUrl}}</code> and secret variables is created automatically from <code>servers</code> + security schemes — fill in the secret values afterwards.'|trans|raw }}</p>
-    <p class="fhint" style="margin:0;">💡 {{ 'If the Postman collection contains collection variables, you don\'t need to upload a separate environment — one is created from them automatically.'|trans }}</p>
+<div class="card" style="max-width:560px;margin-top:16px;">
+    <div class="card-body">
+        <p class="fhint" style="margin:0 0 8px;">{{ 'In Postman: right-click a collection → <em>Export</em> → <code>Collection v2.1</code>. For environments: Environments → ⋯ → <em>Export</em>.'|trans|raw }}</p>
+        <p class="fhint" style="margin:0 0 8px;">{{ 'For OpenAPI specs: tags become folders, and an environment with <code>{{baseUrl}}</code> and secret variables is created automatically from <code>servers</code> + security schemes — fill in the secret values afterwards.'|trans|raw }}</p>
+        <p class="fhint" style="margin:0;">{{ 'If the Postman collection contains collection variables, you don\'t need to upload a separate environment — one is created from them automatically.'|trans }}</p>
+    </div>
 </div>
 {% endblock %}

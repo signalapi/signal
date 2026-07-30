@@ -3,10 +3,15 @@
 {% block title %}{{ 'New Workspace'|trans }}{% endblock %}
 
 {% block panel %}
-<h1>{{ 'New Workspace'|trans }}</h1>
-<p class="subtitle">{{ 'Create a testing space. Collections, environments and test flows will be attached here.'|trans }}</p>
+<a class="backlink" href="{{ path('app_workspace_index') }}">← {{ 'Workspaces'|trans }}</a>
+<div class="pagehead">
+    <div>
+        <h1>{{ 'New Workspace'|trans }}</h1>
+        <p class="subtitle">{{ 'Create a testing space. Collections, environments and test flows will be attached here.'|trans }}</p>
+    </div>
+</div>
 
-<div class="formcard">
+<div class="formcard" style="max-width:560px;">
     {{ form_start(form) }}
         <div class="field">
             {{ form_label(form.name) }}
@@ -16,8 +21,10 @@
             {{ form_label(form.description) }}
             {{ form_widget(form.description, {'attr': {'rows': 3}}) }}
         </div>
-        <button class="btn" type="submit">{{ 'Create'|trans }}</button>
-        <a class="btn ghost" href="{{ path('app_workspace_index') }}">{{ 'Cancel'|trans }}</a>
+        <div class="form-actions">
+            <button class="btn" type="submit">{{ 'Create'|trans }}</button>
+            <a class="btn ghost" href="{{ path('app_workspace_index') }}">{{ 'Cancel'|trans }}</a>
+        </div>
     {{ form_end(form) }}
 </div>
 {% endblock %}

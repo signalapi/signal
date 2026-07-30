@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Collections'|trans }} · {{ workspace.name }}{% endblock %}
 
@@ -10,8 +11,8 @@
         <p class="subtitle">{{ workspace.name }} · {{ '%count% collections'|trans({'%count%': collections|length}) }}</p>
     </div>
     <div class="actions">
-        <a class="btn" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">⬆ {{ 'Import (Postman / OpenAPI)'|trans }}</a>
-        <a class="btn ghost" href="{{ path('app_collection_new', {workspace: workspace.id}) }}">+ {{ 'Empty collection'|trans }}</a>
+        <a class="btn" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">{{ ic.i('import', 13) }}{{ 'Import (Postman / OpenAPI)'|trans }}</a>
+        <a class="btn ghost" href="{{ path('app_collection_new', {workspace: workspace.id}) }}">{{ ic.i('plus', 13, 2.2) }}{{ 'Empty collection'|trans }}</a>
     </div>
 </div>
 
@@ -19,7 +20,7 @@
     {% for c in collections %}
         <div class="res-card">
             <div class="rc-top">
-                <div class="ic">🧪</div>
+                <div class="ic">{{ ic.i('collections', 16) }}</div>
                 <div class="rc-name">
                     <a href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">{{ c.name }}</a>
                     <div class="s">
@@ -30,7 +31,7 @@
                         {% if c.sourceVersion %}
                             · {{ 'catalog'|trans }} {{ c.sourceVersion.label }}
                             {% if c.sourceVersion.catalogApi.latestVersion and c.sourceVersion.catalogApi.latestVersion.id != c.sourceVersion.id %}
-                                <a href="{{ path('app_collection_update', {workspace: workspace.id, collection: c.id}) }}"><span class="pill on">⬆ {{ 'update available'|trans }}</span></a>
+                                <a href="{{ path('app_collection_update', {workspace: workspace.id, collection: c.id}) }}"><span class="pill" style="background:var(--pri-soft);color:var(--pri);">{{ ic.i('import', 11) }}{{ 'update available'|trans }}</span></a>
                             {% endif %}
                         {% endif %}
                     </div>
@@ -57,7 +58,7 @@
         </div>
     {% endfor %}
     <a class="res-new" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">
-        <span class="plus">⬆</span>
+        <span class="plus">{{ ic.i('import', 20, 2) }}</span>
         <span style="font-weight:600;">{{ 'Import from Postman'|trans }}</span>
         <span style="font-size:12px;">{{ 'or create an empty collection'|trans }}</span>
     </a>

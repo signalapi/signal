@@ -1,50 +1,53 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 {% import 'app/collection/_tree.html.twig' as tree %}
 
 {% block title %}{{ collection.name }}{% endblock %}
 
 {% block panel %}
-<div class="toolbar">
+<a class="backlink" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← {{ 'Collections'|trans }}</a>
+<div class="pagehead">
     <div>
         <h1>{{ collection.name }}</h1>
-        <p class="subtitle" style="margin:0;">
+        <p class="subtitle">
             {{ '%count% requests'|trans({'%count%': collection.requests|length}) }} · {{ workspace.name }}
             {% if collection.sourceVersion %} · {{ 'catalog'|trans }}: {{ collection.sourceVersion.catalogApi.name }} <span class="pill">{{ collection.sourceVersion.label }}</span>{% endif %}
             {% if collection.sourceCollection %} · {{ 'forked from'|trans }} <span class="pill">{{ collection.sourceCollection.name }}</span>{% endif %}
         </p>
     </div>
-    <div>
+    <div class="actions">
         {% if collection.sourceVersion and collection.sourceVersion.catalogApi.latestVersion and collection.sourceVersion.catalogApi.latestVersion.id != collection.sourceVersion.id %}
-            <a class="btn" href="{{ path('app_collection_update', {workspace: workspace.id, collection: collection.id}) }}">⬆ {{ 'Update available: %version%'|trans({'%version%': collection.sourceVersion.catalogApi.latestVersion.label}) }}</a>
+            <a class="btn" href="{{ path('app_collection_update', {workspace: workspace.id, collection: collection.id}) }}">{{ ic.i('import', 13) }}{{ 'Update available: %version%'|trans({'%version%': collection.sourceVersion.catalogApi.latestVersion.label}) }}</a>
         {% elseif collection.sourceCollection %}
-            <a class="btn ghost" href="{{ path('app_collection_update', {workspace: workspace.id, collection: collection.id}) }}">⬇ {{ 'Pull from source'|trans }}</a>
+            <a class="btn ghost" href="{{ path('app_collection_update', {workspace: workspace.id, collection: collection.id}) }}">{{ ic.i('rerun', 13) }}{{ 'Pull from source'|trans }}</a>
         {% endif %}
-        <a class="btn ghost" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← {{ 'Collections'|trans }}</a>
     </div>
 </div>
 
 {% if collection.description %}
-    <div class="card" style="margin-bottom:18px;">{{ collection.description }}</div>
+    <div class="card" style="margin-bottom:14px;">
+        <div class="card-body">{{ collection.description }}</div>
+    </div>
 {% endif %}
 
-<div class="card" style="margin-bottom:18px;">
-    <form method="post" action="{{ path('app_request_new', {workspace: workspace.id, collection: collection.id}) }}" style="display:flex;gap:8px;align-items:center;">
-        <input type="text" name="name" placeholder="{{ 'New request name'|trans }}" style="flex:1;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);">
-        <input type="hidden" name="_token" value="{{ csrf_token('new-request') }}">
-        <button class="btn small" type="submit">+ {{ 'Add request'|trans }}</button>
-    </form>
-</div>
+<form class="addbar" method="post" action="{{ path('app_request_new', {workspace: workspace.id, collection: collection.id}) }}">
+    <input type="text" name="name" placeholder="{{ 'New request name'|trans }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('new-request') }}">
+    <button class="btn small" type="submit">{{ ic.i('plus', 12, 2.2) }}{{ 'Add request'|trans }}</button>
+</form>
 
 {% if collection.rootFolders is empty and collection.rootRequests is empty %}
     <div class="empty">{{ 'This collection is empty.'|trans }}</div>
 {% else %}
     <div class="card">
-        {% for folder in collection.rootFolders %}
-            {{ tree.folder_node(folder, workspace) }}
-        {% endfor %}
-        {% for request in collection.rootRequests %}
-            {{ tree.request_row(request, workspace) }}
-        {% endfor %}
+        <div class="card-body">
+            {% for folder in collection.rootFolders %}
+                {{ tree.folder_node(folder, workspace) }}
+            {% endfor %}
+            {% for request in collection.rootRequests %}
+                {{ tree.request_row(request, workspace) }}
+            {% endfor %}
+        </div>
     </div>
 {% endif %}
 {% endblock %}

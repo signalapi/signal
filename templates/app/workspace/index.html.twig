@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Workspaces'|trans }}{% endblock %}
 
@@ -11,7 +12,7 @@
     </div>
     {% if can_manage_ws %}
     <div class="actions">
-        <a class="btn" href="{{ path('app_workspace_new') }}">+ {{ 'New workspace'|trans }}</a>
+        <a class="btn" href="{{ path('app_workspace_new') }}">{{ ic.i('plus', 13, 2.2) }}{{ 'New workspace'|trans }}</a>
     </div>
     {% endif %}
 </div>
@@ -20,13 +21,13 @@
     {% for w in workspaces %}
         <div class="res-card">
             <div class="rc-top">
-                <div class="ic">🗂</div>
+                <div class="ic">{{ ic.i('folder', 16) }}</div>
                 <div class="rc-name">
                     <a href="{{ path('app_workspace_show', {id: w.id}) }}">{{ w.name }}</a>
-                    <div class="s"><code>{{ w.slug }}</code></div>
+                    <div class="s"><code class="mono">{{ w.slug }}</code></div>
                 </div>
             </div>
-            {% if w.description %}<p class="subtitle" style="margin:12px 0 0;font-size:13px;">{{ w.description }}</p>{% endif %}
+            {% if w.description %}<p class="subtitle" style="margin-top:11px;">{{ w.description }}</p>{% endif %}
             <div class="rc-foot">
                 <a class="btn grow" style="justify-content:center;" href="{{ path('app_workspace_show', {id: w.id}) }}">{{ 'Open'|trans }} →</a>
                 {% if can_manage_ws %}

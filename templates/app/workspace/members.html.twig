@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Members'|trans }} · {{ workspace.name }}{% endblock %}
 
@@ -12,31 +13,39 @@
 </div>
 
 {% for link in app.flashes('invite_link') %}
-    <div class="flash success" style="word-break:break-all;">
-        <strong>{{ 'Invite link — shown only now, pass it to the invitee:'|trans }}</strong><br>
-        <code id="inviteLink" style="font-size:13px;">{{ link }}</code>
-        <button class="btn small" type="button" style="margin-left:8px;" onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').textContent)">{{ 'Copy'|trans }}</button>
+    <div class="flash success" style="align-items:flex-start;flex-wrap:wrap;word-break:break-all;">
+        {{ ic.i('check', 14, 2.6) }}
+        <span class="grow">
+            <strong>{{ 'Invite link — shown only now, pass it to the invitee:'|trans }}</strong><br>
+            <code class="mono" id="inviteLink">{{ link }}</code>
+        </span>
+        <button class="btn ghost small" type="button" onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').textContent)">{{ 'Copy'|trans }}</button>
     </div>
 {% endfor %}
 
 <form class="card" method="post" action="{{ path('app_ws_member_invite', {workspace: workspace.id}) }}" style="margin-bottom:14px;">
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Invite to this workspace'|trans }}</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="flex:2;min-width:220px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Email'|trans }}</label>
-            <input type="email" name="email" required placeholder="kisi@sirket.com" style="width:100%;">
-        </div>
-        <div style="min-width:120px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Role'|trans }}</label>
-            <select name="role" style="width:100%;">
-                <option value="editor" selected>editor</option>
-                <option value="viewer">viewer</option>
-                <option value="admin">admin</option>
-            </select>
-        </div>
-        <button class="btn small" type="submit">{{ 'Create invite link'|trans }}</button>
+    <div class="card-head">
+        {{ ic.i('members', 14) }}
+        <span class="t">{{ 'Invite to this workspace'|trans }}</span>
     </div>
-    <p class="subtitle" style="margin:10px 0 0;font-size:12px;">{{ 'The invitee sees only this workspace. If already registered in the company, they are added instantly without an invitation.'|trans }}</p>
+    <div class="card-body">
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="field" style="flex:2;min-width:220px;margin-bottom:0;">
+                <label>{{ 'Email'|trans }}</label>
+                <input type="email" name="email" required placeholder="kisi@sirket.com">
+            </div>
+            <div class="field" style="min-width:130px;margin-bottom:0;">
+                <label>{{ 'Role'|trans }}</label>
+                <select name="role">
+                    <option value="editor" selected>editor</option>
+                    <option value="viewer">viewer</option>
+                    <option value="admin">admin</option>
+                </select>
+            </div>
+            <button class="btn small" type="submit">{{ ic.i('token', 12) }}{{ 'Create invite link'|trans }}</button>
+        </div>
+        <p class="fhint">{{ 'The invitee sees only this workspace. If already registered in the company, they are added instantly without an invitation.'|trans }}</p>
+    </div>
     <input type="hidden" name="_token" value="{{ csrf_token('ws-invite') }}">
 </form>
 
@@ -53,7 +62,7 @@
         <option value="admin">admin</option>
     </select>
     <input type="hidden" name="_token" value="{{ csrf_token('ws-member-add') }}">
-    <button class="btn small" type="submit">+ {{ 'Add member from company'|trans }}</button>
+    <button class="btn small" type="submit">{{ ic.i('plus', 12, 2.2) }}{{ 'Add member from company'|trans }}</button>
 </form>
 {% endif %}
 
@@ -62,54 +71,56 @@
     <tbody>
     {% for m in members %}
         <tr>
-            <td style="font-weight:600;">{{ m.user.name }}</td>
-            <td>{{ m.user.email }}</td>
+            <td style="font-weight:600;color:var(--ink);">{{ m.user.name }}</td>
+            <td class="mono" style="font-size:11.5px;color:var(--muted);">{{ m.user.email }}</td>
             <td>
-                <form class="inline" method="post" action="{{ path('app_ws_member_role', {workspace: workspace.id, id: m.id}) }}">
+                <form method="post" action="{{ path('app_ws_member_role', {workspace: workspace.id, id: m.id}) }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('ws-member-role' ~ m.id) }}">
-                    <select name="role" onchange="this.form.submit()">
+                    <select name="role" onchange="this.form.submit()" style="width:auto;">
                         <option value="admin" {{ m.role == 'admin' ? 'selected' }}>admin</option>
                         <option value="editor" {{ m.role == 'editor' ? 'selected' }}>editor</option>
                         <option value="viewer" {{ m.role == 'viewer' ? 'selected' }}>viewer</option>
                     </select>
                 </form>
             </td>
-            <td style="text-align:right;">
-                <form class="inline" method="post" action="{{ path('app_ws_member_remove', {workspace: workspace.id, id: m.id}) }}" onsubmit="return confirm('{{ '%name% will be removed from the workspace.'|trans({'%name%': m.user.name})|e('js') }}');">
+            <td>
+                <form method="post" style="display:flex;justify-content:flex-end;" action="{{ path('app_ws_member_remove', {workspace: workspace.id, id: m.id}) }}" onsubmit="return confirm('{{ '%name% will be removed from the workspace.'|trans({'%name%': m.user.name})|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('ws-member-remove' ~ m.id) }}">
-                    <button class="btn danger" type="submit">{{ 'Remove'|trans }}</button>
+                    <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}{{ 'Remove'|trans }}</button>
                 </form>
             </td>
         </tr>
     {% else %}
-        <tr><td colspan="4" class="subtitle" style="font-size:13px;">{{ 'No workspace-specific members yet.'|trans }}</td></tr>
+        <tr><td colspan="4" style="color:var(--muted);">{{ 'No workspace-specific members yet.'|trans }}</td></tr>
     {% endfor %}
     </tbody>
 </table>
 
 {% if invitations is not empty %}
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Pending invitations'|trans }}</div>
+    <div class="section-title">{{ 'Pending invitations'|trans }}</div>
     <table class="data" style="margin-bottom:22px;">
         <thead><tr><th>{{ 'Email'|trans }}</th><th>{{ 'Role'|trans }}</th><th>{{ 'Expires'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for inv in invitations %}
             {% set wsOnly = inv.workspaceGrants|length == 1 %}
             <tr>
-                <td>{{ inv.email }}</td>
+                <td class="mono" style="font-size:11.5px;">{{ inv.email }}</td>
                 <td><span class="pill">{{ (inv.workspaceGrants|first).role ?? inv.merchantRole }}</span></td>
-                <td>{{ inv.expiresAt|date('d.m.Y H:i') }}</td>
-                <td style="text-align:right;white-space:nowrap;">
+                <td class="mono" style="font-size:11.5px;color:var(--muted);">{{ inv.expiresAt|date('d.m.Y H:i') }}</td>
+                <td>
                     {% if wsOnly %}
-                        <form class="inline" method="post" action="{{ path('app_ws_invitation_rotate', {workspace: workspace.id, id: inv.id}) }}">
-                            <input type="hidden" name="_token" value="{{ csrf_token('ws-invite-rotate' ~ inv.id) }}">
-                            <button class="btn small" type="submit">{{ 'Generate new link'|trans }}</button>
-                        </form>
-                        <form class="inline" method="post" action="{{ path('app_ws_invitation_cancel', {workspace: workspace.id, id: inv.id}) }}" onsubmit="return confirm('{{ 'The invitation will be cancelled.'|trans|e('js') }}');">
-                            <input type="hidden" name="_token" value="{{ csrf_token('ws-invite-cancel' ~ inv.id) }}">
-                            <button class="btn danger" type="submit">{{ 'Revoke'|trans }}</button>
-                        </form>
+                        <div style="display:flex;gap:7px;justify-content:flex-end;">
+                            <form method="post" action="{{ path('app_ws_invitation_rotate', {workspace: workspace.id, id: inv.id}) }}">
+                                <input type="hidden" name="_token" value="{{ csrf_token('ws-invite-rotate' ~ inv.id) }}">
+                                <button class="btn ghost small" type="submit">{{ ic.i('rerun', 12) }}{{ 'Generate new link'|trans }}</button>
+                            </form>
+                            <form method="post" action="{{ path('app_ws_invitation_cancel', {workspace: workspace.id, id: inv.id}) }}" onsubmit="return confirm('{{ 'The invitation will be cancelled.'|trans|e('js') }}');">
+                                <input type="hidden" name="_token" value="{{ csrf_token('ws-invite-cancel' ~ inv.id) }}">
+                                <button class="btn danger small" type="submit">{{ ic.i('x', 12, 2.4) }}{{ 'Revoke'|trans }}</button>
+                            </form>
+                        </div>
                     {% else %}
-                        <span class="subtitle" style="font-size:12px;">{{ 'part of a company invitation'|trans }}</span>
+                        <span class="subtitle" style="font-size:11.5px;">{{ 'part of a company invitation'|trans }}</span>
                     {% endif %}
                 </td>
             </tr>
@@ -119,10 +130,17 @@
 {% endif %}
 
 <div class="card">
-    <div class="subtitle" style="margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Company management (automatic access)'|trans }}</div>
-    <p class="subtitle" style="margin:0 0 10px;font-size:13px;">{{ 'The owner and company admins automatically access every workspace; they are not managed here.'|trans }}</p>
-    {% for mm in implicit_admins %}
-        <span class="pill on" style="margin-right:6px;">{{ mm.user.name }} · {{ mm.role == 'owner' ? 'Owner' : ('Company Admin'|trans) }}</span>
-    {% endfor %}
+    <div class="card-head">
+        {{ ic.i('shield', 14) }}
+        <span class="t">{{ 'Company management (automatic access)'|trans }}</span>
+    </div>
+    <div class="card-body">
+        <p class="subtitle" style="margin-bottom:10px;">{{ 'The owner and company admins automatically access every workspace; they are not managed here.'|trans }}</p>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;">
+            {% for mm in implicit_admins %}
+                <span class="pill">{{ mm.user.name }} · {{ mm.role == 'owner' ? 'Owner' : ('Company Admin'|trans) }}</span>
+            {% endfor %}
+        </div>
+    </div>
 </div>
 {% endblock %}

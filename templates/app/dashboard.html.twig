@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Welcome'|trans }} · {{ merchant.name }}{% endblock %}
 
@@ -16,9 +17,9 @@
     {% endif %}
 </div>
 
-<div class="quick-grid">
-    <div class="quick"><div class="ic">📁</div><div><div class="t">Postman import</div><div class="s">Collection & environment</div></div></div>
-    <div class="quick"><div class="ic">🔗</div><div><div class="t">{{ 'Chained tests'|trans }}</div><div class="s">{{ 'Chain steps together'|trans }}</div></div></div>
-    <div class="quick"><div class="ic">🗄️</div><div><div class="t">{{ 'DB validation'|trans }}</div><div class="s">Postgres · MySQL · Redis · Mongo</div></div></div>
+<div class="quick-grid stagger">
+    <div class="quick"><div class="ic">{{ ic.i('import', 15) }}</div><div><div class="t">Postman import</div><div class="s">Collection & environment</div></div></div>
+    <div class="quick"><div class="ic">{{ ic.i('git', 15) }}</div><div><div class="t">{{ 'Chained tests'|trans }}</div><div class="s">{{ 'Chain steps together'|trans }}</div></div></div>
+    <div class="quick"><div class="ic">{{ ic.i('db', 15) }}</div><div><div class="t">{{ 'DB validation'|trans }}</div><div class="s">Postgres · MySQL · Redis · Mongo</div></div></div>
 </div>
 {% endblock %}

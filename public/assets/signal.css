@@ -756,3 +756,31 @@ table.data tbody tr:hover { background:var(--panel2); }
 .userbox-foot .lang { display:flex; gap:6px; font-family:var(--mono); font-size:10.5px; font-weight:700; }
 .userbox-foot .lang a.on { color:var(--pri); }
 .sidebar.collapsed .userbox-foot { display:none; }
+
+/* run line: the step-dot motif used in run lists (app/_runline.html.twig).
+   Lived in base.html.twig's old inline <style>; moved here with the migration. */
+.runline { display:inline-flex; align-items:center; }
+.runline .node { width:10px; height:10px; border-radius:50%; flex-shrink:0;
+  background:var(--line); border:2px solid var(--panel); box-shadow:0 0 0 1px var(--line); }
+.runline .node.passed { background:var(--pass); box-shadow:0 0 0 1px var(--pass); }
+.runline .node.failed, .runline .node.error { background:var(--fail); box-shadow:0 0 0 1px var(--fail); }
+.runline .node.cancelled, .runline .node.skipped { background:var(--warn); box-shadow:0 0 0 1px var(--warn); }
+.runline .node.running { background:var(--pri); box-shadow:0 0 0 1px var(--pri); animation:sg-pulse 1s infinite; }
+.runline .link { width:16px; height:2px; background:var(--line); }
+.runline .link.passed { background:var(--pass); }
+
+/* accent pill — the old .pill.on, needed for "update available" style flags */
+.pill.on, .pill.accent { background:var(--pri-soft); color:var(--pri); }
+.pill.off { background:var(--panel2); color:var(--faint); }
+
+/* metric grid that adapts to any count (the overview has five counters) */
+.metric-grid.auto { grid-template-columns:repeat(auto-fit, minmax(158px, 1fr)); }
+.metric.link:hover { border-color:var(--pri); text-decoration:none; }
+
+/* the icon macro emits its own <span class="ic">; don't let container rules
+   (.res-card .ic, .quick .ic) turn that inner span into a 34px tile */
+.res-card .ic .ic, .quick .ic .ic, .metric .ic .ic {
+  width:auto; height:auto; background:none; border-radius:0; }
+
+/* hi-row is a link; let children decide their colour */
+.hi-row { color:inherit; }
