@@ -24,6 +24,9 @@
                     <a href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">{{ c.name }}</a>
                     <div class="s">
                         {{ '%count% requests'|trans({'%count%': c.requests|length}) }} · {{ c.createdAt|date('d.m.Y') }}
+                        {% if c.sourceCollection %}
+                            · {{ 'forked from'|trans }} {{ c.sourceCollection.name }}
+                        {% endif %}
                         {% if c.sourceVersion %}
                             · {{ 'catalog'|trans }} {{ c.sourceVersion.label }}
                             {% if c.sourceVersion.catalogApi.latestVersion and c.sourceVersion.catalogApi.latestVersion.id != c.sourceVersion.id %}
@@ -35,6 +38,17 @@
             </div>
             <div class="rc-foot">
                 <a class="btn grow" style="justify-content:center;" href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">{{ 'Open workbench'|trans }} →</a>
+                {% if fork_targets is not empty %}
+                    <form method="post" action="{{ path('app_collection_fork', {workspace: workspace.id, collection: c.id}) }}" style="display:flex;gap:6px;">
+                        <select name="target_workspace" title="{{ 'Fork into…'|trans }}">
+                            {% for w in fork_targets %}
+                                <option value="{{ w.id }}">{{ w.name }}</option>
+                            {% endfor %}
+                        </select>
+                        <input type="hidden" name="_token" value="{{ csrf_token('fork' ~ c.id) }}">
+                        <button class="btn ghost" type="submit">{{ 'Fork'|trans }}</button>
+                    </form>
+                {% endif %}
                 <form method="post" action="{{ path('app_collection_delete', {workspace: workspace.id, collection: c.id}) }}" onsubmit="return confirm('{{ 'The collection and all its requests will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ c.id) }}">
                     <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>

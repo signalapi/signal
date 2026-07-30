@@ -7,6 +7,7 @@ use App\Entity\ApiRequest;
 use App\Entity\CatalogApiVersion;
 use App\Entity\Folder;
 use App\Entity\Workspace;
+use App\Service\CollectionUpdatePlan;
 use App\Service\CollectionUpdatePlanner;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -34,8 +35,17 @@ class CollectionUpdateController extends AbstractAppController
         TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
-        $target = $this->resolveTarget($workspace, $collection);
-        if (null === $target) {
+        $this->assertCollection($workspace, $collection);
+
+        $plan = $this->planFor($collection, $planner);
+        if (null === $plan) {
+            $this->addFlash('success', $translator->trans('This collection has no source to pull from.'));
+
+            return $this->redirectToRoute('app_collection_show', ['workspace' => $workspace->getId(), 'collection' => $collection->getId()]);
+        }
+
+        $catalogTarget = $this->newerCatalogVersion($collection);
+        if (null === $catalogTarget && null === $collection->getSourceCollection()) {
             $this->addFlash('success', $translator->trans('Collection is already at the latest catalog version.'));
 
             return $this->redirectToRoute('app_collection_show', ['workspace' => $workspace->getId(), 'collection' => $collection->getId()]);
@@ -45,8 +55,9 @@ class CollectionUpdateController extends AbstractAppController
             'workspace' => $workspace,
             'collection' => $collection,
             'current' => $collection->getSourceVersion(),
-            'target' => $target,
-            'plan' => $planner->plan($collection, $target),
+            'target' => $catalogTarget,
+            'sourceCollection' => $collection->getSourceCollection(),
+            'plan' => $plan,
         ]);
     }
 
@@ -64,13 +75,14 @@ class CollectionUpdateController extends AbstractAppController
             throw $this->createAccessDeniedException();
         }
 
-        $target = $this->resolveTarget($workspace, $collection);
-        if (null === $target) {
-            return $this->redirectToRoute('app_collection_show', ['workspace' => $workspace->getId(), 'collection' => $collection->getId()]);
-        }
+        $this->assertCollection($workspace, $collection);
 
         // The plan is recomputed server-side; the form only carries decisions.
-        $plan = $planner->plan($collection, $target);
+        $plan = $this->planFor($collection, $planner);
+        if (null === $plan) {
+            return $this->redirectToRoute('app_collection_show', ['workspace' => $workspace->getId(), 'collection' => $collection->getId()]);
+        }
+        $target = $this->newerCatalogVersion($collection);
         $addKeys = array_map('strval', (array) $request->request->all('add'));
         $changeDecisions = array_map('strval', (array) $request->request->all('change'));
         $deprecateKeys = array_map('strval', (array) $request->request->all('deprecate'));
@@ -116,32 +128,43 @@ class CollectionUpdateController extends AbstractAppController
             }
         }
 
-        $collection->setSourceVersion($target);
+        if (null !== $target) {
+            $collection->setSourceVersion($target);
+        }
         $em->flush();
 
-        $this->addFlash('success', $translator->trans(
-            'Updated to version "%version%": %added% added, %applied% applied, %kept% kept local, %deprecated% deprecated.',
-            [
-                '%version%' => $target->getLabel(),
-                '%added%' => $stats['added'],
-                '%applied%' => $stats['applied'],
-                '%kept%' => $stats['kept'],
-                '%deprecated%' => $stats['deprecated'],
-            ],
-        ));
+        $counts = [
+            '%added%' => $stats['added'],
+            '%applied%' => $stats['applied'],
+            '%kept%' => $stats['kept'],
+            '%deprecated%' => $stats['deprecated'],
+        ];
+        $this->addFlash('success', null !== $target
+            ? $translator->trans(
+                'Updated to version "%version%": %added% added, %applied% applied, %kept% kept local, %deprecated% deprecated.',
+                $counts + ['%version%' => $target->getLabel()],
+            )
+            : $translator->trans(
+                'Pulled from the source collection: %added% added, %applied% applied, %kept% kept local, %deprecated% deprecated.',
+                $counts,
+            ));
 
         return $this->redirectToRoute('app_collection_show', ['workspace' => $workspace->getId(), 'collection' => $collection->getId()]);
     }
 
-    /** The newer catalog version to move to, or null when already current. */
-    private function resolveTarget(Workspace $workspace, ApiCollection $collection): ?CatalogApiVersion
+    private function assertCollection(Workspace $workspace, ApiCollection $collection): void
     {
         if ($collection->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
         }
+    }
+
+    /** The newer catalog version to move to, or null when current / not from a catalog. */
+    private function newerCatalogVersion(ApiCollection $collection): ?CatalogApiVersion
+    {
         $current = $collection->getSourceVersion();
         if (null === $current) {
-            throw $this->createNotFoundException($this->translator->trans('This collection was not imported from a catalog.'));
+            return null;
         }
 
         $latest = $current->getCatalogApi()->getLatestVersion();
@@ -150,6 +173,25 @@ class CollectionUpdateController extends AbstractAppController
         }
 
         return $latest;
+    }
+
+    /**
+     * The diff against whichever source this collection has — a newer catalog
+     * version, or the collection it was forked from. Null when it has neither.
+     */
+    private function planFor(ApiCollection $collection, CollectionUpdatePlanner $planner): ?CollectionUpdatePlan
+    {
+        $catalogTarget = $this->newerCatalogVersion($collection);
+        if (null !== $catalogTarget) {
+            return $planner->planFromCatalog($collection, $catalogTarget);
+        }
+
+        $source = $collection->getSourceCollection();
+        if (null !== $source) {
+            return $planner->planFromCollection($collection, $source);
+        }
+
+        return null;
     }
 
     private function folderFor(ApiCollection $collection, string $name, EntityManagerInterface $em): Folder

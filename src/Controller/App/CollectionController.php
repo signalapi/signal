@@ -22,13 +22,18 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 class CollectionController extends AbstractAppController
 {
     #[Route('', name: 'app_collection_index', methods: ['GET'])]
-    public function index(Workspace $workspace, ApiCollectionRepository $collections): Response
+    public function index(Workspace $workspace, ApiCollectionRepository $collections, \App\Service\WorkspaceContext $context): Response
     {
         $this->assertWorkspace($workspace);
 
         return $this->render('app/collection/index.html.twig', [
             'workspace' => $workspace,
             'collections' => $collections->findByWorkspace($workspace),
+            // Where a fork may land: any workspace the user can edit.
+            'fork_targets' => array_values(array_filter(
+                $context->list(),
+                fn ($ws) => $this->isGranted('WORKSPACE_EDIT', $ws)
+            )),
         ]);
     }
 
@@ -169,6 +174,44 @@ class CollectionController extends AbstractAppController
             'environments' => $envs,
             'vc_catalog' => $catalog,
         ]);
+    }
+
+    /**
+     * Copies this collection into a workspace of the user's choice. The copy
+     * keeps a link home, so it can later pull the source's changes through the
+     * same review screen catalog updates use.
+     */
+    #[Route('/{collection}/fork', name: 'app_collection_fork', methods: ['POST'])]
+    public function fork(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['collection' => 'id'])] ApiCollection $collection,
+        Request $request,
+        \App\Repository\WorkspaceRepository $workspaces,
+        \App\Service\CollectionForker $forker,
+        TranslatorInterface $translator,
+    ): Response {
+        $this->assertWorkspace($workspace);
+        $this->assertCollection($workspace, $collection);
+
+        if (!$this->isCsrfTokenValid('fork' . $collection->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $targetId = (string) $request->request->get('target_workspace');
+        $target = \Symfony\Component\Uid\Uuid::isValid($targetId) ? $workspaces->find(\Symfony\Component\Uid\Uuid::fromString($targetId)) : null;
+        if (null === $target) {
+            throw $this->createNotFoundException();
+        }
+        // You may read the source, but the copy lands in a workspace you can edit.
+        $this->assertWorkspace($target, 'edit');
+
+        $fork = $forker->fork($collection, $target, trim((string) $request->request->get('name')) ?: null);
+        $this->addFlash('success', $translator->trans('"%name%" was forked into "%workspace%".', [
+            '%name%' => $collection->getName(),
+            '%workspace%' => $target->getName(),
+        ]));
+
+        return $this->redirectToRoute('app_collection_show', ['workspace' => $target->getId(), 'collection' => $fork->getId()]);
     }
 
     #[Route('/{collection}/delete', name: 'app_collection_delete', methods: ['POST'])]

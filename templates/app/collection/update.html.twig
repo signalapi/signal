@@ -12,8 +12,12 @@
     <div>
         <h1>{{ 'Catalog update'|trans }}</h1>
         <p class="subtitle">
-            {{ current.catalogApi.name }} · <span class="pill">{{ current.label }}</span> → <span class="pill on">{{ target.label }}</span>
-            {% if target.changelog %} · {{ target.changelog }}{% endif %}
+            {%- if target -%}
+                {{ current.catalogApi.name }} · <span class="pill">{{ current.label }}</span> → <span class="pill on">{{ target.label }}</span>
+                {% if target.changelog %} · {{ target.changelog }}{% endif %}
+            {%- else -%}
+                {{ 'Source'|trans }}: <span class="pill">{{ sourceCollection.name }}</span> · {{ sourceCollection.workspace.name }}
+            {%- endif -%}
             {% if plan.unchanged > 0 %} · {{ '%count% endpoints unchanged'|trans({'%count%': plan.unchanged}) }}{% endif %}
         </p>
     </div>
@@ -82,7 +86,7 @@
     {% endif %}
 
     <div class="form-actions">
-        <button class="btn" type="submit">{{ 'Apply update'|trans }} → {{ target.label }}</button>
+        <button class="btn" type="submit">{{ target ? 'Apply update'|trans ~ ' → ' ~ target.label : 'Pull from source'|trans }}</button>
         <a class="btn ghost" href="{{ path('app_collection_show', {workspace: workspace.id, collection: collection.id}) }}">{{ 'Cancel'|trans }}</a>
     </div>
 </form>

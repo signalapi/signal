@@ -10,11 +10,14 @@
         <p class="subtitle" style="margin:0;">
             {{ '%count% requests'|trans({'%count%': collection.requests|length}) }} · {{ workspace.name }}
             {% if collection.sourceVersion %} · {{ 'catalog'|trans }}: {{ collection.sourceVersion.catalogApi.name }} <span class="pill">{{ collection.sourceVersion.label }}</span>{% endif %}
+            {% if collection.sourceCollection %} · {{ 'forked from'|trans }} <span class="pill">{{ collection.sourceCollection.name }}</span>{% endif %}
         </p>
     </div>
     <div>
         {% if collection.sourceVersion and collection.sourceVersion.catalogApi.latestVersion and collection.sourceVersion.catalogApi.latestVersion.id != collection.sourceVersion.id %}
             <a class="btn" href="{{ path('app_collection_update', {workspace: workspace.id, collection: collection.id}) }}">⬆ {{ 'Update available: %version%'|trans({'%version%': collection.sourceVersion.catalogApi.latestVersion.label}) }}</a>
+        {% elseif collection.sourceCollection %}
+            <a class="btn ghost" href="{{ path('app_collection_update', {workspace: workspace.id, collection: collection.id}) }}">⬇ {{ 'Pull from source'|trans }}</a>
         {% endif %}
         <a class="btn ghost" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← {{ 'Collections'|trans }}</a>
     </div>

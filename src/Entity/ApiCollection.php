@@ -39,6 +39,14 @@ class ApiCollection
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?CatalogApiVersion $sourceVersion = null;
 
+    /**
+     * The collection this one was forked from, for in-app forks. Set to null if
+     * the source is deleted: the fork lives on, it just stops offering pulls.
+     */
+    #[ORM\ManyToOne(targetEntity: self::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?self $sourceCollection = null;
+
     /** @var Collection<int, Folder> */
     #[ORM\OneToMany(mappedBy: 'collection', targetEntity: Folder::class, cascade: ['remove'])]
     private Collection $folders;
@@ -119,6 +127,18 @@ class ApiCollection
     public function setSourceVersion(?CatalogApiVersion $sourceVersion): static
     {
         $this->sourceVersion = $sourceVersion;
+
+        return $this;
+    }
+
+    public function getSourceCollection(): ?self
+    {
+        return $this->sourceCollection;
+    }
+
+    public function setSourceCollection(?self $sourceCollection): static
+    {
+        $this->sourceCollection = $sourceCollection;
 
         return $this;
     }
