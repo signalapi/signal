@@ -1,24 +1,24 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Postman İçe Aktar{% endblock %}
+{% block title %}İçe Aktar{% endblock %}
 
 {% block panel %}
 <a class="backlink" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← Collection'lar</a>
 <div class="pagehead">
     <div>
-        <h1>Postman içe aktar</h1>
-        <p class="subtitle">Collection (v2.1) ve/veya Environment JSON dosyalarını yükleyin</p>
+        <h1>İçe aktar</h1>
+        <p class="subtitle">Postman Collection (v2.1) veya OpenAPI 3.x / Swagger 2.0 spec'i yükleyin — format otomatik algılanır</p>
     </div>
 </div>
 
 <div class="formcard" style="max-width:560px;">
     <form method="post" enctype="multipart/form-data">
         <div class="field">
-            <label>Collection dosyası (.json)</label>
-            <input type="file" name="collection" accept="application/json,.json">
+            <label>Collection / spec dosyası (.json, .yaml)</label>
+            <input type="file" name="collection" accept="application/json,.json,.yaml,.yml">
         </div>
         <div class="field">
-            <label>Environment dosyası (.json) — opsiyonel</label>
+            <label>Postman Environment dosyası (.json) — opsiyonel</label>
             <input type="file" name="environment" accept="application/json,.json">
         </div>
         <input type="hidden" name="_token" value="{{ csrf_token('import') }}">
@@ -31,6 +31,7 @@
 
 <div class="fgroup" style="max-width:560px;margin-top:16px;">
     <p class="fhint" style="margin:0 0 8px;">📦 Postman'de: bir collection'a sağ tıkla → <em>Export</em> → <code>Collection v2.1</code>. Environment için: Environments → ⋯ → <em>Export</em>.</p>
-    <p class="fhint" style="margin:0;">💡 Collection dosyanızın içinde collection variables varsa ayrı environment yüklemenize gerek yok — onlardan otomatik bir environment oluşturulur.</p>
+    <p class="fhint" style="margin:0 0 8px;">📜 OpenAPI spec'lerinde: tag'ler klasör olur, <code>servers</code> + güvenlik şemalarından <code>{{ '{{baseUrl}}' }}</code> ve secret değişkenli bir environment otomatik oluşturulur — secret değerleri sonradan doldurun.</p>
+    <p class="fhint" style="margin:0;">💡 Postman collection'ının içinde collection variables varsa ayrı environment yüklemenize gerek yok — onlardan otomatik bir environment oluşturulur.</p>
 </div>
 {% endblock %}

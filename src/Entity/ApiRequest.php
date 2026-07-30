@@ -74,6 +74,22 @@ class ApiRequest
     private int $position = 0;
 
     /**
+     * Upstream identity of an imported request (OpenAPI operationId or
+     * "method path"). The anchor for three-way diffs when the source spec
+     * publishes a new version; null for hand-made requests.
+     */
+    #[ORM\Column(length: 500, nullable: true)]
+    private ?string $originKey = null;
+
+    /**
+     * SHA-256 of the request state as it was imported. Comparing it against
+     * the current state answers "did we change it locally?" and against a new
+     * spec's hash "did upstream change it?".
+     */
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $originHash = null;
+
+    /**
      * Saved example responses (Postman-style), ordered by position.
      *
      * @var Collection<int, ResponseExample>
@@ -236,6 +252,30 @@ class ApiRequest
     public function setPosition(int $position): static
     {
         $this->position = $position;
+
+        return $this;
+    }
+
+    public function getOriginKey(): ?string
+    {
+        return $this->originKey;
+    }
+
+    public function setOriginKey(?string $originKey): static
+    {
+        $this->originKey = $originKey;
+
+        return $this;
+    }
+
+    public function getOriginHash(): ?string
+    {
+        return $this->originHash;
+    }
+
+    public function setOriginHash(?string $originHash): static
+    {
+        $this->originHash = $originHash;
 
         return $this;
     }

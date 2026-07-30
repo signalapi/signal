@@ -33,6 +33,7 @@ class PostmanImporter
         $collection->setWorkspace($workspace);
         $collection->setName((string) ($data['info']['name'] ?? 'İçe aktarılan collection'));
         $collection->setDescription($this->stringOrNull($data['info']['description'] ?? null));
+        $collection->setSourceType('postman');
         $this->em->persist($collection);
 
         $position = 0;
@@ -178,6 +179,11 @@ class PostmanImporter
 
         // Body
         $this->applyBody($request, $req['body'] ?? null);
+
+        // Provenance: lets a re-import of a newer collection diff against this state.
+        $path = (string) (parse_url($request->getUrl(), \PHP_URL_PATH) ?: $request->getUrl());
+        $request->setOriginKey(RequestProvenance::key($request->getMethod(), $path));
+        $request->setOriginHash(RequestProvenance::hash($request));
 
         // Saved example responses (Postman stores these in item.response[]).
         $this->importExamples($item['response'] ?? null, $request);

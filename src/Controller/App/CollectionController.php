@@ -17,7 +17,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[Route('/app/workspaces/{workspace}/collections')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class CollectionController extends AbstractAppController
 {
     #[Route('', name: 'app_collection_index', methods: ['GET'])]
@@ -34,7 +34,7 @@ class CollectionController extends AbstractAppController
     #[Route('/new', name: 'app_collection_new', methods: ['GET', 'POST'])]
     public function new(Workspace $workspace, Request $request, ApiCollectionRepository $collections): Response
     {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
 
         $form = $this->createFormBuilder()
             ->add('name', TextType::class, ['label' => 'Collection adı', 'constraints' => [new Assert\NotBlank()]])
@@ -62,9 +62,13 @@ class CollectionController extends AbstractAppController
     }
 
     #[Route('/import', name: 'app_collection_import', methods: ['GET', 'POST'])]
-    public function import(Workspace $workspace, Request $request, PostmanImporter $importer): Response
-    {
-        $this->assertWorkspace($workspace);
+    public function import(
+        Workspace $workspace,
+        Request $request,
+        PostmanImporter $importer,
+        \App\Service\OpenApiImporter $openApiImporter,
+    ): Response {
+        $this->assertWorkspace($workspace, 'edit');
 
         if ($request->isMethod('POST')) {
             if (!$this->isCsrfTokenValid('import', (string) $request->request->get('_token'))) {
@@ -79,13 +83,24 @@ class CollectionController extends AbstractAppController
             try {
                 if ($collectionFile) {
                     $data = $this->decode($collectionFile);
-                    $collection = $importer->importCollection($data, $workspace);
-                    $this->addFlash('success', sprintf('Collection "%s" içe aktarıldı.', $collection->getName()));
 
-                    // Collection dosyasının içindeki değişkenler varsa otomatik environment yap.
-                    $varsEnv = $importer->importCollectionVariables($data, $workspace, $collection->getName() . ' (collection değişkenleri)');
-                    if (null !== $varsEnv) {
-                        $this->addFlash('success', sprintf('Collection değişkenlerinden "%s" environment\'ı oluşturuldu.', $varsEnv->getName()));
+                    if (\App\Service\OpenApiImporter::supports($data)) {
+                        $collection = $openApiImporter->importCollection($data, $workspace);
+                        $this->addFlash('success', sprintf('OpenAPI spec\'inden "%s" collection\'ı oluşturuldu.', $collection->getName()));
+
+                        $specEnv = $openApiImporter->importEnvironment($data, $workspace);
+                        if (null !== $specEnv) {
+                            $this->addFlash('success', sprintf('"%s" environment\'ı oluşturuldu — secret değerleri doldurmayı unutmayın.', $specEnv->getName()));
+                        }
+                    } else {
+                        $collection = $importer->importCollection($data, $workspace);
+                        $this->addFlash('success', sprintf('Collection "%s" içe aktarıldı.', $collection->getName()));
+
+                        // Collection dosyasının içindeki değişkenler varsa otomatik environment yap.
+                        $varsEnv = $importer->importCollectionVariables($data, $workspace, $collection->getName() . ' (collection değişkenleri)');
+                        if (null !== $varsEnv) {
+                            $this->addFlash('success', sprintf('Collection değişkenlerinden "%s" environment\'ı oluşturuldu.', $varsEnv->getName()));
+                        }
                     }
                 }
 
@@ -160,7 +175,7 @@ class CollectionController extends AbstractAppController
         Request $request,
         ApiCollectionRepository $collections,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertCollection($workspace, $collection);
 
         if (!$this->isCsrfTokenValid('delete' . $collection->getId(), (string) $request->request->get('_token'))) {
@@ -181,15 +196,25 @@ class CollectionController extends AbstractAppController
     }
 
     /**
+     * Decodes an uploaded JSON — or, for OpenAPI specs, YAML — document.
+     *
      * @return array<string, mixed>
      */
     private function decode(UploadedFile $file): array
     {
         $content = (string) file_get_contents($file->getPathname());
         $data = json_decode($content, true);
+        if (\JSON_ERROR_NONE === json_last_error() && \is_array($data)) {
+            return $data;
+        }
 
-        if (\JSON_ERROR_NONE !== json_last_error() || !\is_array($data)) {
-            throw new \InvalidArgumentException(sprintf('"%s" geçerli bir JSON değil.', $file->getClientOriginalName()));
+        try {
+            $data = \Symfony\Component\Yaml\Yaml::parse($content);
+        } catch (\Symfony\Component\Yaml\Exception\ParseException) {
+            $data = null;
+        }
+        if (!\is_array($data)) {
+            throw new \InvalidArgumentException(sprintf('"%s" geçerli bir JSON ya da YAML değil.', $file->getClientOriginalName()));
         }
 
         return $data;
