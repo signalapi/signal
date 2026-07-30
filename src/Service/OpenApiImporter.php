@@ -36,10 +36,7 @@ class OpenApiImporter
      */
     public function importCollection(array $data, Workspace $workspace): ApiCollection
     {
-        $paths = $data['paths'] ?? null;
-        if (!\is_array($paths) || [] === $paths) {
-            throw new \InvalidArgumentException('Geçerli bir OpenAPI dokümanı değil ("paths" alanı yok ya da boş).');
-        }
+        $items = $this->buildRequests($data);
 
         $collection = new ApiCollection();
         $collection->setWorkspace($workspace);
@@ -48,15 +45,60 @@ class OpenApiImporter
         $collection->setSourceType('openapi');
         $this->em->persist($collection);
 
-        $securitySchemes = (array) ($data['components']['securitySchemes'] ?? $data['securityDefinitions'] ?? []);
-        $globalSecurity = (array) ($data['security'] ?? []);
-
         /** @var array<string, Folder> $folders */
         $folders = [];
         $folderPos = 0;
         $rootPos = 0;
         $positions = [];
 
+        foreach ($items as $item) {
+            $tag = $item['tag'];
+            $folder = null;
+            if ('' !== $tag) {
+                if (!isset($folders[$tag])) {
+                    $folder = new Folder();
+                    $folder->setCollection($collection);
+                    $folder->setName($tag);
+                    $folder->setPosition($folderPos++);
+                    $this->em->persist($folder);
+                    $folders[$tag] = $folder;
+                    $positions[$tag] = 0;
+                }
+                $folder = $folders[$tag];
+            }
+
+            $request = $item['request'];
+            $request->setCollection($collection);
+            $request->setFolder($folder);
+            $request->setPosition('' === $tag ? $rootPos++ : $positions[$tag]++);
+            $this->em->persist($request);
+        }
+
+        $this->em->flush();
+
+        return $collection;
+    }
+
+    /**
+     * Builds unmanaged ApiRequest objects (with provenance filled) from a spec,
+     * each paired with its tag. Shared by the real import and the update
+     * planner, which diffs these against a collection without persisting.
+     *
+     * @param array<string, mixed> $data Decoded OpenAPI document
+     *
+     * @return list<array{tag: string, request: ApiRequest}>
+     */
+    public function buildRequests(array $data): array
+    {
+        $paths = $data['paths'] ?? null;
+        if (!\is_array($paths) || [] === $paths) {
+            throw new \InvalidArgumentException('Geçerli bir OpenAPI dokümanı değil ("paths" alanı yok ya da boş).');
+        }
+
+        $securitySchemes = (array) ($data['components']['securitySchemes'] ?? $data['securityDefinitions'] ?? []);
+        $globalSecurity = (array) ($data['security'] ?? []);
+
+        $items = [];
         foreach ($paths as $path => $operations) {
             if (!\is_array($operations)) {
                 continue;
@@ -69,22 +111,6 @@ class OpenApiImporter
                     continue;
                 }
 
-                $tag = (string) ($op['tags'][0] ?? '');
-                $folder = null;
-                if ('' !== $tag) {
-                    if (!isset($folders[$tag])) {
-                        $folder = new Folder();
-                        $folder->setCollection($collection);
-                        $folder->setName($tag);
-                        $folder->setPosition($folderPos++);
-                        $this->em->persist($folder);
-                        $folders[$tag] = $folder;
-                        $positions[$tag] = 0;
-                    }
-                    $folder = $folders[$tag];
-                }
-
-                $position = '' === $tag ? $rootPos++ : $positions[$tag]++;
                 $request = $this->buildRequest(
                     (string) $path,
                     $method,
@@ -94,17 +120,12 @@ class OpenApiImporter
                     $globalSecurity,
                     $data,
                 );
-                $request->setCollection($collection);
-                $request->setFolder($folder);
-                $request->setPosition($position);
                 $request->setOriginHash(RequestProvenance::hash($request));
-                $this->em->persist($request);
+                $items[] = ['tag' => (string) ($op['tags'][0] ?? ''), 'request' => $request];
             }
         }
 
-        $this->em->flush();
-
-        return $collection;
+        return $items;
     }
 
     /**

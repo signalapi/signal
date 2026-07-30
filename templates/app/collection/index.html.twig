@@ -10,7 +10,7 @@
         <p class="subtitle">{{ workspace.name }} · {{ collections|length }} collection</p>
     </div>
     <div class="actions">
-        <a class="btn" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">⬆ Postman içe aktar</a>
+        <a class="btn" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">⬆ İçe aktar (Postman / OpenAPI)</a>
         <a class="btn ghost" href="{{ path('app_collection_new', {workspace: workspace.id}) }}">+ Boş collection</a>
     </div>
 </div>
@@ -22,7 +22,15 @@
                 <div class="ic">🧪</div>
                 <div class="rc-name">
                     <a href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">{{ c.name }}</a>
-                    <div class="s">{{ c.requests|length }} istek · {{ c.createdAt|date('d.m.Y') }}</div>
+                    <div class="s">
+                        {{ c.requests|length }} istek · {{ c.createdAt|date('d.m.Y') }}
+                        {% if c.sourceVersion %}
+                            · katalog {{ c.sourceVersion.label }}
+                            {% if c.sourceVersion.catalogApi.latestVersion and c.sourceVersion.catalogApi.latestVersion.id != c.sourceVersion.id %}
+                                <a href="{{ path('app_collection_update', {workspace: workspace.id, collection: c.id}) }}"><span class="pill on">⬆ güncelleme var</span></a>
+                            {% endif %}
+                        {% endif %}
+                    </div>
                 </div>
             </div>
             <div class="rc-foot">

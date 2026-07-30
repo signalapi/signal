@@ -1,0 +1,35 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}{{ api.name }} · Signal'e Ekle{% endblock %}
+
+{% block panel %}
+<div class="pagehead">
+    <div>
+        <h1>{{ api.logo ?? '🔌' }} {{ api.name }}</h1>
+        <p class="subtitle">{{ api.publisher ?? '' }}{{ api.category ? (api.publisher ? ' · ' : '') ~ api.category }} · dokümandan Signal'e ekleme</p>
+    </div>
+</div>
+
+<div class="card" style="max-width:560px;">
+    {% if api.description %}<p class="subtitle" style="margin:0 0 10px;">{{ api.description }}</p>{% endif %}
+    <p class="subtitle" style="margin:0 0 14px;font-size:13px;">
+        Versiyon <strong>{{ version.label }}</strong> · {{ version.spec.paths|length }} endpoint · {{ version.createdAt|date('d.m.Y') }}<br>
+        Endpoint'ler, <code>{{ '{{baseUrl}}' }}</code>'lı environment ve secret şablonları workspace'inize kopyalanır.
+    </p>
+
+    {% if workspaces is empty %}
+        <div class="flash error">İçe aktarabileceğiniz (editor+ yetkili) bir workspace yok. Bir yöneticinin sizi bir workspace'e eklemesi gerekiyor.</div>
+    {% else %}
+        <form method="post" action="{{ path('app_marketplace_add', {slug: api.slug}) }}" style="display:flex;gap:8px;">
+            <select name="workspace_id" style="flex:1;">
+                {% for w in workspaces %}
+                    <option value="{{ w.id }}">{{ w.name }}</option>
+                {% endfor %}
+            </select>
+            <input type="hidden" name="_token" value="{{ csrf_token('marketplace-add') }}">
+            <button class="btn" type="submit">Workspace'e ekle</button>
+        </form>
+    {% endif %}
+    <p class="alt" style="margin-top:12px;"><a href="{{ path('app_marketplace') }}">← Marketplace'e göz at</a></p>
+</div>
+{% endblock %}

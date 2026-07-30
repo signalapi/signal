@@ -25,6 +25,21 @@
     <p class="subtitle" style="margin:10px 0 0;font-size:12px;">Versiyonlar değişmezdir — yeni yükleme her zaman yeni bir versiyon açar; birebir aynı spec reddedilir.</p>
 </form>
 
+{% if api.versions is not empty %}
+    <div class="card" style="margin-bottom:18px;">
+        <div class="subtitle" style="margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">"Signal'e Ekle" rozeti</div>
+        <p class="subtitle" style="margin:0 0 8px;font-size:13px;">Bu snippet'i API dokümanınıza koyun — tıklayan kullanıcı (gerekirse login olup) API'yi tek adımda workspace'ine ekler.</p>
+        {% set deeplink = url('app_deeplink', {slug: api.slug}) %}
+        <pre class="codebox" id="badgeSnippet">&lt;a href="{{ deeplink }}" target="_blank" rel="noopener"
+   style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;
+          background:#4f46e5;color:#fff;font:600 13px system-ui;text-decoration:none;"&gt;
+  ⚡ Signal'e Ekle
+&lt;/a&gt;</pre>
+        <button class="btn ghost small" type="button" onclick="navigator.clipboard.writeText(document.getElementById('badgeSnippet').textContent)">Kopyala</button>
+        <span class="subtitle" style="font-size:12px;margin-left:8px;">Link: <code>{{ deeplink }}</code></span>
+    </div>
+{% endif %}
+
 {% if api.versions is empty %}
     <div class="empty">Henüz versiyon yayınlanmadı — marketplace'te görünmez.</div>
 {% else %}

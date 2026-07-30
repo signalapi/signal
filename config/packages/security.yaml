@@ -60,6 +60,8 @@ security:
         - { path: '^/r/', roles: PUBLIC_ACCESS }
         # Merchant access is decided by membership rows, not a global role.
         - { path: ^/app, roles: ROLE_USER }
+        # "Add to Signal" deep links: login first, then bounce back to the link.
+        - { path: ^/add, roles: ROLE_USER }
 
 when@test:
     security:

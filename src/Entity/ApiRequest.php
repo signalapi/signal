@@ -90,6 +90,13 @@ class ApiRequest
     private ?string $originHash = null;
 
     /**
+     * The upstream spec no longer offers this endpoint. Never auto-deleted:
+     * flow steps reference requests by FK and deleting would break them.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $deprecated = false;
+
+    /**
      * Saved example responses (Postman-style), ordered by position.
      *
      * @var Collection<int, ResponseExample>
@@ -276,6 +283,18 @@ class ApiRequest
     public function setOriginHash(?string $originHash): static
     {
         $this->originHash = $originHash;
+
+        return $this;
+    }
+
+    public function isDeprecated(): bool
+    {
+        return $this->deprecated;
+    }
+
+    public function setDeprecated(bool $deprecated): static
+    {
+        $this->deprecated = $deprecated;
 
         return $this;
     }

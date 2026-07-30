@@ -7,9 +7,17 @@
 <div class="toolbar">
     <div>
         <h1>{{ collection.name }}</h1>
-        <p class="subtitle" style="margin:0;">{{ collection.requests|length }} istek · {{ workspace.name }}</p>
+        <p class="subtitle" style="margin:0;">
+            {{ collection.requests|length }} istek · {{ workspace.name }}
+            {% if collection.sourceVersion %} · katalog: {{ collection.sourceVersion.catalogApi.name }} <span class="pill">{{ collection.sourceVersion.label }}</span>{% endif %}
+        </p>
     </div>
-    <a class="btn ghost" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← Collection'lar</a>
+    <div>
+        {% if collection.sourceVersion and collection.sourceVersion.catalogApi.latestVersion and collection.sourceVersion.catalogApi.latestVersion.id != collection.sourceVersion.id %}
+            <a class="btn" href="{{ path('app_collection_update', {workspace: workspace.id, collection: collection.id}) }}">⬆ Güncelleme var: {{ collection.sourceVersion.catalogApi.latestVersion.label }}</a>
+        {% endif %}
+        <a class="btn ghost" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← Collection'lar</a>
+    </div>
 </div>
 
 {% if collection.description %}
