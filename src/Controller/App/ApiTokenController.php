@@ -13,7 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/app/workspaces/{workspace}/api-tokens')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class ApiTokenController extends AbstractAppController
 {
     #[Route('', name: 'app_apitoken_index', methods: ['GET'])]
@@ -34,7 +34,7 @@ class ApiTokenController extends AbstractAppController
     #[Route('/new', name: 'app_apitoken_new', methods: ['POST'])]
     public function new(Workspace $workspace, Request $httpRequest, ApiTokenRepository $tokens): Response
     {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'admin');
 
         if (!$this->isCsrfTokenValid('apitoken-new', (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -67,7 +67,7 @@ class ApiTokenController extends AbstractAppController
         Request $httpRequest,
         ApiTokenRepository $tokens,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'admin');
         if ($token->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
         }

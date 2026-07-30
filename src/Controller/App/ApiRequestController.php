@@ -17,7 +17,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/app/workspaces/{workspace}')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class ApiRequestController extends AbstractAppController
 {
     #[Route('/collections/{collection}/requests/new', name: 'app_request_new', methods: ['POST'])]
@@ -27,7 +27,7 @@ class ApiRequestController extends AbstractAppController
         Request $request,
         ApiRequestRepository $requests,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
 
         if (!$this->isCsrfTokenValid('new-request', (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -70,7 +70,7 @@ class ApiRequestController extends AbstractAppController
         Request $httpRequest,
         ApiRequestRepository $requests,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertRequest($workspace, $apiRequest);
 
         if (!$this->isCsrfTokenValid('save-request' . $apiRequest->getId(), (string) $httpRequest->request->get('_token'))) {
@@ -135,7 +135,7 @@ class ApiRequestController extends AbstractAppController
         Request $httpRequest,
         ApiRequestRepository $requests,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertRequest($workspace, $apiRequest);
 
         if (!$this->isCsrfTokenValid('delete' . $apiRequest->getId(), (string) $httpRequest->request->get('_token'))) {

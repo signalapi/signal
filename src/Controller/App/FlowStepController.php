@@ -19,7 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/app/workspaces/{workspace}/flows/{flow}/steps')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class FlowStepController extends AbstractAppController
 {
     public function __construct(
@@ -37,7 +37,7 @@ class FlowStepController extends AbstractAppController
         ApiRequestRepository $requests,
         DbConnectionRepository $connections,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
 
         return $this->render('app/flow/step_new.html.twig', [
@@ -64,7 +64,7 @@ class FlowStepController extends AbstractAppController
         FlowExpressionParser $parser,
         DbConnectionRepository $connections,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         if (!$this->isCsrfTokenValid('add-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -94,7 +94,7 @@ class FlowStepController extends AbstractAppController
         DbConnectionRepository $connections,
         FlowExpressionParser $parser,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         if (!$this->isCsrfTokenValid('add-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -124,7 +124,7 @@ class FlowStepController extends AbstractAppController
         FlowExpressionParser $parser,
         DbConnectionRepository $connections,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         if (!$this->isCsrfTokenValid('add-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -159,7 +159,7 @@ class FlowStepController extends AbstractAppController
         FlowExpressionParser $parser,
         DbConnectionRepository $connections,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         if (!$this->isCsrfTokenValid('add-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -198,7 +198,7 @@ class FlowStepController extends AbstractAppController
         FlowExpressionParser $parser,
         DbConnectionRepository $connections,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         if (!$this->isCsrfTokenValid('new-step' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -245,7 +245,7 @@ class FlowStepController extends AbstractAppController
         FlowExpressionParser $parser,
         DbConnectionRepository $connections,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         $this->assertStep($flow, $step);
 
@@ -419,7 +419,7 @@ class FlowStepController extends AbstractAppController
         \App\Repository\FlowRunRepository $runs,
         \App\Service\JsonSchema $jsonSchema,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         $this->assertStep($flow, $step);
         if (!$this->isCsrfTokenValid('edit-step' . $step->getId(), (string) $httpRequest->request->get('_token'))) {
@@ -447,7 +447,7 @@ class FlowStepController extends AbstractAppController
                 'inferredSchema' => $r->ok && \is_array($r->data) ? $jsonSchema->infer($r->data) : null, 'error' => $r->error]);
         }
 
-        $result = $runner->send($step->toTransientRequest(), $vars, $workspace);
+        $result = $runner->send($step->toTransientRequest(), $vars, $workspace, $this->currentUser());
         $parsed = null;
         if (null !== $result->body && '' !== $result->body) {
             $decoded = json_decode($result->body, true);
@@ -470,7 +470,7 @@ class FlowStepController extends AbstractAppController
         Request $httpRequest,
         FlowStepRepository $steps,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         $this->assertStep($flow, $step);
         if (!$this->isCsrfTokenValid('reset-baseline' . $step->getId(), (string) $httpRequest->request->get('_token'))) {
@@ -492,7 +492,7 @@ class FlowStepController extends AbstractAppController
         Request $httpRequest,
         FlowStepRepository $steps,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         $this->assertStep($flow, $step);
 
@@ -527,7 +527,7 @@ class FlowStepController extends AbstractAppController
         Request $httpRequest,
         FlowStepRepository $steps,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         $this->assertStep($flow, $step);
 

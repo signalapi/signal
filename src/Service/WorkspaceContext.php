@@ -5,6 +5,7 @@ namespace App\Service;
 use App\Entity\Merchant;
 use App\Entity\User;
 use App\Entity\Workspace;
+use App\Repository\WorkspaceMemberRepository;
 use App\Repository\WorkspaceRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\RequestStack;
@@ -21,24 +22,39 @@ class WorkspaceContext
         private readonly Security $security,
         private readonly RequestStack $requestStack,
         private readonly WorkspaceRepository $workspaces,
+        private readonly WorkspaceMemberRepository $workspaceMembers,
+        private readonly MerchantContext $merchantContext,
     ) {
     }
 
     public function merchant(): ?Merchant
     {
-        $user = $this->security->getUser();
-
-        return $user instanceof User ? $user->getMerchant() : null;
+        return $this->merchantContext->current();
     }
 
     /**
+     * The workspaces the user may see: all of them for merchant owners/admins,
+     * only the explicitly-granted ones for plain members.
+     *
      * @return Workspace[]
      */
     public function list(): array
     {
-        $merchant = $this->merchant();
+        $membership = $this->merchantContext->currentMembership();
+        if (null === $membership) {
+            return [];
+        }
 
-        return null === $merchant ? [] : $this->workspaces->findByMerchant($merchant);
+        if ($membership->canManage()) {
+            return $this->workspaces->findByMerchant($membership->getMerchant());
+        }
+
+        $user = $this->security->getUser();
+        if (!$user instanceof User) {
+            return [];
+        }
+
+        return $this->workspaceMembers->findWorkspacesForUser($user, $membership->getMerchant());
     }
 
     public function remember(Workspace $workspace): void

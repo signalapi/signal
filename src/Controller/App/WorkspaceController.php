@@ -2,10 +2,10 @@
 
 namespace App\Controller\App;
 
-use App\Entity\User;
 use App\Entity\Workspace;
 use App\Repository\WorkspaceRepository;
-use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use App\Security\MerchantVoter;
+use App\Service\WorkspaceContext;
 use Symfony\Component\Form\Extension\Core\Type\TextareaType;
 use Symfony\Component\Form\Extension\Core\Type\TextType;
 use Symfony\Component\HttpFoundation\Request;
@@ -16,20 +16,26 @@ use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Component\Validator\Constraints as Assert;
 
 #[Route('/app/workspaces')]
-#[IsGranted('ROLE_MERCHANT')]
-class WorkspaceController extends AbstractController
+#[IsGranted('ROLE_USER')]
+class WorkspaceController extends AbstractAppController
 {
     #[Route('', name: 'app_workspace_index', methods: ['GET'])]
-    public function index(WorkspaceRepository $workspaces): Response
+    public function index(WorkspaceContext $context): Response
     {
         return $this->render('app/workspace/index.html.twig', [
-            'workspaces' => $workspaces->findByMerchant($this->currentMerchant()),
+            'workspaces' => $context->list(),
         ]);
     }
 
+    /** Workspace inventory is a company-admin concern: only owner / genel yönetici. */
     #[Route('/new', name: 'app_workspace_new', methods: ['GET', 'POST'])]
-    public function new(Request $request, WorkspaceRepository $workspaces, SluggerInterface $slugger): Response
-    {
+    public function new(
+        Request $request,
+        WorkspaceRepository $workspaces,
+        SluggerInterface $slugger,
+    ): Response {
+        $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_WORKSPACES, $this->currentMerchant());
+
         $form = $this->createFormBuilder()
             ->add('name', TextType::class, [
                 'label' => 'Workspace adı',
@@ -75,7 +81,7 @@ class WorkspaceController extends AbstractController
         \App\Repository\FlowRunRepository $runs,
         \App\Service\WorkspaceContext $context,
     ): Response {
-        $this->assertOwnership($workspace);
+        $this->assertWorkspace($workspace);
         $context->remember($workspace);
 
         return $this->render('app/workspace/show.html.twig', [
@@ -89,10 +95,12 @@ class WorkspaceController extends AbstractController
         ]);
     }
 
+    /** Deleting a workspace is governance, not content admin: owner / genel yönetici only. */
     #[Route('/{id}', name: 'app_workspace_delete', methods: ['POST'])]
     public function delete(Request $request, Workspace $workspace, WorkspaceRepository $workspaces): Response
     {
-        $this->assertOwnership($workspace);
+        $this->assertWorkspace($workspace);
+        $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_WORKSPACES, $workspace->getMerchant());
 
         if (!$this->isCsrfTokenValid('delete' . $workspace->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -104,23 +112,22 @@ class WorkspaceController extends AbstractController
         return $this->redirectToRoute('app_workspace_index');
     }
 
-    private function currentMerchant(): \App\Entity\Merchant
+    /** Switches the active merchant; the workspace switcher then follows the new context. */
+    #[Route('/switch-merchant/{id}', name: 'app_merchant_switch', methods: ['POST'])]
+    public function switchMerchant(string $id, Request $request): Response
     {
-        /** @var User $user */
-        $user = $this->getUser();
-        $merchant = $user->getMerchant();
-
-        if (null === $merchant) {
-            throw $this->createAccessDeniedException('Hesabınız bir merchant ile ilişkili değil.');
+        if (!$this->isCsrfTokenValid('switch-merchant', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
         }
 
-        return $merchant;
-    }
+        foreach ($this->merchantContext->memberships() as $membership) {
+            if ((string) $membership->getMerchant()->getId() === $id) {
+                $this->merchantContext->remember($membership->getMerchant());
 
-    private function assertOwnership(Workspace $workspace): void
-    {
-        if ($workspace->getMerchant()->getId()?->toRfc4122() !== $this->currentMerchant()->getId()?->toRfc4122()) {
-            throw $this->createAccessDeniedException('Bu workspace size ait değil.');
+                return $this->redirectToRoute('app_dashboard');
+            }
         }
+
+        throw $this->createAccessDeniedException('Bu merchant üyeliğiniz yok.');
     }
 }

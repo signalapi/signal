@@ -7,40 +7,64 @@
 <div class="pagehead">
     <div>
         <h1>Cookie'ler</h1>
-        <p class="subtitle">{{ workspace.name }} · isteklere otomatik eklenir</p>
+        <p class="subtitle">{{ workspace.name }} · isteklere otomatik eklenir · kavanozunuz kişiseldir</p>
     </div>
     <div class="actions">
         {% if cookies is not empty %}
-            <form method="post" action="{{ path('app_cookie_clear', {workspace: workspace.id}) }}" onsubmit="return confirm('Tüm cookie\'ler silinecek.');">
+            <form method="post" action="{{ path('app_cookie_clear', {workspace: workspace.id}) }}" onsubmit="return confirm('Cookie\'leriniz silinecek.');">
                 <input type="hidden" name="_token" value="{{ csrf_token('cookie-clear') }}">
-                <button class="btn danger" type="submit">Tümünü temizle</button>
+                <button class="btn danger" type="submit">Benimkileri temizle</button>
             </form>
         {% endif %}
     </div>
 </div>
 
+{% macro cookieRows(list, workspace) %}
+    {% for c in list %}
+        <tr>
+            <td style="font-family:var(--font-mono);">{{ c.domain }}</td>
+            <td style="font-family:var(--font-mono);font-weight:600;color:var(--ink);">{{ c.name }}</td>
+            <td style="font-family:var(--font-mono);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);" title="{{ c.value }}">{{ c.value }}</td>
+            <td><code>{{ c.path }}</code></td>
+            <td>{{ c.expiresAt ? c.expiresAt|date('d.m.Y H:i') : 'oturum' }}{{ c.secure ? ' · 🔒' }}</td>
+            <td style="text-align:right;">
+                <form class="inline" method="post" action="{{ path('app_cookie_delete', {workspace: workspace.id, cookie: c.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ c.id) }}">
+                    <button class="btn danger" type="submit">Sil</button>
+                </form>
+            </td>
+        </tr>
+    {% endfor %}
+{% endmacro %}
+
 {% if cookies is empty %}
-    <div class="empty" style="text-align:left;padding:24px;">Henüz cookie yok. Bir istek gönderdiğinizde response'taki <code>Set-Cookie</code>'ler buraya kaydedilir ve sonraki isteklere otomatik eklenir.</div>
+    <div class="empty" style="text-align:left;padding:24px;margin-bottom:18px;">Henüz cookie'niz yok. Bir istek gönderdiğinizde response'taki <code>Set-Cookie</code>'ler buraya kaydedilir ve sonraki isteklerinize otomatik eklenir.</div>
 {% else %}
+    <table style="margin-bottom:22px;">
+        <thead><tr><th>Domain</th><th>Ad</th><th>Değer</th><th>Path</th><th>Geçerlilik</th><th></th></tr></thead>
+        <tbody>{{ _self.cookieRows(cookies, workspace) }}</tbody>
+    </table>
+{% endif %}
+
+{% if shared_cookies is not empty %}
+    <div class="pagehead" style="margin-top:8px;">
+        <div>
+            <div class="subtitle" style="margin:0 0 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Paylaşımlı kavanoz (flow koşuları)</div>
+            <p class="subtitle" style="font-size:13px;">Zamanlanmış/otomatik flow koşularının kullandığı ortak cookie'ler.</p>
+        </div>
+        <div class="actions">
+            {% if is_granted('WORKSPACE_EDIT', workspace) %}
+                <form method="post" action="{{ path('app_cookie_clear', {workspace: workspace.id}) }}" onsubmit="return confirm('Paylaşımlı cookie\'ler silinecek.');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('cookie-clear') }}">
+                    <input type="hidden" name="scope" value="shared">
+                    <button class="btn danger" type="submit">Paylaşımlıları temizle</button>
+                </form>
+            {% endif %}
+        </div>
+    </div>
     <table>
         <thead><tr><th>Domain</th><th>Ad</th><th>Değer</th><th>Path</th><th>Geçerlilik</th><th></th></tr></thead>
-        <tbody>
-        {% for c in cookies %}
-            <tr>
-                <td style="font-family:var(--font-mono);">{{ c.domain }}</td>
-                <td style="font-family:var(--font-mono);font-weight:600;color:var(--ink);">{{ c.name }}</td>
-                <td style="font-family:var(--font-mono);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);" title="{{ c.value }}">{{ c.value }}</td>
-                <td><code>{{ c.path }}</code></td>
-                <td>{{ c.expiresAt ? c.expiresAt|date('d.m.Y H:i') : 'oturum' }}{{ c.secure ? ' · 🔒' }}</td>
-                <td style="text-align:right;">
-                    <form class="inline" method="post" action="{{ path('app_cookie_delete', {workspace: workspace.id, cookie: c.id}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ c.id) }}">
-                        <button class="btn danger" type="submit">Sil</button>
-                    </form>
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
+        <tbody>{{ _self.cookieRows(shared_cookies, workspace) }}</tbody>
     </table>
 {% endif %}
 {% endblock %}

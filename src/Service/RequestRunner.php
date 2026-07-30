@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\ApiRequest;
+use App\Entity\User;
 use App\Entity\Workspace;
 use Symfony\Contracts\HttpClient\Exception\ExceptionInterface;
 use Symfony\Contracts\HttpClient\HttpClientInterface;
@@ -22,9 +23,12 @@ class RequestRunner
     }
 
     /**
+     * $cookieUser selects the personal jar within the workspace; null is the
+     * shared jar that automated (user-less) flow runs use.
+     *
      * @param array<string, string> $vars
      */
-    public function send(ApiRequest $request, array $vars = [], ?Workspace $cookieScope = null): RequestResult
+    public function send(ApiRequest $request, array $vars = [], ?Workspace $cookieScope = null, ?User $cookieUser = null): RequestResult
     {
         $method = strtoupper($request->getMethod());
         $resolvedUrl = $this->resolver->resolve($request->getUrl(), $vars) ?? '';
@@ -70,7 +74,7 @@ class RequestRunner
                     break;
                 }
             }
-            if (!$hasCookie && null !== ($jar = $this->cookieJar->cookieHeader($url, $cookieScope))) {
+            if (!$hasCookie && null !== ($jar = $this->cookieJar->cookieHeader($url, $cookieScope, $cookieUser))) {
                 $headers['Cookie'] = $jar;
             }
         }
@@ -108,7 +112,7 @@ class RequestRunner
             $durationMs = (microtime(true) - $start) * 1000;
 
             if (null !== $cookieScope) {
-                $this->cookieJar->storeFromResponse($responseHeaders['set-cookie'] ?? [], $url, $cookieScope);
+                $this->cookieJar->storeFromResponse($responseHeaders['set-cookie'] ?? [], $url, $cookieScope, $cookieUser);
             }
 
             return new RequestResult(

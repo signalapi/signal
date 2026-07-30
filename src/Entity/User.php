@@ -37,10 +37,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private bool $active = true;
 
-    #[ORM\ManyToOne(targetEntity: Merchant::class, inversedBy: 'users')]
-    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
-    private ?Merchant $merchant = null;
-
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -127,18 +123,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setActive(bool $active): static
     {
         $this->active = $active;
-
-        return $this;
-    }
-
-    public function getMerchant(): ?Merchant
-    {
-        return $this->merchant;
-    }
-
-    public function setMerchant(?Merchant $merchant): static
-    {
-        $this->merchant = $merchant;
 
         return $this;
     }

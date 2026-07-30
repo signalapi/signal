@@ -3,9 +3,11 @@
 namespace App\Controller\Admin;
 
 use App\Entity\Merchant;
+use App\Entity\MerchantMember;
 use App\Entity\User;
 use App\Repository\MerchantRepository;
 use App\Repository\UserRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\Extension\Core\Type\EmailType;
 use Symfony\Component\Form\Extension\Core\Type\PasswordType;
@@ -37,6 +39,7 @@ class MerchantController extends AbstractController
         UserRepository $users,
         UserPasswordHasherInterface $hasher,
         SluggerInterface $slugger,
+        EntityManagerInterface $em,
     ): Response {
         $form = $this->createFormBuilder()
             ->add('name', TextType::class, [
@@ -76,10 +79,15 @@ class MerchantController extends AbstractController
             $admin = new User();
             $admin->setName($data['adminName']);
             $admin->setEmail($data['adminEmail']);
-            $admin->setRoles(['ROLE_MERCHANT_ADMIN']);
-            $admin->setMerchant($merchant);
             $admin->setPassword($hasher->hashPassword($admin, $data['adminPassword']));
-            $users->save($admin);
+            $users->save($admin, false);
+
+            $membership = new MerchantMember();
+            $membership->setMerchant($merchant);
+            $membership->setUser($admin);
+            $membership->setRole(MerchantMember::ROLE_OWNER);
+            $em->persist($membership);
+            $em->flush();
 
             $this->addFlash('success', sprintf('Merchant "%s" ve yetkilisi oluşturuldu.', $merchant->getName()));
 

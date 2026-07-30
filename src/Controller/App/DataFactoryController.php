@@ -14,7 +14,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/app/workspaces/{workspace}/data-factories')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class DataFactoryController extends AbstractAppController
 {
     #[Route('', name: 'app_factory_index', methods: ['GET'])]
@@ -42,7 +42,7 @@ class DataFactoryController extends AbstractAppController
     #[Route('/new', name: 'app_factory_new', methods: ['POST'])]
     public function new(Workspace $workspace, Request $request, DataFactoryRepository $factories): Response
     {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         if (!$this->isCsrfTokenValid('factory-new', (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
@@ -78,7 +78,7 @@ class DataFactoryController extends AbstractAppController
         DataFactoryRepository $factories,
         DynamicVariableGenerator $gen,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFactory($workspace, $factory);
 
         if ($request->isMethod('POST')) {
@@ -149,7 +149,7 @@ class DataFactoryController extends AbstractAppController
         Request $request,
         DataFactoryRepository $factories,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFactory($workspace, $factory);
         if (!$this->isCsrfTokenValid('factory-delete' . $factory->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();

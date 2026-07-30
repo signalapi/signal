@@ -18,7 +18,7 @@
             <tr>
                 <td>{{ m.name }}</td>
                 <td><code>{{ m.slug }}</code></td>
-                <td>{{ m.users|length }}</td>
+                <td>{{ m.members|length }}</td>
                 <td>{{ m.workspaces|length }}</td>
                 <td>{% if m.active %}<span class="pill on">aktif</span>{% else %}<span class="pill off">pasif</span>{% endif %}</td>
                 <td>{{ m.createdAt|date('d.m.Y H:i') }}</td>

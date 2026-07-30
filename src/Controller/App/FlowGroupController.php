@@ -24,7 +24,7 @@ use Symfony\Component\Uid\Uuid;
  * Flow groups (suites): bundle flows and run them all sequentially in the background.
  */
 #[Route('/app/workspaces/{workspace}/flow-groups')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class FlowGroupController extends AbstractAppController
 {
     #[Route('', name: 'app_flow_suite_index', methods: ['GET'])]
@@ -75,7 +75,7 @@ class FlowGroupController extends AbstractAppController
         Request $httpRequest,
         FlowGroupRepository $groups,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertGroup($workspace, $group);
         if (!$this->isCsrfTokenValid('flow-group-update' . $group->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -97,7 +97,7 @@ class FlowGroupController extends AbstractAppController
         Request $httpRequest,
         FlowGroupRepository $groups,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         if (!$this->isCsrfTokenValid('flow-group', (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
@@ -121,7 +121,7 @@ class FlowGroupController extends AbstractAppController
         Request $httpRequest,
         FlowGroupRepository $groups,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertGroup($workspace, $group);
         if (!$this->isCsrfTokenValid('flow-group-delete' . $group->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -141,7 +141,7 @@ class FlowGroupController extends AbstractAppController
         FlowGroupRepository $groups,
         EntityManagerInterface $em,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         if (!$this->isCsrfTokenValid('flow-group', (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
@@ -169,7 +169,7 @@ class FlowGroupController extends AbstractAppController
         FlowGroupRepository $groups,
         EntityManagerInterface $em,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         if (!$this->isCsrfTokenValid('flow-group', (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
@@ -194,7 +194,7 @@ class FlowGroupController extends AbstractAppController
         \App\Repository\FlowGroupRunRepository $groupRuns,
         MessageBusInterface $bus,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertGroup($workspace, $group);
         if (!$this->isCsrfTokenValid('flow-group-run' . $group->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();

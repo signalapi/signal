@@ -1,0 +1,68 @@
+{% extends 'security/_auth_base.html.twig' %}
+
+{% block title %}Davet · Signal: Test Platform{% endblock %}
+{% block brand_title %}Ekibinize katılın.{% endblock %}
+
+{% block auth_card %}
+    {% if state == 'invalid' %}
+        <p class="eyebrow">Davet</p>
+        <h1>Geçersiz davet</h1>
+        <p class="sub">Bu davet linki geçerli değil. Sizi davet eden kişiden yeni bir link isteyin.</p>
+        <p class="alt"><a href="{{ path('app_login') }}">Giriş sayfasına dön</a></p>
+
+    {% elseif state == 'accepted' %}
+        <p class="eyebrow">Davet</p>
+        <h1>Davet zaten kullanıldı</h1>
+        <p class="sub">Bu davet daha önce kabul edilmiş.</p>
+        <p class="alt"><a href="{{ path('app_login') }}">Giriş yapın</a></p>
+
+    {% elseif state == 'expired' %}
+        <p class="eyebrow">Davet</p>
+        <h1>Davetin süresi doldu</h1>
+        <p class="sub">Sizi davet eden kişiden yeni bir link isteyin.</p>
+        <p class="alt"><a href="{{ path('app_login') }}">Giriş sayfasına dön</a></p>
+
+    {% elseif state == 'login' %}
+        <p class="eyebrow">Davet · {{ invitation.merchant.name }}</p>
+        <h1>Hesabınızla giriş yapın</h1>
+        <p class="sub"><strong>{{ invitation.email }}</strong> adresine ait bir hesap zaten var. Daveti kabul etmek için o hesapla giriş yapıp bu linki tekrar açın.</p>
+        <p class="alt"><a href="{{ path('app_login') }}">Giriş yap</a></p>
+
+    {% elseif state == 'accept' %}
+        <p class="eyebrow">Davet · {{ invitation.merchant.name }}</p>
+        <h1>Davete katılın</h1>
+        <p class="sub"><strong>{{ invitation.merchant.name }}</strong> sizi {{ invitation.merchantRole == 'admin' ? 'genel yönetici' : 'üye' }} olarak davet ediyor.</p>
+        <form method="post" action="{{ path('app_invite_accept', {token: token}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('invite-accept') }}">
+            <button class="btn-primary" type="submit">Daveti kabul et</button>
+        </form>
+
+    {% else %}
+        <p class="eyebrow">Davet · {{ invitation.merchant.name }}</p>
+        <h1>Hesabınızı oluşturun</h1>
+        <p class="sub"><strong>{{ invitation.merchant.name }}</strong> sizi {{ invitation.merchantRole == 'admin' ? 'genel yönetici' : 'üye' }} olarak davet ediyor. <strong>{{ invitation.email }}</strong> için bir şifre belirleyin.</p>
+
+        {% for error in errors %}
+            <div class="flash error">{{ error }}</div>
+        {% endfor %}
+
+        <form method="post" action="{{ path('app_invite_register', {token: token}) }}">
+            <div class="field">
+                <label for="name">Ad Soyad</label>
+                <input type="text" id="name" name="name" value="{{ old.name }}" required autofocus placeholder="Ada Lovelace">
+            </div>
+            <div class="row2">
+                <div class="field">
+                    <label for="password">Şifre</label>
+                    <input type="password" id="password" name="password" required placeholder="En az 8 karakter">
+                </div>
+                <div class="field">
+                    <label for="password_confirm">Şifre (tekrar)</label>
+                    <input type="password" id="password_confirm" name="password_confirm" required placeholder="••••••••">
+                </div>
+            </div>
+            <input type="hidden" name="_token" value="{{ csrf_token('invite-register') }}">
+            <button class="btn-primary" type="submit">Hesabı oluştur ve katıl</button>
+        </form>
+    {% endif %}
+{% endblock %}

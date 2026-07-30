@@ -3,13 +3,16 @@
 namespace App\Service;
 
 use App\Entity\Cookie;
+use App\Entity\User;
 use App\Entity\Workspace;
 use App\Repository\CookieRepository;
 use Doctrine\ORM\EntityManagerInterface;
 
 /**
- * A per-workspace cookie jar: applies stored cookies to outgoing requests and
- * captures Set-Cookie headers from responses (Postman-style automatic cookies).
+ * A per-(workspace, user) cookie jar: applies stored cookies to outgoing
+ * requests and captures Set-Cookie headers from responses (Postman-style
+ * automatic cookies). A null user is the shared jar used by automated flow
+ * runs, which have no acting user.
  */
 class CookieJar
 {
@@ -22,7 +25,7 @@ class CookieJar
     /**
      * Builds the "Cookie:" header value for a URL, or null if no cookie matches.
      */
-    public function cookieHeader(string $url, Workspace $workspace): ?string
+    public function cookieHeader(string $url, Workspace $workspace, ?User $user = null): ?string
     {
         $host = (string) parse_url($url, \PHP_URL_HOST);
         if ('' === $host) {
@@ -33,7 +36,7 @@ class CookieJar
         $now = new \DateTimeImmutable();
 
         $pairs = [];
-        foreach ($this->cookies->findByWorkspace($workspace) as $cookie) {
+        foreach ($this->cookies->findByWorkspace($workspace, $user) as $cookie) {
             if ($cookie->isExpired($now) || !$this->domainMatches($host, $cookie) || !str_starts_with($path, $cookie->getPath())) {
                 continue;
             }
@@ -51,7 +54,7 @@ class CookieJar
      *
      * @param string[] $setCookieHeaders
      */
-    public function storeFromResponse(array $setCookieHeaders, string $url, Workspace $workspace): void
+    public function storeFromResponse(array $setCookieHeaders, string $url, Workspace $workspace, ?User $user = null): void
     {
         if ([] === $setCookieHeaders) {
             return;
@@ -70,7 +73,7 @@ class CookieJar
                 continue;
             }
 
-            $existing = $this->cookies->findOneMatch($workspace, $parsed['domain'], $parsed['path'], $parsed['name']);
+            $existing = $this->cookies->findOneMatch($workspace, $user, $parsed['domain'], $parsed['path'], $parsed['name']);
 
             // Expired cookie -> delete if present, otherwise ignore.
             if (null !== $parsed['expiresAt'] && $parsed['expiresAt'] <= $now) {
@@ -84,6 +87,7 @@ class CookieJar
             $cookie = $existing ?? new Cookie();
             if (null === $existing) {
                 $cookie->setWorkspace($workspace);
+                $cookie->setUser($user);
                 $cookie->setDomain($parsed['domain']);
                 $cookie->setPath($parsed['path']);
                 $cookie->setName($parsed['name']);

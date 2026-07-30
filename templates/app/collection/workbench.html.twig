@@ -615,7 +615,7 @@ const WB = (() => {
                 const st = it.error ? 'ERR' : (it.status || '—');
                 return '<div class="hist-row" data-hid="'+it.id+'"><span style="font-weight:700;color:'+color+';min-width:40px;">'+st+'</span>'
                     + '<span style="font-weight:700;min-width:48px;color:var(--muted);">'+it.method+'</span>'
-                    + '<span class="muted-sm" style="flex:1;">'+it.durationMs+' ms · '+it.size+' B'+(it.env ? ' · '+it.env : '')+'</span>'
+                    + '<span class="muted-sm" style="flex:1;">'+it.durationMs+' ms · '+it.size+' B'+(it.env ? ' · '+it.env : '')+(it.user ? ' · '+it.user : '')+'</span>'
                     + '<span class="muted-sm">'+timeago(it.createdAt)+'</span></div>';
             }).join('');
             $('respHistory').querySelectorAll('.hist-row').forEach(r => r.onclick = () => showHistory(r.dataset.hid));

@@ -3,9 +3,11 @@
 namespace App\Controller;
 
 use App\Entity\Merchant;
+use App\Entity\MerchantMember;
 use App\Entity\User;
 use App\Repository\MerchantRepository;
 use App\Repository\UserRepository;
+use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Bundle\SecurityBundle\Security;
 use Symfony\Component\HttpFoundation\Request;
@@ -24,8 +26,9 @@ class RegistrationController extends AbstractController
         UserPasswordHasherInterface $hasher,
         SluggerInterface $slugger,
         Security $security,
+        EntityManagerInterface $em,
     ): Response {
-        if ($this->isGranted('ROLE_MERCHANT')) {
+        if ($this->isGranted('IS_AUTHENTICATED_FULLY')) {
             return $this->redirectToRoute('app_dashboard');
         }
 
@@ -69,10 +72,15 @@ class RegistrationController extends AbstractController
                 $user = new User();
                 $user->setName($old['name']);
                 $user->setEmail($old['email']);
-                $user->setRoles(['ROLE_MERCHANT_ADMIN']);
-                $user->setMerchant($merchant);
                 $user->setPassword($hasher->hashPassword($user, $password));
-                $users->save($user);
+                $users->save($user, false);
+
+                $membership = new MerchantMember();
+                $membership->setMerchant($merchant);
+                $membership->setUser($user);
+                $membership->setRole(MerchantMember::ROLE_OWNER);
+                $em->persist($membership);
+                $em->flush();
 
                 // Log the new merchant admin straight into the merchant firewall.
                 $security->login($user, 'form_login', 'main');

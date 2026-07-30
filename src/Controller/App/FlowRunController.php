@@ -19,7 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/app/workspaces/{workspace}/flows/{flow}/runs')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class FlowRunController extends AbstractAppController
 {
     #[Route('/run', name: 'app_flow_run', methods: ['POST'])]
@@ -30,7 +30,7 @@ class FlowRunController extends AbstractAppController
         EnvironmentRepository $environments,
         FlowRunner $runner,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
 
         if (!$this->isCsrfTokenValid('run-flow' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
@@ -87,7 +87,7 @@ class FlowRunController extends AbstractAppController
         FlowRunner $runner,
         MessageBusInterface $bus,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
 
         if (!$this->isCsrfTokenValid('run-flow' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
@@ -187,7 +187,7 @@ class FlowRunController extends AbstractAppController
         Request $httpRequest,
         \App\Service\AiDiagnoser $ai,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         if ($run->getFlow()->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
@@ -219,7 +219,7 @@ class FlowRunController extends AbstractAppController
         Request $httpRequest,
         FlowRunRepository $runs,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         if ($run->getFlow()->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
@@ -248,7 +248,7 @@ class FlowRunController extends AbstractAppController
         Request $httpRequest,
         FlowRunRepository $runs,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         if ($run->getFlow()->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
@@ -271,7 +271,7 @@ class FlowRunController extends AbstractAppController
         Request $httpRequest,
         FlowRunRepository $runs,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         if ($run->getFlow()->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
@@ -301,7 +301,7 @@ class FlowRunController extends AbstractAppController
         EnvironmentRepository $environments,
         FlowRunner $runner,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
 
         if (!$this->isCsrfTokenValid('run-flow' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {

@@ -1,0 +1,128 @@
+{% extends 'app/_layout.html.twig' %}
+
+{% block title %}Üyeler · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+<div class="pagehead">
+    <div>
+        <h1>Workspace üyeleri</h1>
+        <p class="subtitle">{{ workspace.name }} · yalnızca bu workspace'in erişimi — admin düzenler, editor değiştirir, viewer görüntüler</p>
+    </div>
+</div>
+
+{% for link in app.flashes('invite_link') %}
+    <div class="flash success" style="word-break:break-all;">
+        <strong>Davet linki — yalnızca şimdi gösterilir, davet edilen kişiye iletin:</strong><br>
+        <code id="inviteLink" style="font-size:13px;">{{ link }}</code>
+        <button class="btn small" type="button" style="margin-left:8px;" onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').textContent)">Kopyala</button>
+    </div>
+{% endfor %}
+
+<form class="card" method="post" action="{{ path('app_ws_member_invite', {workspace: workspace.id}) }}" style="margin-bottom:14px;">
+    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Bu workspace'e davet et</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+        <div style="flex:2;min-width:220px;">
+            <label style="display:block;font-size:12px;margin-bottom:4px;">E-posta</label>
+            <input type="email" name="email" required placeholder="kisi@sirket.com" style="width:100%;">
+        </div>
+        <div style="min-width:120px;">
+            <label style="display:block;font-size:12px;margin-bottom:4px;">Rol</label>
+            <select name="role" style="width:100%;">
+                <option value="editor" selected>editor</option>
+                <option value="viewer">viewer</option>
+                <option value="admin">admin</option>
+            </select>
+        </div>
+        <button class="btn small" type="submit">Davet linki oluştur</button>
+    </div>
+    <p class="subtitle" style="margin:10px 0 0;font-size:12px;">Davet edilen kişi yalnızca bu workspace'i görür. Şirkette zaten kayıtlıysa davetsiz, anında eklenir.</p>
+    <input type="hidden" name="_token" value="{{ csrf_token('ws-invite') }}">
+</form>
+
+{% if addable is not empty %}
+<form class="addbar" method="post" action="{{ path('app_ws_member_add', {workspace: workspace.id}) }}">
+    <select name="user_id">
+        {% for mm in addable %}
+            <option value="{{ mm.user.id }}">{{ mm.user.name }} ({{ mm.user.email }})</option>
+        {% endfor %}
+    </select>
+    <select name="role">
+        <option value="editor" selected>editor</option>
+        <option value="viewer">viewer</option>
+        <option value="admin">admin</option>
+    </select>
+    <input type="hidden" name="_token" value="{{ csrf_token('ws-member-add') }}">
+    <button class="btn small" type="submit">+ Şirketten üye ekle</button>
+</form>
+{% endif %}
+
+<table style="margin-bottom:22px;">
+    <thead><tr><th>Ad</th><th>E-posta</th><th>Rol</th><th></th></tr></thead>
+    <tbody>
+    {% for m in members %}
+        <tr>
+            <td style="font-weight:600;">{{ m.user.name }}</td>
+            <td>{{ m.user.email }}</td>
+            <td>
+                <form class="inline" method="post" action="{{ path('app_ws_member_role', {workspace: workspace.id, id: m.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('ws-member-role' ~ m.id) }}">
+                    <select name="role" onchange="this.form.submit()">
+                        <option value="admin" {{ m.role == 'admin' ? 'selected' }}>admin</option>
+                        <option value="editor" {{ m.role == 'editor' ? 'selected' }}>editor</option>
+                        <option value="viewer" {{ m.role == 'viewer' ? 'selected' }}>viewer</option>
+                    </select>
+                </form>
+            </td>
+            <td style="text-align:right;">
+                <form class="inline" method="post" action="{{ path('app_ws_member_remove', {workspace: workspace.id, id: m.id}) }}" onsubmit="return confirm('{{ m.user.name }} workspace\'ten çıkarılacak.');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('ws-member-remove' ~ m.id) }}">
+                    <button class="btn danger" type="submit">Çıkar</button>
+                </form>
+            </td>
+        </tr>
+    {% else %}
+        <tr><td colspan="4" class="subtitle" style="font-size:13px;">Henüz bu workspace'e özel üye yok.</td></tr>
+    {% endfor %}
+    </tbody>
+</table>
+
+{% if invitations is not empty %}
+    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Bekleyen davetler</div>
+    <table style="margin-bottom:22px;">
+        <thead><tr><th>E-posta</th><th>Rol</th><th>Son geçerlilik</th><th></th></tr></thead>
+        <tbody>
+        {% for inv in invitations %}
+            {% set wsOnly = inv.workspaceGrants|length == 1 %}
+            <tr>
+                <td>{{ inv.email }}</td>
+                <td><span class="pill">{{ (inv.workspaceGrants|first).role ?? inv.merchantRole }}</span></td>
+                <td>{{ inv.expiresAt|date('d.m.Y H:i') }}</td>
+                <td style="text-align:right;white-space:nowrap;">
+                    {% if wsOnly %}
+                        <form class="inline" method="post" action="{{ path('app_ws_invitation_rotate', {workspace: workspace.id, id: inv.id}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('ws-invite-rotate' ~ inv.id) }}">
+                            <button class="btn small" type="submit">Yeni link üret</button>
+                        </form>
+                        <form class="inline" method="post" action="{{ path('app_ws_invitation_cancel', {workspace: workspace.id, id: inv.id}) }}" onsubmit="return confirm('Davet iptal edilecek.');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('ws-invite-cancel' ~ inv.id) }}">
+                            <button class="btn danger" type="submit">İptal</button>
+                        </form>
+                    {% else %}
+                        <span class="subtitle" style="font-size:12px;">şirket davetinin parçası</span>
+                    {% endif %}
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
+<div class="card">
+    <div class="subtitle" style="margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Şirket yönetimi (otomatik erişim)</div>
+    <p class="subtitle" style="margin:0 0 10px;font-size:13px;">Owner ve genel yöneticiler her workspace'e otomatik erişir; buradan yönetilmezler.</p>
+    {% for mm in implicit_admins %}
+        <span class="pill on" style="margin-right:6px;">{{ mm.user.name }} · {{ mm.role == 'owner' ? 'Owner' : 'Genel Yönetici' }}</span>
+    {% endfor %}
+</div>
+{% endblock %}

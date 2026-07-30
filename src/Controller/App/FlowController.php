@@ -13,7 +13,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/app/workspaces/{workspace}/flows')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class FlowController extends AbstractAppController
 {
     #[Route('', name: 'app_flow_index', methods: ['GET'])]
@@ -38,7 +38,7 @@ class FlowController extends AbstractAppController
         TestFlowRepository $flows,
         EnvironmentRepository $environments,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
 
         if ($httpRequest->isMethod('POST')) {
             if (!$this->isCsrfTokenValid('new-flow', (string) $httpRequest->request->get('_token'))) {
@@ -100,7 +100,7 @@ class FlowController extends AbstractAppController
         Request $httpRequest,
         TestFlowRepository $flows,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
 
         if (!$this->isCsrfTokenValid('schedule' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
@@ -131,7 +131,7 @@ class FlowController extends AbstractAppController
         Request $httpRequest,
         TestFlowRepository $flows,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
 
         if (!$this->isCsrfTokenValid('delete' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {

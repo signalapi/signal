@@ -9,6 +9,7 @@ use App\Entity\TestFlow;
 use App\Entity\Workspace;
 use App\Repository\EnvironmentRepository;
 use App\Repository\FlowGroupRepository;
+use App\Repository\MerchantMemberRepository;
 use App\Repository\TestFlowRepository;
 use App\Repository\UserRepository;
 use App\Repository\WorkspaceRepository;
@@ -94,6 +95,7 @@ class SeedPaymentFlowsCommand extends Command
 
     public function __construct(
         private readonly UserRepository $users,
+        private readonly MerchantMemberRepository $merchantMembers,
         private readonly WorkspaceRepository $workspaces,
         private readonly EnvironmentRepository $environments,
         private readonly TestFlowRepository $flows,
@@ -117,13 +119,14 @@ class SeedPaymentFlowsCommand extends Command
         $io = new SymfonyStyle($input, $output);
 
         $user = $this->users->findOneBy(['email' => (string) $input->getOption('email')]);
-        if (null === $user || null === $user->getMerchant()) {
+        $membership = null !== $user ? ($this->merchantMembers->findByUser($user)[0] ?? null) : null;
+        if (null === $membership) {
             $io->error('Kullanıcı/merchant bulunamadı.');
 
             return Command::FAILURE;
         }
         $workspace = null;
-        foreach ($this->workspaces->findByMerchant($user->getMerchant()) as $w) {
+        foreach ($this->workspaces->findByMerchant($membership->getMerchant()) as $w) {
             if ($w->getName() === (string) $input->getOption('workspace')) {
                 $workspace = $w;
             }

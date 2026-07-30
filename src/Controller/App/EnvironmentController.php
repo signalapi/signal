@@ -15,7 +15,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/app/workspaces/{workspace}/environments')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class EnvironmentController extends AbstractAppController
 {
     #[Route('', name: 'app_environment_index', methods: ['GET'])]
@@ -32,7 +32,7 @@ class EnvironmentController extends AbstractAppController
     #[Route('/import', name: 'app_environment_import', methods: ['POST'])]
     public function import(Workspace $workspace, Request $request, PostmanImporter $importer): Response
     {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
 
         if (!$this->isCsrfTokenValid('env-import', (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -63,7 +63,7 @@ class EnvironmentController extends AbstractAppController
     #[Route('/new', name: 'app_environment_new', methods: ['POST'])]
     public function new(Workspace $workspace, Request $request, EnvironmentRepository $environments): Response
     {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
 
         if (!$this->isCsrfTokenValid('new-environment', (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -88,7 +88,7 @@ class EnvironmentController extends AbstractAppController
         Request $request,
         EnvironmentRepository $environments,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertEnvironment($workspace, $environment);
 
         if ($request->isMethod('POST')) {
@@ -141,7 +141,7 @@ class EnvironmentController extends AbstractAppController
         Request $request,
         EnvironmentRepository $environments,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertEnvironment($workspace, $environment);
 
         if (!$this->isCsrfTokenValid('delete' . $environment->getId(), (string) $request->request->get('_token'))) {

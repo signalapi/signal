@@ -50,10 +50,6 @@ security:
                 path: app_logout
                 target: app_login
 
-    # Panels are independent: a super admin does not implicitly get merchant access.
-    role_hierarchy:
-        ROLE_MERCHANT_ADMIN: [ROLE_MERCHANT]
-
     access_control:
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/mcp, roles: IS_AUTHENTICATED_FULLY }
@@ -62,7 +58,8 @@ security:
         - { path: ^/login, roles: PUBLIC_ACCESS }
         - { path: ^/register, roles: PUBLIC_ACCESS }
         - { path: '^/r/', roles: PUBLIC_ACCESS }
-        - { path: ^/app, roles: ROLE_MERCHANT }
+        # Merchant access is decided by membership rows, not a global role.
+        - { path: ^/app, roles: ROLE_USER }
 
 when@test:
     security:

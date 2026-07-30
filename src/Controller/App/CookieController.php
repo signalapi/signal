@@ -12,7 +12,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/app/workspaces/{workspace}/cookies')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class CookieController extends AbstractAppController
 {
     #[Route('', name: 'app_cookie_index', methods: ['GET'])]
@@ -22,20 +22,28 @@ class CookieController extends AbstractAppController
 
         return $this->render('app/cookie/index.html.twig', [
             'workspace' => $workspace,
-            'cookies' => $cookies->findByWorkspace($workspace),
+            'cookies' => $cookies->findByWorkspace($workspace, $this->currentUser()),
+            'shared_cookies' => $cookies->findByWorkspace($workspace, null),
         ]);
     }
 
+    /** Clears the user's own jar; scope=shared clears the flow-run jar (editors). */
     #[Route('/clear', name: 'app_cookie_clear', methods: ['POST'])]
     public function clear(Workspace $workspace, Request $httpRequest, CookieRepository $cookies): Response
     {
-        $this->assertWorkspace($workspace);
         if (!$this->isCsrfTokenValid('cookie-clear', (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
 
-        $cookies->clearWorkspace($workspace);
-        $this->addFlash('success', 'Tüm cookie\'ler temizlendi.');
+        if ('shared' === $httpRequest->request->get('scope')) {
+            $this->assertWorkspace($workspace, 'edit');
+            $cookies->clearWorkspace($workspace, null);
+            $this->addFlash('success', 'Paylaşımlı (flow) cookie\'leri temizlendi.');
+        } else {
+            $this->assertWorkspace($workspace);
+            $cookies->clearWorkspace($workspace, $this->currentUser());
+            $this->addFlash('success', 'Cookie\'leriniz temizlendi.');
+        }
 
         return $this->redirectToRoute('app_cookie_index', ['workspace' => $workspace->getId()]);
     }
@@ -47,8 +55,14 @@ class CookieController extends AbstractAppController
         Request $httpRequest,
         CookieRepository $cookies,
     ): Response {
-        $this->assertWorkspace($workspace);
         if ($cookie->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
+            throw $this->createNotFoundException();
+        }
+
+        // Your own cookies are yours to delete; the shared jar needs edit rights.
+        $own = $cookie->getUser()?->getId()?->toRfc4122() === $this->currentUser()->getId()?->toRfc4122();
+        $this->assertWorkspace($workspace, $own ? 'view' : 'edit');
+        if (!$own && null !== $cookie->getUser()) {
             throw $this->createNotFoundException();
         }
         if (!$this->isCsrfTokenValid('delete' . $cookie->getId(), (string) $httpRequest->request->get('_token'))) {

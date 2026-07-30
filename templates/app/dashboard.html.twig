@@ -6,10 +6,14 @@
 <div class="hero">
     <div class="dots"></div>
     <h1>Hoş geldiniz, {{ app.user.name }}</h1>
-    <p class="lead">{{ merchant.name }} · Başlamak için ilk workspace'inizi oluşturun. Collection'lar, environment'lar ve test akışları workspace içinde yaşar.</p>
-    <div class="actions">
-        <a class="btn" href="{{ path('app_workspace_new') }}">+ İlk Workspace'i Oluştur</a>
-    </div>
+    {% if is_granted('MERCHANT_MANAGE_WORKSPACES', merchant) %}
+        <p class="lead">{{ merchant.name }} · Başlamak için ilk workspace'inizi oluşturun. Collection'lar, environment'lar ve test akışları workspace içinde yaşar.</p>
+        <div class="actions">
+            <a class="btn" href="{{ path('app_workspace_new') }}">+ İlk Workspace'i Oluştur</a>
+        </div>
+    {% else %}
+        <p class="lead">{{ merchant.name }} · Henüz erişiminiz olan bir workspace yok. Bir workspace admin'inin ya da genel yöneticinin sizi eklemesi gerekiyor.</p>
+    {% endif %}
 </div>
 
 <div class="quick-grid">

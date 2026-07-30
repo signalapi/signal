@@ -30,9 +30,9 @@ class Merchant
     #[ORM\Column]
     private bool $active = true;
 
-    /** @var Collection<int, User> */
-    #[ORM\OneToMany(mappedBy: 'merchant', targetEntity: User::class)]
-    private Collection $users;
+    /** @var Collection<int, MerchantMember> */
+    #[ORM\OneToMany(mappedBy: 'merchant', targetEntity: MerchantMember::class)]
+    private Collection $members;
 
     /** @var Collection<int, Workspace> */
     #[ORM\OneToMany(mappedBy: 'merchant', targetEntity: Workspace::class, cascade: ['remove'])]
@@ -43,7 +43,7 @@ class Merchant
 
     public function __construct()
     {
-        $this->users = new ArrayCollection();
+        $this->members = new ArrayCollection();
         $this->workspaces = new ArrayCollection();
         $this->createdAt = new \DateTimeImmutable();
     }
@@ -89,10 +89,10 @@ class Merchant
         return $this;
     }
 
-    /** @return Collection<int, User> */
-    public function getUsers(): Collection
+    /** @return Collection<int, MerchantMember> */
+    public function getMembers(): Collection
     {
-        return $this->users;
+        return $this->members;
     }
 
     /** @return Collection<int, Workspace> */

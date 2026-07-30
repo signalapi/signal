@@ -23,6 +23,15 @@ class Cookie
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private Workspace $workspace;
 
+    /**
+     * The cookie jar is personal: two users running the same login flow must not
+     * clobber each other's session. Nullable until every write path sets it;
+     * legacy rows are backfilled to the merchant owner.
+     */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    private ?User $user = null;
+
     #[ORM\Column(length: 255)]
     private string $domain;
 
@@ -65,6 +74,18 @@ class Cookie
     public function setWorkspace(Workspace $workspace): static
     {
         $this->workspace = $workspace;
+
+        return $this;
+    }
+
+    public function getUser(): ?User
+    {
+        return $this->user;
+    }
+
+    public function setUser(?User $user): static
+    {
+        $this->user = $user;
 
         return $this;
     }

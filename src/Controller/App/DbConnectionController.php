@@ -14,7 +14,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 
 #[Route('/app/workspaces/{workspace}/db-connections')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class DbConnectionController extends AbstractAppController
 {
     #[Route('', name: 'app_dbconn_index', methods: ['GET'])]
@@ -31,7 +31,7 @@ class DbConnectionController extends AbstractAppController
     #[Route('/new', name: 'app_dbconn_new', methods: ['GET', 'POST'])]
     public function new(Workspace $workspace, Request $httpRequest, DbConnectionRepository $connections, SecretCipher $cipher): Response
     {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
 
         if ($httpRequest->isMethod('POST')) {
             if (!$this->isCsrfTokenValid('dbconn-new', (string) $httpRequest->request->get('_token'))) {
@@ -61,7 +61,7 @@ class DbConnectionController extends AbstractAppController
         DbConnectionRepository $connections,
         SecretCipher $cipher,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertConnection($workspace, $connection);
 
         if ($httpRequest->isMethod('POST')) {
@@ -89,7 +89,7 @@ class DbConnectionController extends AbstractAppController
         Request $httpRequest,
         DbQueryRunner $runner,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertConnection($workspace, $connection);
 
         if (!$this->isCsrfTokenValid('dbconn-test' . $connection->getId(), (string) $httpRequest->request->get('_token'))) {
@@ -113,7 +113,7 @@ class DbConnectionController extends AbstractAppController
         Request $httpRequest,
         DbConnectionRepository $connections,
     ): Response {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertConnection($workspace, $connection);
 
         if (!$this->isCsrfTokenValid('delete' . $connection->getId(), (string) $httpRequest->request->get('_token'))) {

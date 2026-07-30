@@ -23,6 +23,11 @@ class ResponseHistory
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private ApiRequest $apiRequest;
 
+    /** Who sent the request; null for legacy rows and deleted users. */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?User $user = null;
+
     #[ORM\Column(length: 10)]
     private string $method = 'GET';
 
@@ -72,6 +77,18 @@ class ResponseHistory
     public function setApiRequest(ApiRequest $apiRequest): static
     {
         $this->apiRequest = $apiRequest;
+
+        return $this;
+    }
+
+    public function getUser(): ?User
+    {
+        return $this->user;
+    }
+
+    public function setUser(?User $user): static
+    {
+        $this->user = $user;
 
         return $this;
     }

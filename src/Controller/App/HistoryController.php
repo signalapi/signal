@@ -14,7 +14,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * runs as individual entries — merged and sorted newest-first.
  */
 #[Route('/app/workspaces/{workspace}/history')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class HistoryController extends AbstractAppController
 {
     #[Route('', name: 'app_history_index', methods: ['GET'])]

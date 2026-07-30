@@ -25,7 +25,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
  * Session-authenticated under /app; CSRF validated via the X-CSRF-Token header.
  */
 #[Route('/app/workspaces/{workspace}/wb')]
-#[IsGranted('ROLE_MERCHANT')]
+#[IsGranted('ROLE_USER')]
 class WorkbenchController extends AbstractAppController
 {
     #[Route('/requests/{request}', name: 'wb_request_get', methods: ['GET'])]
@@ -46,7 +46,7 @@ class WorkbenchController extends AbstractAppController
         Request $httpRequest,
         ApiRequestRepository $requests,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertRequest($workspace, $apiRequest);
         $this->assertCsrf($httpRequest);
 
@@ -87,7 +87,7 @@ class WorkbenchController extends AbstractAppController
             }
         }
 
-        $result = $runner->send($sendCopy, $vars, $workspace);
+        $result = $runner->send($sendCopy, $vars, $workspace, $this->currentUser());
 
         $headers = [];
         foreach ($result->headers as $k => $values) {
@@ -98,6 +98,7 @@ class WorkbenchController extends AbstractAppController
         $size = null === $result->body ? 0 : \strlen($result->body);
         $entry = new \App\Entity\ResponseHistory();
         $entry->setApiRequest($apiRequest);
+        $entry->setUser($this->currentUser());
         $entry->setMethod($result->method);
         $entry->setUrl($result->url);
         $entry->setStatusCode($result->statusCode);
@@ -148,7 +149,7 @@ class WorkbenchController extends AbstractAppController
         Request $httpRequest,
         \App\Repository\ResponseExampleRepository $exampleRepo,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertRequest($workspace, $apiRequest);
         $this->assertCsrf($httpRequest);
 
@@ -203,7 +204,7 @@ class WorkbenchController extends AbstractAppController
         Request $httpRequest,
         \App\Repository\ResponseExampleRepository $exampleRepo,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         if ($example->getApiRequest()->getCollection()->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
         }
@@ -222,7 +223,7 @@ class WorkbenchController extends AbstractAppController
         Request $httpRequest,
         ApiRequestRepository $requests,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         if ($collection->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
         }
@@ -246,7 +247,7 @@ class WorkbenchController extends AbstractAppController
         Request $httpRequest,
         FolderRepository $folders,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         if ($collection->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
         }
@@ -293,7 +294,7 @@ class WorkbenchController extends AbstractAppController
         FolderRepository $folders,
         EntityManagerInterface $em,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         if ($collection->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
         }
@@ -330,7 +331,7 @@ class WorkbenchController extends AbstractAppController
         Request $httpRequest,
         ApiRequestRepository $requests,
     ): JsonResponse {
-        $this->assertWorkspace($workspace);
+        $this->assertWorkspace($workspace, 'edit');
         $this->assertRequest($workspace, $apiRequest);
         $this->assertCsrf($httpRequest);
 
@@ -355,6 +356,7 @@ class WorkbenchController extends AbstractAppController
             'durationMs' => $h->getDurationMs(),
             'size' => $h->getSize(),
             'env' => $h->getEnvironmentName(),
+            'user' => $h->getUser()?->getName(),
             'error' => null !== $h->getError(),
             'createdAt' => $h->getCreatedAt()->format(\DATE_ATOM),
         ], $historyRepo->findRecent($apiRequest));
