@@ -10,6 +10,7 @@ use App\Repository\ApiRequestRepository;
 use App\Repository\DbConnectionRepository;
 use App\Repository\FlowStepRepository;
 use App\Service\FlowExpressionParser;
+use App\Service\EnvironmentResolver;
 use App\Service\RequestRunner;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -419,6 +420,7 @@ class FlowStepController extends AbstractAppController
         \App\Service\Db\DbQueryRunner $dbQuery,
         \App\Repository\FlowRunRepository $runs,
         \App\Service\JsonSchema $jsonSchema,
+        EnvironmentResolver $envResolver,
     ): JsonResponse {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -428,7 +430,7 @@ class FlowStepController extends AbstractAppController
         }
 
         // Variable context: default env + latest run's extracted vars.
-        $vars = null !== $flow->getDefaultEnvironment() ? $flow->getDefaultEnvironment()->toMap() : [];
+        $vars = $envResolver->map($flow->getDefaultEnvironment(), $this->currentUser());
         $recent = $runs->recentForFlow($flow, 1);
         if (isset($recent[0])) {
             foreach ($recent[0]->getStepResults() as $sr) {

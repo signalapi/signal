@@ -49,17 +49,19 @@ class FlowRunner
      * into the context. Returns one FlowRun per iteration, grouped by a batch id.
      *
      * @param array<int, array<string, mixed>> $dataset
+     * @param array<string, string>            $baseVars merged under every row (e.g. personal env values)
      *
      * @return FlowRun[]
      */
-    public function runDataset(TestFlow $flow, ?Environment $environment, array $dataset, string $trigger = 'manual'): array
+    public function runDataset(TestFlow $flow, ?Environment $environment, array $dataset, string $trigger = 'manual', array $baseVars = []): array
     {
         $batchId = \Symfony\Component\Uid\Uuid::v4()->toRfc4122();
         $runs = [];
         $i = 0;
         foreach ($dataset as $row) {
             $run = $this->createRun($flow, $environment, $trigger, $batchId, $i, \is_array($row) ? $row : []);
-            $runs[] = $this->executeInto($run, $flow, $environment, $this->rowVars($row));
+            // Dataset row wins over $baseVars (which carries the user's personal env values).
+            $runs[] = $this->executeInto($run, $flow, $environment, array_merge($baseVars, $this->rowVars($row)));
             ++$i;
         }
 

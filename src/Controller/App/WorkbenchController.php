@@ -12,6 +12,7 @@ use App\Repository\ApiRequestRepository;
 use App\Repository\EnvironmentRepository;
 use App\Repository\FolderRepository;
 use App\Repository\ResponseHistoryRepository;
+use App\Service\EnvironmentResolver;
 use App\Service\RequestRunner;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
@@ -65,6 +66,7 @@ class WorkbenchController extends AbstractAppController
         RequestRunner $runner,
         \App\Repository\ResponseHistoryRepository $historyRepo,
         \App\Repository\ResponseExampleRepository $exampleRepo,
+        EnvironmentResolver $envResolver,
     ): JsonResponse {
         $this->assertWorkspace($workspace);
         $this->assertRequest($workspace, $apiRequest);
@@ -82,7 +84,7 @@ class WorkbenchController extends AbstractAppController
         if ('' !== $envId) {
             $env = $environments->find($envId);
             if ($env instanceof Environment && $env->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122()) {
-                $vars = $env->toMap();
+                $vars = $envResolver->map($env, $this->currentUser());
                 $envName = $env->getName();
             }
         }

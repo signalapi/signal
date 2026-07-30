@@ -3,14 +3,60 @@
 {% block title %}{{ environment.name }} · Environment{% endblock %}
 
 {% block panel %}
+{% set can_edit = is_granted('WORKSPACE_EDIT', workspace) %}
 <a class="backlink" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">← {{ 'Environments'|trans }}</a>
 <div class="pagehead">
     <div>
-        <h1>{{ 'Edit environment'|trans }}</h1>
-        <p class="subtitle">{{ workspace.name }}</p>
+        <h1>{{ can_edit ? 'Edit environment'|trans : environment.name }}</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ 'shared values are used by everyone; your own values override them only for you'|trans }}</p>
     </div>
 </div>
 
+<form method="post" action="{{ path('app_environment_my_values', {workspace: workspace.id, environment: environment.id}) }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('my-values' ~ environment.id) }}">
+    <div class="fgroup">
+        <div class="fgroup-title">{{ 'My values'|trans }}</div>
+        {% if environment.variables is empty %}
+            <p class="fhint">{{ 'This environment has no variables yet.'|trans }}</p>
+        {% else %}
+            <table id="myvars">
+                <thead><tr>
+                    <th style="width:30%;">{{ 'Name'|trans }}</th>
+                    <th style="width:35%;">{{ 'Shared value'|trans }}</th>
+                    <th>{{ 'My value'|trans }}</th>
+                </tr></thead>
+                <tbody>
+                {% for v in environment.variables %}
+                    <tr>
+                        <td style="font-family:var(--font-mono);font-size:13px;">
+                            {{ v.name }}{% if v.secret %} <span class="pill">{{ 'secret'|trans }}</span>{% endif %}
+                        </td>
+                        <td style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">
+                            {%- if v.secret -%}
+                                {{ v.value ? '••••••••' : '—' }}
+                            {%- else -%}
+                                {{ v.value|default('—') }}
+                            {%- endif -%}
+                        </td>
+                        <td>
+                            <input type="{{ v.secret ? 'password' : 'text' }}" name="my[{{ v.name }}]"
+                                   value="{{ my_values[v.name]|default('') }}" class="var-in"
+                                   placeholder="{{ 'empty = use the shared value'|trans }}"
+                                   autocomplete="off">
+                        </td>
+                    </tr>
+                {% endfor %}
+                </tbody>
+            </table>
+            <p class="fhint">{{ 'Only you see and use these. Clear a field to fall back to the shared value. Your values are also used when you run a flow.'|trans }}</p>
+            <div class="form-actions">
+                <button class="btn" type="submit">{{ 'Save my values'|trans }}</button>
+            </div>
+        {% endif %}
+    </div>
+</form>
+
+{% if can_edit %}
 <form method="post">
     <input type="hidden" name="_token" value="{{ csrf_token('edit-environment' ~ environment.id) }}">
     <div class="field" style="max-width:480px;">
@@ -19,7 +65,7 @@
     </div>
 
     <div class="fgroup">
-        <div class="fgroup-title">{{ 'Variables'|trans }}</div>
+        <div class="fgroup-title">{{ 'Shared variables'|trans }}</div>
         <table id="vars">
             <thead><tr><th style="width:32%;">{{ 'Name'|trans }}</th><th>{{ 'Value'|trans }}</th><th style="width:70px;text-align:center;">{{ 'Secret'|trans }}</th></tr></thead>
             <tbody>
@@ -51,8 +97,9 @@
         <a class="btn ghost" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
     </div>
 </form>
+{% endif %}
 
-<style>.var-in{width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--text);font-family:var(--font-mono);font-size:13px;}.var-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}#vars td{padding:6px 8px;}</style>
+<style>.var-in{width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--text);font-family:var(--font-mono);font-size:13px;}.var-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}#vars td,#myvars td{padding:6px 8px;}</style>
 <script>
 function addRow() {
     var tb = document.querySelector('#vars tbody');

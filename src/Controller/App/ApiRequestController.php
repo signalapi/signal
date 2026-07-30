@@ -9,6 +9,7 @@ use App\Entity\Workspace;
 use App\Repository\ApiRequestRepository;
 use App\Repository\EnvironmentRepository;
 use App\Service\RequestResult;
+use App\Service\EnvironmentResolver;
 use App\Service\RequestRunner;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
@@ -98,6 +99,7 @@ class ApiRequestController extends AbstractAppController
         ApiRequestRepository $requests,
         EnvironmentRepository $environments,
         RequestRunner $runner,
+        EnvironmentResolver $envResolver,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertRequest($workspace, $apiRequest);
@@ -116,7 +118,7 @@ class ApiRequestController extends AbstractAppController
         if ('' !== $envId) {
             $selectedEnv = $environments->find($envId);
             if ($selectedEnv instanceof Environment && $selectedEnv->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122()) {
-                $vars = $selectedEnv->toMap();
+                $vars = $envResolver->map($selectedEnv, $this->currentUser());
             }
         }
 

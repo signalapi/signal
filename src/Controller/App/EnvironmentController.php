@@ -6,6 +6,7 @@ use App\Entity\Environment;
 use App\Entity\EnvVariable;
 use App\Entity\Workspace;
 use App\Repository\EnvironmentRepository;
+use App\Service\EnvironmentResolver;
 use App\Service\PostmanImporter;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\File\UploadedFile;
@@ -89,11 +90,16 @@ class EnvironmentController extends AbstractAppController
         Request $request,
         EnvironmentRepository $environments,
         TranslatorInterface $translator,
+        EnvironmentResolver $envResolver,
+        \App\Repository\EnvUserValueRepository $userValues,
     ): Response {
-        $this->assertWorkspace($workspace, 'edit');
+        // Viewers may open the page to manage their own personal values; only
+        // changing the shared definition requires edit rights.
+        $this->assertWorkspace($workspace);
         $this->assertEnvironment($workspace, $environment);
 
         if ($request->isMethod('POST')) {
+            $this->assertWorkspace($workspace, 'edit');
             if (!$this->isCsrfTokenValid('edit-environment' . $environment->getId(), (string) $request->request->get('_token'))) {
                 throw $this->createAccessDeniedException();
             }
@@ -133,6 +139,39 @@ class EnvironmentController extends AbstractAppController
         return $this->render('app/environment/edit.html.twig', [
             'workspace' => $workspace,
             'environment' => $environment,
+            'my_values' => $userValues->mapFor($environment, $this->currentUser()),
+        ]);
+    }
+
+    /**
+     * Personal variable values: anyone who can see the workspace may set their
+     * own, without touching the shared definition.
+     */
+    #[Route('/{environment}/my-values', name: 'app_environment_my_values', methods: ['POST'])]
+    public function saveMyValues(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['environment' => 'id'])] Environment $environment,
+        Request $request,
+        EnvironmentResolver $envResolver,
+        TranslatorInterface $translator,
+    ): Response {
+        $this->assertWorkspace($workspace);
+        $this->assertEnvironment($workspace, $environment);
+
+        if (!$this->isCsrfTokenValid('my-values' . $environment->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $values = [];
+        foreach ((array) $request->request->all('my') as $name => $value) {
+            $values[(string) $name] = \is_scalar($value) ? (string) $value : '';
+        }
+        $envResolver->saveUserValues($environment, $this->currentUser(), $values);
+        $this->addFlash('success', $translator->trans('Your personal values have been saved.'));
+
+        return $this->redirectToRoute('app_environment_edit', [
+            'workspace' => $workspace->getId(),
+            'environment' => $environment->getId(),
         ]);
     }
 

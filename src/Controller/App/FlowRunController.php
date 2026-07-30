@@ -9,6 +9,7 @@ use App\Entity\Workspace;
 use App\Message\RunFlowMessage;
 use App\Repository\EnvironmentRepository;
 use App\Repository\FlowRunRepository;
+use App\Service\EnvironmentResolver;
 use App\Service\FlowRunner;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -31,6 +32,7 @@ class FlowRunController extends AbstractAppController
         EnvironmentRepository $environments,
         FlowRunner $runner,
         TranslatorInterface $translator,
+        EnvironmentResolver $envResolver,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -66,6 +68,10 @@ class FlowRunController extends AbstractAppController
             }
         }
 
+        // The acting user's personal environment values ride along; explicit
+        // run variables still win over them.
+        $vars = array_merge($envResolver->overridesFor($environment, $this->currentUser()), $vars);
+
         $run = $runner->run($flow, $environment, 'manual', $vars);
 
         $this->addFlash(
@@ -93,6 +99,7 @@ class FlowRunController extends AbstractAppController
         FlowRunner $runner,
         MessageBusInterface $bus,
         TranslatorInterface $translator,
+        EnvironmentResolver $envResolver,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -116,10 +123,26 @@ class FlowRunController extends AbstractAppController
         }
 
         $run = $runner->createRun($flow, $environment, 'async', null, 0, []);
+
+        // The worker has no request context, so the acting user's personal
+        // environment values travel with the message; explicit run variables
+        // still win over them.
+        $vars = $envResolver->overridesFor($environment, $this->currentUser());
+        $rawVars = trim((string) $httpRequest->request->get('variables'));
+        if ('' !== $rawVars) {
+            $decoded = json_decode($rawVars, true);
+            if (\is_array($decoded)) {
+                foreach ($decoded as $k => $v) {
+                    $vars[(string) $k] = \is_scalar($v) ? (string) $v : (string) json_encode($v);
+                }
+            }
+        }
+
         $bus->dispatch(new RunFlowMessage(
             (string) $run->getId(),
             (string) $flow->getId(),
             $environment ? (string) $environment->getId() : null,
+            $vars,
         ));
 
         // Live in-page run: the flow detail page starts the run over fetch and polls /status,
@@ -309,6 +332,7 @@ class FlowRunController extends AbstractAppController
         EnvironmentRepository $environments,
         FlowRunner $runner,
         TranslatorInterface $translator,
+        EnvironmentResolver $envResolver,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -344,7 +368,13 @@ class FlowRunController extends AbstractAppController
             }
         }
 
-        $runs = $runner->runDataset($flow, $environment, $dataset, 'manual');
+        $runs = $runner->runDataset(
+            $flow,
+            $environment,
+            $dataset,
+            'manual',
+            $envResolver->overridesFor($environment, $this->currentUser()),
+        );
         $passed = \count(array_filter($runs, static fn (FlowRun $r) => FlowRun::STATUS_PASSED === $r->getStatus()));
         $this->addFlash($passed === \count($runs) ? 'success' : 'error', $translator->trans('Data-driven run: %passed%/%total% iterations passed.', ['%passed%' => $passed, '%total%' => \count($runs)]));
 
