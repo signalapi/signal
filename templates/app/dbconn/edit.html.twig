@@ -7,7 +7,7 @@
 {% set action = connection ? path('app_dbconn_edit', {workspace: workspace.id, connection: connection.id}) : path('app_dbconn_new', {workspace: workspace.id}) %}
 {% set csrf_id = connection ? 'dbconn-edit' ~ connection.id : 'dbconn-new' %}
 
-<a class="backlink" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">← {{ 'Connections'|trans }}</a>
+<a class="backlink" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Connections'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ connection ? 'Edit connection'|trans : 'New database connection'|trans }}</h1>

@@ -8,7 +8,7 @@
 {% endmacro %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_collection_show', {workspace: workspace.id, collection: collection.id}) }}">← {{ collection.name }}</a>
+<a class="backlink" href="{{ path('app_collection_show', {workspace: workspace.id, collection: collection.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ collection.name }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ 'Catalog update'|trans }}</h1>

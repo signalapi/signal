@@ -5,7 +5,7 @@
 
 {% block panel %}
 {% set cfg = factory.config %}
-<a class="backlink" href="{{ path('app_factory_index', {workspace: workspace.id}) }}">← {{ 'Data Factories'|trans }}</a>
+<a class="backlink" href="{{ path('app_factory_index', {workspace: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Data Factories'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ 'Edit factory'|trans }}</h1>

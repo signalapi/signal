@@ -5,7 +5,7 @@
 {% block title %}{{ request.name }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_collection_show', {workspace: workspace.id, collection: request.collection.id}) }}">← {{ request.collection.name }}</a>
+<a class="backlink" href="{{ path('app_collection_show', {workspace: workspace.id, collection: request.collection.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ request.collection.name }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ request.name }}</h1>

@@ -5,7 +5,7 @@
 
 {% block panel %}
 {% set can_edit = is_granted('WORKSPACE_EDIT', workspace) %}
-<a class="backlink" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">← {{ 'Environments'|trans }}</a>
+<a class="backlink" href="{{ path('app_environment_index', {workspace: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Environments'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ can_edit ? 'Edit environment'|trans : environment.name }}</h1>

@@ -4,7 +4,7 @@
 {% block title %}{{ 'Cookies'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Workspace'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ 'Cookies'|trans }}</h1>

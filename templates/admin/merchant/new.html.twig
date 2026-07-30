@@ -1,9 +1,10 @@
 {% extends 'admin/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'New Merchant'|trans }} · {{ 'Super Admin'|trans }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('admin_merchant_index') }}">← {{ 'Merchants'|trans }}</a>
+<a class="backlink" href="{{ path('admin_merchant_index') }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Merchants'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ 'New Merchant'|trans }}</h1>

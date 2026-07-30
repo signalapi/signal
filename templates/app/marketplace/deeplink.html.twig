@@ -4,7 +4,7 @@
 {% block title %}{{ api.name }} · {{ 'Add to Signal'|trans }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_marketplace') }}">← {{ 'Browse the Marketplace'|trans }}</a>
+<a class="backlink" href="{{ path('app_marketplace') }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Browse the Marketplace'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ api.logo ? api.logo ~ ' ' }}{{ api.name }}</h1>

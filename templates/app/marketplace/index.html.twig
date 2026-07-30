@@ -48,7 +48,7 @@
             <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">{{ _self.visibility_pill(a) }}</div>
             {% if a.description %}<p class="subtitle" style="margin-top:10px;">{{ a.description }}</p>{% endif %}
             <p class="subtitle" style="margin-top:8px;font-size:11.5px;">
-                {{ 'Version'|trans }} <strong class="mono">{{ a.latestVersion.label }}</strong> · {{ a.latestVersion.spec.paths|length }} endpoint · {{ a.latestVersion.createdAt|date('d.m.Y') }}
+                {{ 'Version'|trans }} <strong class="mono">{{ a.latestVersion.label }}</strong> · {{ '%count% endpoint|%count% endpoints'|trans({'%count%': a.latestVersion.spec.paths|length}) }} · {{ a.latestVersion.createdAt|date('d.m.Y') }}
             </p>
             {% if workspaces is not empty %}
             <div class="rc-foot">

@@ -1,9 +1,10 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'New Workspace'|trans }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_workspace_index') }}">← {{ 'Workspaces'|trans }}</a>
+<a class="backlink" href="{{ path('app_workspace_index') }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Workspaces'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ 'New Workspace'|trans }}</h1>

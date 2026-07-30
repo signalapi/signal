@@ -4,7 +4,7 @@
 {% block title %}{{ api.name }} · {{ 'API Catalog'|trans }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('admin_catalog_index') }}">← {{ 'Catalog'|trans }}</a>
+<a class="backlink" href="{{ path('admin_catalog_index') }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Catalog'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ api.logo }} {{ api.name }}</h1>
@@ -48,9 +48,13 @@
             <p class="subtitle" style="margin-bottom:10px;">{{ 'Put this snippet in your API docs — a user who clicks it (signing in if needed) adds the API to their workspace in one step.'|trans }}</p>
             {% set deeplink = url('app_deeplink', {slug: api.slug}) %}
             <pre class="codebox" id="badgeSnippet">&lt;a href="{{ deeplink }}" target="_blank" rel="noopener"
-   style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;
-          background:#4f46e5;color:#fff;font:600 13px system-ui;text-decoration:none;"&gt;
-  ⚡ Signal'e Ekle
+   style="display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:8px;
+          background:#3B5BFD;color:#fff;font:600 13px system-ui;text-decoration:none;"&gt;
+  &lt;svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+       stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"&gt;
+    &lt;path d="M4 17 10 11 4 5"/&gt;&lt;path d="M12 19h8"/&gt;
+  &lt;/svg&gt;
+  Add to Signal
 &lt;/a&gt;</pre>
             <div style="display:flex;align-items:center;gap:9px;margin-top:11px;flex-wrap:wrap;">
                 <button class="btn ghost small" type="button" onclick="navigator.clipboard.writeText(document.getElementById('badgeSnippet').textContent)">{{ 'Copy'|trans }}</button>
