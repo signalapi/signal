@@ -6,6 +6,8 @@
 
 /* ---------- tokens: light (default) ---------- */
 :root {
+  /* Native controls (checkbox, select popup, scrollbar) follow the theme. */
+  color-scheme: light;
   --bg:#F7F8FB; --panel:#FFFFFF; --panel2:#F3F5F9; --line:#E5E8F0; --line2:#EEF1F6;
   --ink:#0D1117; --text:#1B2231; --muted:#6A7385; --faint:#9AA3B5;
   --pri:#3B5BFD; --pri-soft:#EDF0FF; --pri-ink:#2B44D4;
@@ -24,6 +26,7 @@
 
 /* ---------- tokens: dark ---------- */
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg:#080A0F; --panel:#101420; --panel2:#161B28; --line:#232A3B; --line2:#1A2030;
   --ink:#F3F6FB; --text:#D9E0EE; --muted:#8B96AC; --faint:#69748D;
   --pri:#6C86FF; --pri-soft:#19214A; --pri-ink:#A6B7FF;
@@ -200,6 +203,7 @@ h2 { margin:0 0 4px; font-size:16px; font-weight:700; letter-spacing:-.025em; co
 .pill.failed, .pill.error { background:var(--fail-soft); color:var(--fail); }
 .pill.running { background:var(--pri-soft); color:var(--pri); }
 .pill.cancelled, .pill.skipped { background:var(--warn-soft); color:var(--warn); }
+.pill.pending, .pill.queued { background:var(--panel2); color:var(--muted); }
 .chip { font-family:var(--mono); font-size:9.5px; font-weight:600; padding:2px 7px;
   border-radius:5px; background:var(--panel2); color:var(--muted); border:1px solid var(--line2); }
 .chip.var { color:var(--vio); }
@@ -215,7 +219,7 @@ h2 { margin:0 0 4px; font-size:16px; font-weight:700; letter-spacing:-.025em; co
 .kind.m-patch, .kind.m-call, .kind.m-flow { background:var(--vio-soft); color:var(--vio); }
 .kind.m-delete { background:var(--fail-soft); color:var(--fail); }
 .kind.m-db { background:var(--teal-soft); color:var(--teal); }
-.kind.m-wait { background:var(--panel2); color:var(--muted); }
+.kind.m-wait, .kind.m-head, .kind.m-options { background:var(--panel2); color:var(--muted); }
 
 /* run history strip: <span class="strip"><i class="passed"></i>…</span> */
 .strip { display:flex; align-items:center; gap:2.5px; flex-shrink:0; }
@@ -433,18 +437,20 @@ table.data tbody tr:hover { background:var(--panel2); }
   box-shadow:0 0 0 3px var(--pri-soft); }
 .typebtn .ic-box { width:28px; height:28px; display:flex; align-items:center; justify-content:center;
   border-radius:9px; flex-shrink:0; background:var(--panel2); color:var(--muted); }
-.typebtn .t { font-size:12px; font-weight:700; }
-.typebtn .s { font-size:10px; opacity:.75; margin-top:1px; }
+.typebtn .t { display:block; font-size:12px; font-weight:700; }
+.typebtn .s { display:block; font-size:10px; opacity:.75; margin-top:1px; }
 .picker { border:1px solid var(--line); border-radius:var(--r-md); overflow:hidden; }
+/* Group headings carry user content (collection names) — never uppercase them:
+   Turkish casing turns "Design" into "DESİGN". */
 .picker-group { padding:7px 12px; background:var(--panel2); border-bottom:1px solid var(--line);
-  font-family:var(--mono); font-size:10px; font-weight:700; letter-spacing:.1em;
-  text-transform:uppercase; color:var(--faint); }
+  font-family:var(--mono); font-size:10.5px; font-weight:700; letter-spacing:.04em;
+  color:var(--faint); }
 .picker-row { display:flex; align-items:center; gap:10px; width:100%; padding:10px 12px;
   border:none; border-bottom:1px solid var(--line2); background:var(--panel); cursor:pointer;
   font-family:inherit; text-align:left; }
 .picker-row:hover { background:var(--pri-soft); }
 .picker-row .name { flex:1; min-width:0; font-size:12.5px; font-weight:600; color:var(--ink); }
-.picker-row .sub { font-family:var(--mono); font-size:10.5px; color:var(--faint);
+.picker-row .sub { min-width:0; font-family:var(--mono); font-size:10.5px; color:var(--faint);
   white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .hintbox { display:flex; align-items:center; gap:9px; margin-top:14px; padding:11px 12px;
   background:var(--pri-soft); border:1px solid var(--line); border-radius:var(--r-md);
@@ -471,7 +477,11 @@ table.data tbody tr:hover { background:var(--panel2); }
 }
 
 /* ---------- responsive ---------- */
-@media (max-width:1100px) { .inspector { display:none; } }
+/* The inspector holds run controls (env, variables, Run) — stack it, never hide it. */
+@media (max-width:1100px) {
+  .split { flex-wrap:wrap; }
+  .inspector { flex:1 1 100%; border-left:none; border-top:1px solid var(--line); }
+}
 @media (max-width:960px) { .metric-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media (max-width:820px) {
   .content { padding:16px; }
@@ -539,7 +549,9 @@ table.data tbody tr:hover { background:var(--panel2); }
 .kvtable input:focus { box-shadow:none; outline:2px solid var(--pri-soft); outline-offset:-2px; }
 .kvtable .k { flex:0 0 38%; min-width:0; border-right:1px solid var(--line2); color:var(--ink); }
 .kvtable .v { flex:1; min-width:0; }
-.kvtable .rm { width:34px; background:none; border:none; cursor:pointer; color:var(--faint); flex-shrink:0; }
+.kvtable .rm { width:34px; display:flex; align-items:center; justify-content:center;
+  background:none; border:none; cursor:pointer; color:var(--faint); flex-shrink:0; }
+.kvtable .rm:hover { color:var(--fail); }
 .kvtable .rm:hover { color:var(--fail); }
 .tickbox { width:15px; height:15px; border-radius:4px; display:flex; align-items:center;
   justify-content:center; border:1.5px solid var(--line); color:transparent; cursor:pointer; }
@@ -736,8 +748,11 @@ table.data tbody tr:hover { background:var(--panel2); }
 .hi-flow { min-width:0; }
 .hi-flow .nm { font-size:12.5px; font-weight:600; color:var(--ink); }
 .hi-flow .tags { display:flex; gap:5px; flex-wrap:wrap; margin-top:3px; }
-.hi-tag { font-family:var(--mono); font-size:9.5px; font-weight:700; letter-spacing:.06em;
-  text-transform:uppercase; color:var(--muted); background:var(--panel2);
+/* Tags carry user content (person names, suite names) — no text-transform here:
+   Turkish casing turns "Design Tester" into "DESİGN TESTER". Uppercase the
+   fixed vocabulary at the source instead (see .hi-tag.trigger). */
+.hi-tag { font-family:var(--mono); font-size:10px; font-weight:700; letter-spacing:.04em;
+  color:var(--muted); background:var(--panel2);
   border:1px solid var(--line2); border-radius:999px; padding:1.5px 7px; }
 .hi-tag.suite { color:var(--vio); background:var(--vio-soft); border-color:transparent; }
 .hi-num { font-family:var(--mono); font-size:11.5px; color:var(--muted); white-space:nowrap; }

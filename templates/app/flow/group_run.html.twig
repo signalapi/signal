@@ -1,52 +1,38 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ group.name }} · {{ 'Group run'|trans }}{% endblock %}
 
 {% block panel %}
-<style>
-    .gr-head { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
-    .gr-head h1 { margin: 0; font-size: 22px; letter-spacing: -.02em; }
-    .gr-bar { height: 8px; border-radius: 999px; background: var(--panel-2); overflow: hidden; margin-bottom: 18px; }
-    .gr-bar > span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .35s, background .3s; }
-    .gr-bar.done > span { background: var(--pass); } .gr-bar.fail > span { background: var(--fail); }
-    .gr-row { display: flex; align-items: center; gap: 14px; padding: 13px 16px; border: 1px solid var(--border); border-radius: 12px;
-        background: var(--panel); box-shadow: var(--shadow); margin-bottom: 10px; text-decoration: none; color: inherit; transition: border-color .2s; }
-    .gr-row .idx { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;
-        font-family: var(--font-mono); font-size: 12px; font-weight: 700; border: 2px solid var(--border); color: var(--muted); background: var(--panel); }
-    .gr-row.s-running .idx { color: #fff; background: var(--accent); border-color: var(--accent); animation: pulse 1s infinite; }
-    .gr-row.s-passed .idx { color: #fff; background: var(--pass); border-color: var(--pass); }
-    .gr-row.s-failed .idx, .gr-row.s-error .idx { color: #fff; background: var(--fail); border-color: var(--fail); }
-    .gr-row.s-passed { border-color: rgba(31,157,85,.4); } .gr-row.s-failed, .gr-row.s-error { border-color: rgba(229,72,77,.45); }
-    .gr-name { flex: 1; font-weight: 600; }
-    .gr-meta { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
-    .gr-state { font-size: 12px; font-weight: 600; }
-    .gr-state.passed { color: var(--pass); } .gr-state.failed, .gr-state.error { color: var(--fail); } .gr-state.running { color: var(--accent); }
-    .gr-state.pending { color: var(--muted); }
-</style>
-
-{% set labels = {'passed':'passed'|trans,'failed':'failed'|trans,'error':'error'|trans,'running':'running'|trans,'skipped':'skipped'|trans,'cancelled':'cancelled'|trans} %}
+{# Status vocabulary matches app/flow/_status.html.twig so a pill reads the same everywhere. #}
+{% set labels = {'passed':'Passed'|trans,'failed':'Failed'|trans,'error':'Error'|trans,'running':'Running'|trans,'skipped':'Skipped'|trans,'cancelled':'Cancelled'|trans} %}
 {% set failedCount = 0 %}
 {% for it in byIteration %}{% if it.status in ['failed','error'] %}{% set failedCount = failedCount + 1 %}{% endif %}{% endfor %}
 
-<a class="backlink" href="{{ path('app_flow_suite_index', {workspace: workspace.id}) }}">← {{ 'Suites'|trans }}</a>
-<div class="gr-head">
-    <h1>▶ {{ group.name }}</h1>
-    <span class="muted-sm" id="grSummary">
-        {%- if finished -%}{{ failedCount ? '%count%/%total% flows failed'|trans({'%count%': failedCount, '%total%': total}) : 'All flows passed (%total%)'|trans({'%total%': total}) }}
-        {%- else -%}{{ '%done%/%total% flows finished'|trans({'%done%': done, '%total%': total}) }}{% endif -%}
-    </span>
+<a class="backlink" href="{{ path('app_flow_suite_index', {workspace: workspace.id}) }}">
+    <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Suites'|trans }}</a>
+<div class="pagehead">
+    <div>
+        <h1>{{ group.name }}</h1>
+        <p class="subtitle" id="grSummary">
+            {%- if finished -%}{{ failedCount ? '%count%/%total% flows failed'|trans({'%count%': failedCount, '%total%': total}) : 'All flows passed (%total%)'|trans({'%total%': total}) }}
+            {%- else -%}{{ '%done%/%total% flows finished'|trans({'%done%': done, '%total%': total}) }}{% endif -%}
+        </p>
+    </div>
 </div>
-<div class="gr-bar {{ finished ? (failedCount ? 'fail' : 'done') }}" id="grBar"><span id="grFill" style="width:{{ total ? (done / total * 100)|round : 0 }}%;"></span></div>
+<div class="progress" id="grBar" style="margin-bottom:16px;">
+    <i id="grFill" class="{{ finished ? (failedCount ? 'failed' : 'passed') }}" style="width:{{ total ? (done / total * 100)|round : 0 }}%;"></i>
+</div>
 
-<div id="grList">
+<div class="card" id="grList" style="overflow:hidden;">
     {% for flow in group.flows %}
         {% set r = byIteration[loop.index0] ?? null %}
         {% set st = r ? r.status : 'pending' %}
-        <{{ r ? 'a' : 'div' }} class="gr-row s-{{ st }}" data-idx="{{ loop.index0 }}"{% if r %} href="{{ r.detailUrl }}" style="text-decoration:none;color:inherit;"{% endif %}>
-            <span class="idx">{{ loop.index }}</span>
-            <span class="gr-name">{{ flow.name }}</span>
-            <span class="gr-meta" data-meta>{% if r %}{{ r.passed }}/{{ r.total }}{{ r.durationMs is not null ? ' · ' ~ r.durationMs ~ 'ms' }}{% endif %}</span>
-            <span class="gr-state {{ st }}" data-state>{{ labels[st] ?? 'pending'|trans }}</span>
+        <{{ r ? 'a' : 'div' }} class="wf-row {{ st }}" data-idx="{{ loop.index0 }}"{% if r %} href="{{ r.detailUrl }}" style="color:inherit;"{% endif %}>
+            <span class="node {{ st }}" style="width:22px;height:22px;font-size:10px;box-shadow:none;">{{ loop.index }}</span>
+            <span class="name" style="width:auto;flex:1;">{{ flow.name }}</span>
+            <span class="ms" style="width:auto;" data-meta>{% if r %}{{ r.passed }}/{{ r.total }}{{ r.durationMs is not null ? ' · ' ~ r.durationMs ~ 'ms' }}{% endif %}</span>
+            <span class="pill {{ st }}" data-state>{{ labels[st] ?? 'Pending'|trans }}</span>
         </{{ r ? 'a' : 'div' }}>
     {% endfor %}
 </div>
@@ -55,12 +41,12 @@
 <span id="grCfg" data-status-url="{{ path('app_flow_group_run_status', {workspace: workspace.id, group: group.id, batchId: batchId}) }}" data-total="{{ total }}" hidden></span>
 
 <script type="application/json" id="gr-i18n">{{ {
-    passed: 'passed'|trans,
-    failed: 'failed'|trans,
-    error: 'error'|trans,
-    running: 'running'|trans,
-    cancelled: 'cancelled'|trans,
-    pending: 'pending'|trans,
+    passed: 'Passed'|trans,
+    failed: 'Failed'|trans,
+    error: 'Error'|trans,
+    running: 'Running'|trans,
+    cancelled: 'Cancelled'|trans,
+    pending: 'Pending'|trans,
     progress: '%done%/%total% flows finished'|trans,
     failedSuffix: ' · %count% failed'|trans,
     someFailed: '%count%/%total% flows failed'|trans,
@@ -74,7 +60,7 @@
     var T = JSON.parse(document.getElementById('gr-i18n').textContent);
     var statusUrl = cfg.dataset.statusUrl, total = parseInt(cfg.dataset.total, 10) || 0;
     var bar = document.getElementById('grBar'), fill = document.getElementById('grFill'), summary = document.getElementById('grSummary');
-    var rows = [].slice.call(document.querySelectorAll('.gr-row'));
+    var rows = [].slice.call(document.querySelectorAll('.wf-row'));
 
     function label(s) { return T[s] || s; }
 
@@ -85,24 +71,26 @@
             var done = 0, failed = 0;
             rows.forEach(function (row) {
                 var idx = parseInt(row.dataset.idx, 10), run = byIdx[idx];
-                row.className = 'gr-row s-' + (run ? run.status : 'pending');
+                row.className = 'wf-row ' + (run ? run.status : 'pending');
+                var nd = row.querySelector('.node');
+                if (nd) nd.className = 'node ' + (run ? run.status : 'pending');
                 var st = row.querySelector('[data-state]'), meta = row.querySelector('[data-meta]');
                 if (run) {
-                    st.className = 'gr-state ' + run.status; st.textContent = label(run.status);
+                    st.className = 'pill ' + run.status; st.textContent = label(run.status);
                     meta.textContent = run.passed + '/' + run.total + (run.durationMs != null ? ' · ' + run.durationMs + 'ms' : '');
                     row.setAttribute('href', run.detailUrl); row.tagName === 'A' || row.setAttribute('role', 'link');
                     row.onclick = function () { window.location.href = run.detailUrl; };
                     if (run.status !== 'running') done++;
                     if (run.status === 'failed' || run.status === 'error') failed++;
                 } else {
-                    st.className = 'gr-state pending'; st.textContent = T.pending; meta.textContent = '';
+                    st.className = 'pill pending'; st.textContent = T.pending; meta.textContent = '';
                 }
             });
             fill.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
             summary.textContent = T.progress.replace('%done%', done).replace('%total%', total)
                 + (failed ? T.failedSuffix.replace('%count%', failed) : '');
             if (d.finished) {
-                bar.className = 'gr-bar ' + (failed ? 'fail' : 'done');
+                fill.className = failed ? 'failed' : 'passed';
                 summary.textContent = failed
                     ? T.someFailed.replace('%count%', failed).replace('%total%', total)
                     : T.allPassed.replace('%total%', total);

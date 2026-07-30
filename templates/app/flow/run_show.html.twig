@@ -1,128 +1,57 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Run'|trans }} · {{ flow.name }}{% endblock %}
 
 {% block panel %}
-<style>
-    .ru-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
-    .ru-head h1 { margin: 0 0 4px; font-size: 24px; letter-spacing: -.02em; }
-    .ru-sum { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 18px; }
-    @media (max-width: 720px) { .ru-sum { grid-template-columns: repeat(2, 1fr); } }
-    .ru-stat { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px; box-shadow: var(--shadow); }
-    .ru-stat .n { font-size: 24px; font-weight: 700; letter-spacing: -.02em; }
-    .ru-stat .l { color: var(--muted); font-size: 12px; margin-top: 4px; }
-
-    .live { display: flex; align-items: center; gap: 12px; background: var(--accent-soft); border: 1px solid rgba(69,52,214,.25);
-        border-radius: 12px; padding: 13px 16px; margin-bottom: 18px; }
-    .live .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); animation: pulse 1s infinite; flex-shrink: 0; }
-    .live .t { font-weight: 600; color: var(--accent); }
-
-    .rt-row { display: flex; gap: 14px; align-items: stretch; }
-    .rt-rail { position: relative; width: 36px; flex-shrink: 0; display: flex; justify-content: center; }
-    .rt-rail::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; transform: translateX(-50%); background: var(--border); z-index: 0; }
-    .rt-row:first-child .rt-rail::before { top: 21px; }
-    .rt-row:last-child  .rt-rail::before { bottom: calc(100% - 21px); }
-    .rt-row.s-passed .rt-rail::before { background: var(--pass); }
-    .rt-row.s-failed .rt-rail::before, .rt-row.s-error .rt-rail::before { background: var(--fail); }
-    .rt-node { position: relative; z-index: 1; width: 30px; height: 30px; margin-top: 6px; border-radius: 50%; flex-shrink: 0;
-        display: flex; align-items: center; justify-content: center; font-family: var(--font-mono); font-size: 12px; font-weight: 700;
-        color: var(--muted); background: var(--panel); border: 2px solid var(--border); box-shadow: 0 0 0 4px var(--panel); }
-    .rt-node.s-passed { color: #fff; background: var(--pass); border-color: var(--pass); }
-    .rt-node.s-failed, .rt-node.s-error { color: #fff; background: var(--fail); border-color: var(--fail); }
-    .rt-node.s-running { color: #fff; background: var(--accent); border-color: var(--accent); animation: pulse 1s infinite; }
-    .rt-node.s-skipped { color: var(--warn); background: var(--warn-soft); border-color: var(--warn); }
-
-    .rt-card { flex: 1; min-width: 0; margin-bottom: 14px; background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; box-shadow: var(--shadow); }
-    .rt-row:last-child .rt-card { margin-bottom: 0; }
-    .rt-card.s-passed { border-left: 3px solid var(--pass); }
-    .rt-card.s-failed, .rt-card.s-error { border-left: 3px solid var(--fail); }
-    .rt-card.s-skipped { border-left: 3px solid var(--warn); }
-    .rt-chead { display: flex; align-items: center; gap: 10px; }
-    .rt-chead .name { font-weight: 600; font-size: 14.5px; flex: 1; min-width: 0; }
-    .rt-req { font-family: var(--font-mono); font-size: 12px; color: var(--muted); margin-top: 7px; word-break: break-all; }
-    .rt-req b { color: var(--ink); }
-    .blk { margin-top: 11px; }
-    .blk .cap { font-size: 10px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-bottom: 5px; }
-    .kvline { font-family: var(--font-mono); font-size: 12.5px; line-height: 1.7; }
-    .kvline .ok { color: var(--pass); } .kvline .no { color: var(--fail); } .kvline .v { color: var(--accent); }
-    .rt-card details { margin-top: 11px; }
-    .rt-card summary { cursor: pointer; color: var(--muted); font-size: 12.5px; }
-    .rt-card pre { background: var(--ink); color: #e8e8e2; border-radius: 9px; padding: 12px; overflow: auto; max-height: 320px; font-size: 12px; margin: 8px 0 0; }
-
-    .diag { background: var(--fail-soft); border: 1px solid rgba(229,72,77,.4); border-radius: 14px; padding: 16px 18px; margin: 4px 0 22px; }
-    .diag-head { font-weight: 700; font-size: 15px; color: var(--fail); margin-bottom: 12px; }
-    .diag-step { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; margin-bottom: 10px; }
-    .diag-title { font-weight: 600; font-size: 13.5px; display: flex; align-items: baseline; gap: 10px; }
-    .diag-meta { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); font-weight: 400; }
-    .diag-err { color: var(--fail); font-size: 12.5px; margin-top: 6px; font-family: var(--font-mono); }
-    .diag-asserts { margin: 8px 0 0; padding-left: 18px; font-size: 12.5px; }
-    .diag-asserts li { margin: 3px 0; }
-    .diag-asserts code { color: var(--muted); }
-    .diag-asserts b { color: var(--fail); }
-    .diag-body { margin-top: 9px; }
-    .diag-body summary { cursor: pointer; color: var(--muted); font-size: 12px; }
-    .diag-body pre { background: var(--ink); color: #e8e8e2; border-radius: 9px; padding: 12px; overflow: auto; max-height: 260px; font-size: 12px; margin: 8px 0 0; }
-    .diag-foot { font-size: 12px; color: var(--muted); margin-top: 4px; }
-
-    .blk.drift { background: var(--warn-soft); border: 1px solid var(--warn); border-radius: 9px; padding: 9px 11px; }
-    .blk.drift .cap { color: #8a6d00; }
-    .drift-note { font-weight: 400; color: var(--muted); }
-    .drift-line { font-family: var(--font-mono); font-size: 12px; color: var(--ink); }
-    .errbox { background: var(--fail-soft); color: var(--fail); border: 1px solid rgba(229,72,77,.25); border-radius: 9px; padding: 9px 12px; font-size: 13px; margin-top: 10px; }
-</style>
-
 {% set sc = run.status %}
-{% set sdot = sc == 'passed' ? 'var(--pass)' : (sc == 'running' ? 'var(--accent)' : (sc == 'cancelled' ? 'var(--warn)' : 'var(--fail)')) %}
 
 {% set inGroup = run.trigger == 'group' and run.batchId and suiteGroup %}
 {% set backUrl = inGroup
     ? path('app_flow_group_run_show', {workspace: workspace.id, group: suiteGroup.id, batchId: run.batchId})
     : path('app_flow_show', {workspace: workspace.id, flow: flow.id}) %}
-<div class="ru-head">
+
+<a class="backlink" href="{{ backUrl }}">
+    <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>
+    {%- if inGroup %}{{ ic.i('suites', 12) }}{{ '%name% run'|trans({'%name%': suiteGroup.name}) }}{% else %}{{ flow.name }}{% endif %}</a>
+
+<div class="pagehead">
     <div>
-        <a class="backlink" href="{{ backUrl }}">← {{ inGroup ? '🧩 %name% run'|trans({'%name%': suiteGroup.name}) : flow.name }}</a>
         <h1>{{ 'Run detail'|trans }} · {{ flow.name }}</h1>
-        <p class="subtitle" style="margin:0;">{{ run.createdAt|date('d.m.Y H:i:s') }}
-            {%- if inGroup %} · <span class="pill" style="background:var(--accent-soft);color:var(--accent);">🧩 {{ suiteGroup.name }}</span>
-            {%- elseif run.batchId %} · <span class="pill" style="background:var(--accent-soft);color:var(--accent);">data #{{ run.iteration + 1 }}</span>{% endif %}</p>
+        <p class="subtitle">{{ run.createdAt|date('d.m.Y H:i:s') }}
+            {%- if inGroup %} · <span class="pill" style="background:var(--vio-soft);color:var(--vio);">{{ ic.i('suites', 11) }}{{ suiteGroup.name }}</span>
+            {%- elseif run.batchId %} · <span class="pill">data #{{ run.iteration + 1 }}</span>{% endif %}</p>
     </div>
-    <a class="btn ghost" href="{{ backUrl }}">{{ inGroup ? '← ' ~ 'Back to suite run'|trans : 'Back to flow'|trans }}</a>
+    <div class="actions">
+        <a class="btn ghost" href="{{ backUrl }}">{{ inGroup ? 'Back to suite run'|trans : 'Back to flow'|trans }}</a>
+    </div>
 </div>
 
 <div class="ru-sum">
-    <div class="ru-stat"><div class="n" style="color:{{ sdot }};">{{ include('app/flow/_status.html.twig', {status: sc}) }}</div><div class="l">{{ 'Status'|trans }}</div></div>
+    <div class="ru-stat"><div class="n">{{ include('app/flow/_status.html.twig', {status: sc}) }}</div><div class="l">{{ 'Status'|trans }}</div></div>
     <div class="ru-stat"><div class="n">{{ run.passedSteps }}/{{ run.totalSteps }}</div><div class="l">{{ 'Passed steps'|trans }}</div></div>
     <div class="ru-stat"><div class="n">{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</div><div class="l">{{ 'Total duration'|trans }}</div></div>
-    <div class="ru-stat"><div class="n" style="font-size:16px;">{{ run.environmentName ?: '—' }}</div><div class="l">{{ 'Environment'|trans }}</div></div>
+    <div class="ru-stat"><div class="n" style="font-size:14px;">{{ run.environmentName ?: '—' }}</div><div class="l">{{ 'Environment'|trans }}</div></div>
     <div class="ru-stat">
-        <div class="n" style="font-size:16px;">{{ run.triggeredBy ? run.triggeredBy.name : 'Scheduled'|trans }}</div>
+        <div class="n" style="font-size:14px;">{{ run.triggeredBy ? run.triggeredBy.name : 'Scheduled'|trans }}</div>
         <div class="l">{{ 'Run by'|trans }}</div>
     </div>
 </div>
 
 {% if sc != 'running' %}
-<div class="share" id="share"
+<div class="card" id="share" style="padding:14px 15px;margin-bottom:18px;"
      data-share="{{ path('app_flow_run_share', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
      data-unshare="{{ path('app_flow_run_unshare', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
      data-token="{{ csrf_token('share-run' ~ run.id) }}">
-    <button type="button" class="btn ghost small" id="shareBtn">🔗 {{ 'Share'|trans }}</button>
-    <div class="share-box" id="shareBox" {{ run.isShareValid ? '' : 'hidden' }}>
-        <input type="text" id="shareUrl" readonly value="{{ run.isShareValid ? url('public_report', {token: run.shareToken}) : '' }}">
+    <button type="button" class="btn ghost small" id="shareBtn">{{ ic.i('share', 13) }}{{ 'Share'|trans }}</button>
+    <div id="shareBox" style="display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;" {{ run.isShareValid ? '' : 'hidden' }}>
+        <input type="text" id="shareUrl" class="input-mono" readonly style="flex:1;min-width:220px;" value="{{ run.isShareValid ? url('public_report', {token: run.shareToken}) : '' }}">
         <button type="button" class="btn small" id="shareCopy">{{ 'Copy'|trans }}</button>
         <button type="button" class="btn ghost small" id="shareRevoke">{{ 'Revoke'|trans }}</button>
-        <span class="share-exp">{{ run.isShareValid and run.shareExpiresAt ? 'until %date%'|trans({'%date%': run.shareExpiresAt|date('d.m.Y H:i')}) }}</span>
+        <span class="share-exp" style="font-size:11.5px;color:var(--muted);">{{ run.isShareValid and run.shareExpiresAt ? 'until %date%'|trans({'%date%': run.shareExpiresAt|date('d.m.Y H:i')}) }}</span>
     </div>
-    <p class="share-hint">{{ 'A time-limited report link that requires no login. Shareable with stakeholders.'|trans }}</p>
+    <p class="fhint">{{ 'A time-limited report link that requires no login. Shareable with stakeholders.'|trans }}</p>
 </div>
-<style>
-    .share { margin: 2px 0 18px; }
-    .share-box { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
-    .share-box[hidden] { display: none; }
-    .share-box input { flex: 1; min-width: 220px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px;
-        padding: 8px 10px; color: var(--ink); font-family: var(--font-mono); font-size: 12px; }
-    .share-exp { font-size: 11.5px; color: var(--muted); }
-    .share-hint { font-size: 12px; color: var(--muted); margin: 8px 0 0; }
-</style>
 <script>
 (function () {
     var root = document.getElementById('share'); if (!root) return;
@@ -139,7 +68,7 @@
     });
     document.getElementById('shareCopy').addEventListener('click', function () {
         urlIn.select(); (navigator.clipboard ? navigator.clipboard.writeText(urlIn.value) : Promise.resolve()).catch(function(){});
-        var b = this; var t = b.textContent; b.textContent = '{{ 'Copied'|trans|e('js') }} ✓'; setTimeout(function(){ b.textContent = t; }, 900);
+        var b = this; var t = b.textContent; b.textContent = '{{ 'Copied'|trans|e('js') }}'; setTimeout(function(){ b.textContent = t; }, 900);
     });
     document.getElementById('shareRevoke').addEventListener('click', function () {
         post(root.dataset.unshare).then(function () { box.hidden = true; urlIn.value = ''; });
@@ -150,45 +79,48 @@
 
 {% if sc in ['failed', 'error'] %}
 {% set failing = run.stepResults|filter(r => r.status in ['failed', 'error']) %}
-<div class="diag">
-    <div class="diag-head">⚠ {{ 'Why did it blow up?'|trans }}</div>
+<div style="background:var(--fail-soft);border:1px solid var(--fail);border-radius:var(--r-lg);padding:16px 18px;margin:4px 0 22px;">
+    <h2 style="color:var(--fail);margin-bottom:12px;">{{ 'Why did it blow up?'|trans }}</h2>
     {% for r in failing %}
-        <div class="diag-step">
-            <div class="diag-title">#{{ r.position + 1 }} · {{ r.label }}<span class="diag-meta">{{ r.requestMethod }}{% if r.responseStatus %} → HTTP {{ r.responseStatus }}{% endif %}</span></div>
-            {% if r.error %}<div class="diag-err">{{ r.error }}</div>{% endif %}
+        <div class="card" style="padding:12px 14px;margin-bottom:10px;">
+            <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;">
+                <span style="font-size:13px;font-weight:700;color:var(--ink);">#{{ r.position + 1 }} · {{ r.label }}</span>
+                <span class="mono" style="font-size:11px;color:var(--muted);">{{ r.requestMethod }}{% if r.responseStatus %} → HTTP {{ r.responseStatus }}{% endif %}</span>
+            </div>
+            {% if r.error %}<div class="mono" style="color:var(--fail);font-size:11.5px;margin-top:6px;">{{ r.error }}</div>{% endif %}
             {% set failedAsserts = r.assertionResults|filter(a => not a.ok) %}
             {% if failedAsserts is not empty %}
-                <ul class="diag-asserts">
-                    {% for a in failedAsserts %}<li><code>{{ a.label }}</code> — {{ 'actual:'|trans }} <b>{{ a.actual|default('(none)'|trans) }}</b></li>{% endfor %}
+                <ul style="margin:8px 0 0;padding-left:18px;font-size:12px;">
+                    {% for a in failedAsserts %}
+                        <li style="margin:3px 0;"><code class="mono" style="color:var(--muted);">{{ a.label }}</code> — {{ 'actual:'|trans }}
+                            <b style="color:var(--fail);">{{ a.actual|default('(none)'|trans) }}</b></li>
+                    {% endfor %}
                 </ul>
             {% endif %}
-            {% if r.responseBody %}<details class="diag-body"><summary>{{ 'Response body'|trans }}</summary><pre>{{ r.responseBody|slice(0, 4000) }}</pre></details>{% endif %}
+            {% if r.responseBody %}
+                <details class="fold" style="margin-top:9px;">
+                    <summary><span class="t">{{ 'Response body'|trans }}</span><span class="chev">{{ ic.i('chevron-r', 12) }}</span></summary>
+                    <div class="fold-body"><pre class="code" style="max-height:260px;margin:0;">{{ r.responseBody|slice(0, 4000) }}</pre></div>
+                </details>
+            {% endif %}
         </div>
     {% endfor %}
-    <div class="diag-foot" style="display:flex;align-items:center;gap:12px;">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
         <button type="button" class="btn small" id="aiDiagBtn"
                 data-url="{{ path('app_flow_run_diagnose', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
-                data-token="{{ csrf_token('diagnose-run' ~ run.id) }}">🤖 {{ 'Diagnose with AI'|trans }}</button>
-        <span class="diag-foot-hint">{{ 'Claude interprets this evidence and suggests a root cause + fix.'|trans }}</span>
+                data-token="{{ csrf_token('diagnose-run' ~ run.id) }}">{{ ic.i('bot', 13) }}{{ 'Diagnose with AI'|trans }}</button>
+        <span style="font-size:11.5px;color:var(--muted);">{{ 'Claude interprets this evidence and suggests a root cause + fix.'|trans }}</span>
     </div>
-    <div id="aiDiagOut" class="ai-out" hidden></div>
+    <div id="aiDiagOut" class="codebox" style="margin-top:12px;" hidden></div>
 </div>
 
-<style>
-    .diag-foot-hint { font-size: 12px; color: var(--muted); }
-    .ai-out { margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-        padding: 14px 16px; font-size: 13px; line-height: 1.6; white-space: pre-wrap; }
-    .ai-out.err { border-color: var(--fail); color: var(--fail); }
-    .ai-out .ai-badge { display: inline-block; font-size: 10px; font-weight: 700; letter-spacing: .04em; color: var(--accent);
-        background: var(--accent-soft); border-radius: 5px; padding: 2px 7px; margin-bottom: 8px; }
-</style>
 <script>
 (function () {
     var btn = document.getElementById('aiDiagBtn'); if (!btn) return;
     var out = document.getElementById('aiDiagOut');
     btn.addEventListener('click', function () {
         btn.disabled = true; var label = btn.textContent; btn.textContent = '{{ 'Diagnosing…'|trans|e('js') }}';
-        out.hidden = false; out.className = 'ai-out'; out.textContent = '⏳ {{ 'Claude is analyzing…'|trans|e('js') }}';
+        out.hidden = false; out.className = 'codebox'; out.style.color = ''; out.textContent = '{{ 'Claude is analyzing…'|trans|e('js') }}';
         var body = new URLSearchParams(); body.set('_token', btn.dataset.token);
         fetch(btn.dataset.url, { method: 'POST', headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -196,27 +128,27 @@
                 btn.disabled = false; btn.textContent = label;
                 var d = res.d;
                 if (d.configured === false) {
-                    out.className = 'ai-out'; out.textContent = 'ℹ️ {{ 'AI diagnosis is not connected yet. Set the ANTHROPIC_API_KEY environment variable to enable it (the code is ready).'|trans|e('js') }}';
+                    out.className = 'codebox'; out.style.color = ''; out.textContent = '{{ 'AI diagnosis is not connected yet. Set the ANTHROPIC_API_KEY environment variable to enable it (the code is ready).'|trans|e('js') }}';
                 } else if (d.error) {
-                    out.className = 'ai-out err'; out.textContent = '{{ 'Error'|trans|e('js') }}: ' + d.error;
+                    out.className = 'codebox'; out.style.color = 'var(--fail)'; out.textContent = '{{ 'Error'|trans|e('js') }}: ' + d.error;
                 } else {
-                    out.className = 'ai-out';
-                    out.innerHTML = '<span class="ai-badge">🤖 {{ 'CLAUDE DIAGNOSIS'|trans|e('js') }}</span>';
+                    out.className = 'codebox'; out.style.color = '';
+                    out.innerHTML = '<span class="eyebrow" style="display:block;margin-bottom:7px;">{{ 'CLAUDE DIAGNOSIS'|trans|e('js') }}</span>';
                     var p = document.createElement('div'); p.textContent = d.analysis || '{{ '(empty response)'|trans|e('js') }}'; out.appendChild(p);
                 }
             })
-            .catch(function () { btn.disabled = false; btn.textContent = label; out.className = 'ai-out err'; out.textContent = '{{ 'Request failed.'|trans|e('js') }}'; });
+            .catch(function () { btn.disabled = false; btn.textContent = label; out.className = 'codebox'; out.style.color = 'var(--fail)'; out.textContent = '{{ 'Request failed.'|trans|e('js') }}'; });
     });
 })();
 </script>
 {% endif %}
 
 {% if sc == 'running' %}
-<div class="live">
-    <span class="dot"></span>
-    <span class="t">{{ 'Running'|trans }}</span>
-    <span class="subtitle" id="liveProgress" style="margin:0;">{{ '%done%/%total% steps'|trans({'%done%': run.passedSteps, '%total%': run.totalSteps}) }}</span>
-    <div style="flex:1"></div>
+<div class="card" style="display:flex;align-items:center;gap:12px;padding:13px 16px;margin-bottom:18px;background:var(--pri-soft);border-color:var(--pri);">
+    <span class="dot running"></span>
+    <span style="font-weight:700;color:var(--pri);">{{ 'Running'|trans }}</span>
+    <span class="subtitle" id="liveProgress">{{ '%done%/%total% steps'|trans({'%done%': run.passedSteps, '%total%': run.totalSteps}) }}</span>
+    <div class="grow"></div>
     <form method="post" action="{{ path('app_flow_run_cancel', {workspace: workspace.id, flow: flow.id, run: run.id}) }}">
         <input type="hidden" name="_token" value="{{ csrf_token('cancel-run' ~ run.id) }}">
         <button class="btn danger" type="submit">{{ 'Cancel run'|trans }}</button>
@@ -224,56 +156,82 @@
 </div>
 {% endif %}
 
-<div class="runtrack">
+{% set maxMs = 1 %}
+{% for r in run.stepResults %}{% if r.durationMs and r.durationMs > maxMs %}{% set maxMs = r.durationMs %}{% endif %}{% endfor %}
+
+<div class="track">
 {% for r in run.stepResults %}
-    <div class="rt-row s-{{ r.status }}">
-        <div class="rt-rail"><div class="rt-node s-{{ r.status }}">{% if r.status == 'passed' %}✓{% elseif r.status in ['failed','error'] %}✗{% elseif r.status == 'skipped' %}–{% else %}{{ r.position + 1 }}{% endif %}</div></div>
-        <div class="rt-card s-{{ r.status }}">
-            <div class="rt-chead">
+    {% set kind = r.requestMethod ?: '·' %}
+    <div class="track-row {{ r.status }}">
+        <div class="track-rail">
+            <div class="node {{ r.status }}">
+                {%- if r.status == 'passed' %}{{ ic.i('check', 13, 3) }}
+                {%- elseif r.status in ['failed', 'error'] %}{{ ic.i('x', 13, 3) }}
+                {%- elseif r.status == 'skipped' %}{{ ic.i('minus', 13, 3) }}
+                {%- else %}{{ r.position + 1 }}{% endif -%}
+            </div>
+        </div>
+        <div class="step-card {{ r.status }}" style="cursor:default;">
+            <div class="head">
+                <span class="kind m-{{ kind|lower }}">{{ kind }}</span>
                 <span class="name">{{ r.label }}</span>
+                {% if r.durationMs %}
+                    <span class="wf-bar" style="flex:0 0 110px;">
+                        <i class="{{ r.status == 'error' ? 'failed' : r.status }}" style="width:{{ (r.durationMs / maxMs * 100)|round }}%;"></i>
+                    </span>
+                    <span class="live {{ r.status }}">{{ r.durationMs }} ms</span>
+                {% endif %}
                 {{ include('app/flow/_status.html.twig', {status: r.status}) }}
             </div>
 
             {% if r.status == 'skipped' %}
-                <div class="rt-req">{{ 'Skipped because the previous step failed.'|trans }}</div>
+                <div class="detail">{{ 'Skipped because the previous step failed.'|trans }}</div>
             {% else %}
-                <div class="rt-req">
-                    <b>{{ r.requestMethod }}</b> {{ r.requestUrl }}
-                    {% if r.responseStatus %}→ <b>{{ r.responseStatus }}</b> ({{ r.durationMs }} ms){% endif %}
-                    {% if r.attempts > 1 %}· <span style="color:var(--accent);">↻ {{ '%count% attempts'|trans({'%count%': r.attempts}) }}</span>{% endif %}
+                <div class="detail" style="white-space:normal;word-break:break-all;">
+                    <b style="color:var(--ink);">{{ r.requestMethod }}</b> {{ r.requestUrl }}
+                    {% if r.responseStatus %}→ <b style="color:var(--ink);">{{ r.responseStatus }}</b>{% endif %}
+                    {% if r.attempts > 1 %}· <span class="chip retry">{{ '%count% attempts'|trans({'%count%': r.attempts}) }}</span>{% endif %}
                 </div>
 
-                {% if r.error %}<div class="errbox">{{ r.error }}</div>{% endif %}
+                {% if r.error %}<div class="flash error" style="margin:10px 0 0;">{{ r.error }}</div>{% endif %}
 
                 {% if r.extractedVars is not empty %}
-                    <div class="blk">
-                        <div class="cap">{{ 'Extractions'|trans }}</div>
-                        <div class="kvline">{% for k, v in r.extractedVars %}{{ k }} = <span class="v">{{ v }}</span><br>{% endfor %}</div>
+                    <div style="margin-top:11px;">
+                        <div class="eyebrow" style="margin-bottom:5px;">{{ 'Extractions'|trans }}</div>
+                        <div class="mono" style="font-size:11.5px;line-height:1.8;">
+                            {% for k, v in r.extractedVars %}{{ k }} = <span style="color:var(--vio);">{{ v }}</span><br>{% endfor %}
+                        </div>
                     </div>
                 {% endif %}
 
                 {% if r.assertionResults is not empty %}
-                    <div class="blk">
-                        <div class="cap">{{ 'Assertions'|trans }}</div>
-                        <div class="kvline">
+                    <div style="margin-top:11px;">
+                        <div class="eyebrow" style="margin-bottom:5px;">{{ 'Assertions'|trans }}</div>
+                        <div class="mono" style="font-size:11.5px;line-height:1.8;">
                         {% for a in r.assertionResults %}
-                            {% if a.ok %}<span class="ok">✓</span>{% else %}<span class="no">✗</span>{% endif %} {{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— {{ 'received:'|trans }} {{ a.actual }}</span>{% endif %}<br>
+                            <span style="display:flex;align-items:center;gap:7px;">
+                                <span class="status-ic {{ a.ok ? 'passed' : 'failed' }}">{{ a.ok ? ic.i('check', 11, 3) : ic.i('x', 11, 3) }}</span>
+                                <span>{{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— {{ 'received:'|trans }} {{ a.actual }}</span>{% endif %}</span>
+                            </span>
                         {% endfor %}
                         </div>
                     </div>
                 {% endif %}
 
                 {% if r.shapeDrift is not empty %}
-                    <div class="blk drift">
-                        <div class="cap">⚠ {{ 'Contract changed'|trans }} <span class="drift-note">{{ '(response shape differs from the baseline)'|trans }}</span></div>
-                        <div class="kvline">{% for c in r.shapeDrift %}<span class="drift-line">{{ c }}</span><br>{% endfor %}</div>
+                    <div style="margin-top:11px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:var(--r);padding:9px 11px;">
+                        <div class="eyebrow" style="color:var(--warn);margin-bottom:5px;">{{ 'Contract changed'|trans }}
+                            <span style="font-weight:400;letter-spacing:0;text-transform:none;">{{ '(response shape differs from the baseline)'|trans }}</span></div>
+                        <div class="mono" style="font-size:11.5px;line-height:1.8;color:var(--ink);">
+                            {% for c in r.shapeDrift %}{{ c }}<br>{% endfor %}
+                        </div>
                     </div>
                 {% endif %}
 
                 {% if r.responseBody %}
-                    <details>
-                        <summary>{{ 'Response body'|trans }}</summary>
-                        <pre>{{ r.responseBody }}</pre>
+                    <details class="fold" style="margin:11px 0 0;">
+                        <summary><span class="t">{{ 'Response body'|trans }}</span><span class="chev">{{ ic.i('chevron-r', 12) }}</span></summary>
+                        <div class="fold-body"><pre class="code" style="max-height:320px;margin:0;">{{ r.responseBody }}</pre></div>
                     </details>
                 {% endif %}
             {% endif %}

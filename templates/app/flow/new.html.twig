@@ -1,9 +1,11 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'New test flow'|trans }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← {{ 'Test flows'|trans }}</a>
+<a class="backlink" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">
+    <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Test flows'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ 'New test flow'|trans }}</h1>
@@ -30,10 +32,11 @@
             </select>
         </div>
         <div class="field">
-            <label class="inline-lbl"><input type="checkbox" name="stopOnFailure" value="1" checked style="width:auto;"> {{ 'Stop at the first failed step'|trans }}</label>
+            <label style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text);margin:0;">
+                <input type="checkbox" name="stopOnFailure" value="1" checked style="width:auto;"> {{ 'Stop at the first failed step'|trans }}</label>
         </div>
         <div class="form-actions">
-            <button class="btn" type="submit">{{ 'Create'|trans }} →</button>
+            <button class="btn" type="submit">{{ 'Create'|trans }}{{ ic.i('chevron-r', 13, 2.4) }}</button>
             <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
         </div>
     </form>

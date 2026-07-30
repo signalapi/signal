@@ -1,164 +1,123 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'New step'|trans }} · {{ flow.name }}{% endblock %}
 
 {% block panel %}
-<style>
-    .sw { max-width: 940px; }
-    .sw-grid { display: grid; grid-template-columns: 248px 1fr; gap: 26px; margin-top: 20px; align-items: start; }
-    @media (max-width: 760px) { .sw-grid { grid-template-columns: 1fr; gap: 18px; } }
-
-    /* ---- LEFT: type rail (echoes the flow runline) ---- */
-    .rail { position: relative; padding: 4px 0; }
-    .rail::before { content: ""; position: absolute; left: 21px; top: 24px; bottom: 24px; width: 2px;
-        background: var(--border); z-index: 0; }
-    .rail-item { position: relative; z-index: 1; display: flex; gap: 13px; align-items: flex-start; width: 100%;
-        text-align: left; font: inherit; color: inherit; background: transparent; border: none; cursor: pointer;
-        padding: 11px 12px 11px 0; border-radius: 12px; transition: background .12s; }
-    .rail-item:hover { background: var(--panel-2); }
-    .rail-node { width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%; background: var(--panel); border: 2px solid var(--border);
-        display: flex; align-items: center; justify-content: center; font-size: 21px; box-shadow: 0 0 0 4px var(--bg, var(--panel-2));
-        transition: border-color .18s, background .18s, transform .1s; }
-    .rail-item .rail-txt h3 { margin: 3px 0 3px; font-size: 14.5px; letter-spacing: -.01em; color: var(--muted); transition: color .15s; }
-    .rail-item .rail-txt p { margin: 0; font-size: 11.5px; color: var(--muted); line-height: 1.4; opacity: .85; }
-    .rail-item.on .rail-node { border-color: var(--accent); background: var(--accent-soft); transform: scale(1.04); }
-    .rail-item.on .rail-txt h3 { color: var(--ink); font-weight: 700; }
-    .rail-item.on { background: var(--panel-2); }
-
-    /* ---- RIGHT: contextual detail ---- */
-    .detail { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow);
-        min-height: 340px; overflow: hidden; }
-    .dt-head { padding: 18px 20px 14px; border-bottom: 1px solid var(--border); }
-    .dt-head h2 { margin: 0 0 4px; font-size: 17px; }
-    .dt-head p { margin: 0; font-size: 12.5px; color: var(--muted); }
-    .dt-body { padding: 16px 20px 20px; }
-    .pane { display: none; } .pane.on { display: block; }
-
-    /* request picker */
-    .search { width: 100%; box-sizing: border-box; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
-        padding: 11px 13px; color: var(--text); font-size: 14px; margin-bottom: 12px; }
-    .search:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    .plist { border: 1px solid var(--border); border-radius: 12px; overflow: hidden auto; max-height: 380px; }
-    .grp-head { position: sticky; top: 0; background: var(--panel-2); padding: 7px 14px; font-size: 11px; font-weight: 700;
-        letter-spacing: .05em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
-    .prow { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; font: inherit; color: inherit;
-        cursor: pointer; background: transparent; border: none; border-bottom: 1px solid var(--border); padding: 11px 14px; transition: background .1s; }
-    .prow:hover { background: var(--accent-soft); } .prow:last-child { border-bottom: none; }
-    .mbadge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 3px 6px;
-        border-radius: 5px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; min-width: 46px; text-align: center; }
-    .mbadge.m-get { background: #e6f4ec; color: #16a34a; } .mbadge.m-post { background: #f8efe0; color: #b35900; }
-    .mbadge.m-put { background: #e7eefc; color: #2563eb; } .mbadge.m-patch { background: #f0e9fb; color: #8250df; }
-    .mbadge.m-delete { background: var(--fail-soft); color: #dc2626; }
-    .prow .col { flex: 1; min-width: 0; }
-    .prow .nm { font-weight: 600; font-size: 13.5px; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .prow .path { font-size: 11.5px; color: var(--muted); font-family: var(--font-mono); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .no-hit { padding: 24px; text-align: center; color: var(--muted); font-size: 13px; }
-    .empty-note { background: var(--panel-2); border: 1px dashed var(--border); border-radius: 10px; padding: 16px; font-size: 13px; color: var(--muted); }
-    .empty-note a { font-weight: 600; }
-    .util-add { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
-    .util-add .big-add { padding: 12px 22px; font-size: 14.5px; }
-</style>
-
-<div class="sw" id="sw"
+<div class="sw" id="sw" style="max-width:940px;"
      data-add="{{ path('app_flow_step_add', {workspace: workspace.id, flow: flow.id}) }}"
      data-adddb="{{ path('app_flow_step_add_db', {workspace: workspace.id, flow: flow.id}) }}"
      data-addutil="{{ path('app_flow_step_add_utility', {workspace: workspace.id, flow: flow.id}) }}"
      data-addcall="{{ path('app_flow_step_add_call', {workspace: workspace.id, flow: flow.id}) }}"
      data-token="{{ csrf_token('add-step' ~ flow.id) }}">
 
-    <a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ flow.name }}</a>
+    <a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">
+        <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ flow.name }}</a>
     <div class="pagehead"><div><h1>{{ 'New step'|trans }}</h1><p class="subtitle">{{ 'Which node should we add to the flow?'|trans }}</p></div></div>
 
-    <div class="sw-grid">
-        {# ---- type rail ---- #}
-        <div class="rail" role="tablist">
-            <button type="button" class="rail-item on" data-type="http">
-                <span class="rail-node">🌐</span>
-                <span class="rail-txt"><h3>{{ 'HTTP request'|trans }}</h3><p>{{ 'Send an API request, verify the response'|trans }}</p></span>
+    <div class="card">
+        {# ---- step-type palette ---- #}
+        <div class="typebar" role="tablist">
+            <button type="button" class="typebtn on" data-type="http">
+                <span class="ic-box">{{ ic.i('environments', 15) }}</span>
+                <span style="min-width:0"><span class="t">{{ 'HTTP request'|trans }}</span>
+                    <span class="s" style="display:block">{{ 'Send an API request, verify the response'|trans }}</span></span>
             </button>
-            <button type="button" class="rail-item" data-type="db">
-                <span class="rail-node">🗄️</span>
-                <span class="rail-txt"><h3>{{ 'DB verification'|trans }}</h3><p>{{ 'Run a query, compare the row'|trans }}</p></span>
+            <button type="button" class="typebtn" data-type="db">
+                <span class="ic-box">{{ ic.i('db', 15) }}</span>
+                <span style="min-width:0"><span class="t">{{ 'DB verification'|trans }}</span>
+                    <span class="s" style="display:block">{{ 'Run a query, compare the row'|trans }}</span></span>
             </button>
-            <button type="button" class="rail-item" data-type="setvar">
-                <span class="rail-node">🔧</span>
-                <span class="rail-txt"><h3>{{ 'Set variable'|trans }}</h3><p>{{ 'Set a variable manually'|trans }}</p></span>
+            <button type="button" class="typebtn" data-type="setvar">
+                <span class="ic-box">{{ ic.i('wrench', 15) }}</span>
+                <span style="min-width:0"><span class="t">{{ 'Set variable'|trans }}</span>
+                    <span class="s" style="display:block">{{ 'Set a variable manually'|trans }}</span></span>
             </button>
-            <button type="button" class="rail-item" data-type="delay">
-                <span class="rail-node">⏱️</span>
-                <span class="rail-txt"><h3>{{ 'Wait'|trans }}</h3><p>{{ 'Add a delay between steps'|trans }}</p></span>
+            <button type="button" class="typebtn" data-type="delay">
+                <span class="ic-box">{{ ic.i('clock', 15) }}</span>
+                <span style="min-width:0"><span class="t">{{ 'Wait'|trans }}</span>
+                    <span class="s" style="display:block">{{ 'Add a delay between steps'|trans }}</span></span>
             </button>
-            <button type="button" class="rail-item" data-type="call">
-                <span class="rail-node">🧩</span>
-                <span class="rail-txt"><h3>{{ 'Call sub-flow'|trans }}</h3><p>{{ 'Run another flow here'|trans }}</p></span>
+            <button type="button" class="typebtn" data-type="call">
+                <span class="ic-box">{{ ic.i('suites', 15) }}</span>
+                <span style="min-width:0"><span class="t">{{ 'Call sub-flow'|trans }}</span>
+                    <span class="s" style="display:block">{{ 'Run another flow here'|trans }}</span></span>
             </button>
         </div>
 
         {# ---- contextual detail ---- #}
-        <div class="detail">
-            {# HTTP #}
-            <div class="pane on" data-pane="http">
-                <div class="dt-head"><h2>{{ 'HTTP request'|trans }}</h2><p>{{ 'Pick a collection request — a copy is taken into this step.'|trans }}</p></div>
-                <div class="dt-body">
-                    {% if available_requests is empty %}
-                        <div class="empty-note">{{ 'No requests yet. First create a request in <a href="%url%">Collections</a>.'|trans({'%url%': path('app_collection_index', {workspace: workspace.id})})|raw }}</div>
-                    {% else %}
-                        <input type="text" class="search" id="reqSearch" placeholder="{{ 'Search request, collection or URL…'|trans }}" autocomplete="off">
-                        <div class="plist" id="reqList"></div>
-                    {% endif %}
-                </div>
+        {# HTTP #}
+        <div data-pane="http">
+            <div class="card-body">
+                <h2>{{ 'HTTP request'|trans }}</h2>
+                <p class="subtitle" style="margin-bottom:14px;">{{ 'Pick a collection request — a copy is taken into this step.'|trans }}</p>
+                {% if available_requests is empty %}
+                    <div class="empty" style="text-align:left;">{{ 'No requests yet. First create a request in <a href="%url%">Collections</a>.'|trans({'%url%': path('app_collection_index', {workspace: workspace.id})})|raw }}</div>
+                {% else %}
+                    <label class="search" style="display:block;max-width:none;margin-bottom:12px;">
+                        {{ ic.i('search', 14, 2) }}
+                        <input type="text" id="reqSearch" placeholder="{{ 'Search request, collection or URL…'|trans }}" autocomplete="off">
+                    </label>
+                    <div class="picker" id="reqList" style="max-height:420px;overflow:auto;"></div>
+                {% endif %}
             </div>
-            {# DB #}
-            <div class="pane" data-pane="db">
-                <div class="dt-head"><h2>{{ 'DB verification'|trans }}</h2><p>{{ 'Did the record really get created after payment — pick a connection.'|trans }}</p></div>
-                <div class="dt-body">
-                    {% if db_connections is empty %}
-                        <div class="empty-note">{{ 'No connections. First add a <a href="%url%">database connection</a>.'|trans({'%url%': path('app_dbconn_index', {workspace: workspace.id})})|raw }}</div>
-                    {% else %}
-                        <div class="plist">
-                            {% for c in db_connections %}
-                                <button type="button" class="prow" data-conn="{{ c.id }}">
-                                    <span class="mbadge">{{ c.type|upper|slice(0,5) }}</span>
-                                    <span class="col"><span class="nm">{{ c.name }}</span><span class="path">{{ c.host }}{{ c.databaseName ? ' / ' ~ c.databaseName }}</span></span>
-                                </button>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
+        </div>
+        {# DB #}
+        <div data-pane="db" hidden>
+            <div class="card-body">
+                <h2>{{ 'DB verification'|trans }}</h2>
+                <p class="subtitle" style="margin-bottom:14px;">{{ 'Did the record really get created after payment — pick a connection.'|trans }}</p>
+                {% if db_connections is empty %}
+                    <div class="empty" style="text-align:left;">{{ 'No connections. First add a <a href="%url%">database connection</a>.'|trans({'%url%': path('app_dbconn_index', {workspace: workspace.id})})|raw }}</div>
+                {% else %}
+                    <div class="picker" style="max-height:420px;overflow:auto;">
+                        {% for c in db_connections %}
+                            <button type="button" class="picker-row" data-conn="{{ c.id }}">
+                                <span class="kind m-db">{{ c.type|upper|slice(0,5) }}</span>
+                                <span class="name">{{ c.name }}</span>
+                                <span class="sub" style="min-width:0;">{{ c.host }}{{ c.databaseName ? ' / ' ~ c.databaseName }}</span>
+                            </button>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
-            {# setvar #}
-            <div class="pane" data-pane="setvar">
-                <div class="dt-head"><h2>{{ 'Set variable'|trans }}</h2><p>{{ 'Set a variable to a fixed value or with <code>{{expression}}</code>; it is used in later steps.'|trans|raw }}</p></div>
-                <div class="dt-body util-add">
-                    <p style="font-size:13px;color:var(--muted);margin:0;">{{ 'You will edit the assignments after the step is added.'|trans }}</p>
-                    <button type="button" class="btn big-add" data-submit="setvar">🔧 {{ 'Add variable step'|trans }}</button>
-                </div>
+        </div>
+        {# setvar #}
+        <div data-pane="setvar" hidden>
+            <div class="card-body">
+                <h2>{{ 'Set variable'|trans }}</h2>
+                <p class="subtitle">{{ 'Set a variable to a fixed value or with <code>{{expression}}</code>; it is used in later steps.'|trans|raw }}</p>
+                <p class="fhint" style="margin-bottom:14px;">{{ 'You will edit the assignments after the step is added.'|trans }}</p>
+                <button type="button" class="btn" data-submit="setvar">{{ ic.i('wrench', 13) }}{{ 'Add variable step'|trans }}</button>
             </div>
-            {# call sub-flow #}
-            <div class="pane" data-pane="call">
-                <div class="dt-head"><h2>{{ 'Call sub-flow'|trans }}</h2><p>{{ "The selected flow's steps run here with the same variable context — by reference, always the current version."|trans }}</p></div>
-                <div class="dt-body">
-                    {% if callable_flows is empty %}
-                        <div class="empty-note">{{ 'No other callable flow. First create another flow.'|trans }}</div>
-                    {% else %}
-                        <div class="plist">
-                            {% for cf in callable_flows %}
-                                <button type="button" class="prow" data-callflow="{{ cf.id }}">
-                                    <span class="mbadge">{{ 'FLOW'|trans }}</span>
-                                    <span class="col"><span class="nm">{{ cf.name }}</span><span class="path">{{ '%count% steps'|trans({'%count%': cf.steps|length}) }}</span></span>
-                                </button>
-                            {% endfor %}
-                        </div>
-                    {% endif %}
-                </div>
+        </div>
+        {# call sub-flow #}
+        <div data-pane="call" hidden>
+            <div class="card-body">
+                <h2>{{ 'Call sub-flow'|trans }}</h2>
+                <p class="subtitle" style="margin-bottom:14px;">{{ "The selected flow's steps run here with the same variable context — by reference, always the current version."|trans }}</p>
+                {% if callable_flows is empty %}
+                    <div class="empty" style="text-align:left;">{{ 'No other callable flow. First create another flow.'|trans }}</div>
+                {% else %}
+                    <div class="picker" style="max-height:420px;overflow:auto;">
+                        {% for cf in callable_flows %}
+                            <button type="button" class="picker-row" data-callflow="{{ cf.id }}">
+                                <span class="kind m-call">{{ 'FLOW'|trans }}</span>
+                                <span class="name">{{ cf.name }}</span>
+                                <span class="sub" style="min-width:0;">{{ '%count% steps'|trans({'%count%': cf.steps|length}) }}</span>
+                            </button>
+                        {% endfor %}
+                    </div>
+                {% endif %}
             </div>
-            {# delay #}
-            <div class="pane" data-pane="delay">
-                <div class="dt-head"><h2>{{ 'Wait'|trans }}</h2><p>{{ 'Add a delay between steps so async operations (webhook, queue) can finish.'|trans }}</p></div>
-                <div class="dt-body util-add">
-                    <p style="font-size:13px;color:var(--muted);margin:0;">{{ 'Default 1000 ms — you can edit it later.'|trans }}</p>
-                    <button type="button" class="btn big-add" data-submit="delay">⏱️ {{ 'Add wait step'|trans }}</button>
-                </div>
+        </div>
+        {# delay #}
+        <div data-pane="delay" hidden>
+            <div class="card-body">
+                <h2>{{ 'Wait'|trans }}</h2>
+                <p class="subtitle">{{ 'Add a delay between steps so async operations (webhook, queue) can finish.'|trans }}</p>
+                <p class="fhint" style="margin-bottom:14px;">{{ 'Default 1000 ms — you can edit it later.'|trans }}</p>
+                <button type="button" class="btn" data-submit="delay">{{ ic.i('clock', 13) }}{{ 'Add wait step'|trans }}</button>
             </div>
         </div>
     </div>
@@ -189,13 +148,13 @@
         document.body.appendChild(f); f.submit();
     }
 
-    // rail selection → swap detail pane
+    // type selection → swap detail pane
     function select(type) {
-        document.querySelectorAll('.rail-item').forEach(function (i) { i.classList.toggle('on', i.dataset.type === type); });
-        document.querySelectorAll('.pane').forEach(function (p) { p.classList.toggle('on', p.dataset.pane === type); });
+        document.querySelectorAll('.typebtn').forEach(function (i) { i.classList.toggle('on', i.dataset.type === type); });
+        document.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = p.dataset.pane !== type; });
         if (type === 'http') { var s = document.getElementById('reqSearch'); if (s) s.focus(); }
     }
-    document.querySelectorAll('.rail-item').forEach(function (i) {
+    document.querySelectorAll('.typebtn').forEach(function (i) {
         i.addEventListener('click', function () { select(i.dataset.type); });
     });
 
@@ -205,12 +164,12 @@
     });
 
     // db connections
-    document.querySelectorAll('.prow[data-conn]').forEach(function (row) {
+    document.querySelectorAll('.picker-row[data-conn]').forEach(function (row) {
         row.addEventListener('click', function () { post(sw.dataset.adddb, 'connection', row.dataset.conn); });
     });
 
     // sub-flow calls
-    document.querySelectorAll('.prow[data-callflow]').forEach(function (row) {
+    document.querySelectorAll('.picker-row[data-callflow]').forEach(function (row) {
         row.addEventListener('click', function () { post(sw.dataset.addcall, 'calledFlow', row.dataset.callflow); });
     });
 
@@ -227,16 +186,15 @@
                 groups[r.coll].push(r);
             });
             listEl.innerHTML = '';
-            if (!order.length) { var nh = document.createElement('div'); nh.className = 'no-hit'; nh.textContent = T.noHit; listEl.appendChild(nh); return; }
+            if (!order.length) { var nh = document.createElement('div'); nh.className = 'empty'; nh.style.border = 'none'; nh.textContent = T.noHit; listEl.appendChild(nh); return; }
             order.forEach(function (coll) {
-                var h = document.createElement('div'); h.className = 'grp-head'; h.textContent = coll; listEl.appendChild(h);
+                var h = document.createElement('div'); h.className = 'picker-group'; h.textContent = coll; listEl.appendChild(h);
                 groups[coll].forEach(function (r) {
-                    var b = document.createElement('button'); b.type = 'button'; b.className = 'prow';
-                    var m = document.createElement('span'); m.className = 'mbadge m-' + r.method.toLowerCase(); m.textContent = r.method;
-                    var col = document.createElement('span'); col.className = 'col';
-                    var nm = document.createElement('span'); nm.className = 'nm'; nm.textContent = r.name; col.appendChild(nm);
-                    if (r.url) { var p = document.createElement('span'); p.className = 'path'; p.textContent = r.url; col.appendChild(p); }
-                    b.appendChild(m); b.appendChild(col);
+                    var b = document.createElement('button'); b.type = 'button'; b.className = 'picker-row';
+                    var m = document.createElement('span'); m.className = 'kind m-' + r.method.toLowerCase(); m.textContent = r.method;
+                    var nm = document.createElement('span'); nm.className = 'name'; nm.textContent = r.name;
+                    b.appendChild(m); b.appendChild(nm);
+                    if (r.url) { var p = document.createElement('span'); p.className = 'sub'; p.style.minWidth = '0'; p.textContent = r.url; b.appendChild(p); }
                     b.addEventListener('click', function () { post(sw.dataset.add, 'request', r.id); });
                     listEl.appendChild(b);
                 });

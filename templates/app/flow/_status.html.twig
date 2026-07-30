@@ -1,9 +1,11 @@
+{# One-word status vocabulary — .pill reads the entity status straight as a class.
+   Labels go through |trans so the pill matches the rest of the page's language. #}
 {% set map = {
-    'passed': ['on', 'PASSED'],
-    'failed': ['off', 'FAILED'],
-    'error':  ['off', 'ERROR'],
-    'running':['', 'RUNNING'],
-    'skipped':['', 'SKIPPED'],
+    'passed':    'Passed',
+    'failed':    'Failed',
+    'error':     'Error',
+    'running':   'Running',
+    'skipped':   'Skipped',
+    'cancelled': 'Cancelled',
 } %}
-{% set s = map[status] ?? ['', status|upper] %}
-<span class="pill {{ s[0] }}" style="{{ s[0] == '' ? 'background:var(--panel-2);color:var(--muted);' }}">{{ s[1] }}</span>
+<span class="pill {{ status }}">{{ (map[status] ?? status)|trans }}</span>

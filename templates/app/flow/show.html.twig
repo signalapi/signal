@@ -1,237 +1,102 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 {% import 'app/_runline.html.twig' as rl %}
 
 {% block title %}{{ flow.name }} · Signal{% endblock %}
 
 {% block panel %}
-<style>
-    .flowpage { --rail-w: 38px; }
-    .fp-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 6px; }
-    .fp-head h1 { margin: 0 0 8px; font-size: 26px; letter-spacing: -.02em; }
-    .fp-meta { display: flex; flex-wrap: wrap; gap: 8px; }
-    .fp-tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted);
-        background: var(--panel-2); border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px; }
-    .fp-tag b { color: var(--ink); font-weight: 600; }
-
-    .fp-grid { display: grid; grid-template-columns: 1.65fr 1fr; gap: 22px; align-items: start; margin-top: 22px; }
-    @media (max-width: 1000px) { .fp-grid { grid-template-columns: 1fr; } }
-
-    .section-title { font-size: 12px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase;
-        color: var(--muted); margin: 0 0 14px; display: flex; align-items: center; gap: 8px; }
-    .section-title .count { color: var(--accent); }
-
-    /* ---- Vertical runline: the signature motif, turned on its side ---- */
-    .runtrack { display: flex; flex-direction: column; }
-    .rt-row { display: flex; gap: 14px; align-items: stretch; }
-    .rt-rail { position: relative; width: var(--rail-w); flex-shrink: 0; display: flex; justify-content: center; }
-    .rt-rail::before { content: ""; position: absolute; left: 50%; top: 0; bottom: 0; width: 2px;
-        transform: translateX(-50%); background: var(--border); z-index: 0; transition: background .3s; }
-    .rt-row:first-child .rt-rail::before { top: 21px; }
-    .rt-row:last-child  .rt-rail::before { bottom: calc(100% - 21px); }
-    .rt-row.is-done .rt-rail::before { background: var(--pass); }
-    .rt-row.is-fail .rt-rail::before { background: var(--fail); }
-
-    .rt-node { position: relative; z-index: 1; width: 30px; height: 30px; margin-top: 6px; border-radius: 50%;
-        flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-family: var(--font-mono);
-        font-size: 12px; font-weight: 700; color: var(--muted); background: var(--panel);
-        border: 2px solid var(--border); box-shadow: 0 0 0 4px var(--panel); transition: all .25s; }
-    .rt-node.st-running { color: #fff; background: var(--accent); border-color: var(--accent); animation: rt-pulse 1s infinite; }
-    .rt-node.st-passed  { color: #fff; background: var(--pass); border-color: var(--pass); }
-    .rt-node.st-failed, .rt-node.st-error { color: #fff; background: var(--fail); border-color: var(--fail); }
-    .rt-node.st-skipped { color: var(--warn); background: var(--warn-soft); border-color: var(--warn); }
-    @keyframes rt-pulse { 0%,100% { box-shadow: 0 0 0 4px var(--panel), 0 0 0 5px var(--accent-soft); } 50% { box-shadow: 0 0 0 4px var(--panel), 0 0 0 9px var(--accent-soft); } }
-
-    .rt-card { flex: 1; min-width: 0; margin-bottom: 14px; background: var(--panel); border: 1px solid var(--border);
-        border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); transition: border-color .2s, box-shadow .2s; }
-    .rt-row:last-child .rt-card { margin-bottom: 0; }
-    .rt-card:hover { border-color: #d3d3ca; }
-    .rt-card.st-running { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
-    .rt-card.st-passed  { border-color: rgba(31,157,85,.4); }
-    .rt-card.st-failed, .rt-card.st-error { border-color: rgba(229,72,77,.45); }
-    .rt-chead { display: flex; align-items: center; gap: 9px; }
-    .rt-badge { font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; letter-spacing: .05em;
-        padding: 2px 6px; border-radius: 5px; background: var(--accent-soft); color: var(--accent); flex-shrink: 0; }
-    .rt-badge.m-get { background: #e6f4ec; color: #16a34a; } .rt-badge.m-post { background: #f8efe0; color: #b35900; }
-    .rt-badge.m-put { background: #e7eefc; color: #2563eb; } .rt-badge.m-patch { background: #f0e9fb; color: #8250df; }
-    .rt-badge.m-delete { background: var(--fail-soft); color: #dc2626; }
-    .rt-name { font-weight: 600; font-size: 14px; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .rt-live { font-family: var(--font-mono); font-size: 11px; flex-shrink: 0; }
-    .rt-detail { font-family: var(--font-mono); font-size: 11.5px; color: var(--muted); margin-top: 5px;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .rt-sub { font-size: 11px; color: var(--muted); margin-top: 5px; }
-    .rt-sub .retry { color: var(--accent); }
-    .rt-acts { display: flex; gap: 4px; align-items: center; opacity: 0; transition: opacity .15s; flex-shrink: 0; }
-    .rt-card:hover .rt-acts { opacity: 1; }
-    .rt-acts .ib { width: 26px; height: 26px; display: inline-flex; align-items: center; justify-content: center;
-        border: 1px solid var(--border); background: var(--panel); border-radius: 7px; cursor: pointer; font-size: 13px; color: var(--muted); }
-    .rt-acts .ib:hover { background: var(--panel-2); color: var(--ink); }
-    .rt-acts .ib.danger:hover { background: var(--fail-soft); color: var(--fail); border-color: var(--fail); }
-    .rt-acts .ib[disabled] { opacity: .3; cursor: default; }
-    .rt-acts form { display: inline; }
-
-    .rt-add { display: flex; gap: 14px; align-items: flex-start; margin-top: 2px; }
-    .rt-add .rt-rail .plus { margin-top: 6px; width: 30px; height: 30px; border-radius: 50%; border: 2px dashed var(--border);
-        background: var(--panel); color: var(--muted); display: flex; align-items: center; justify-content: center; font-size: 16px; z-index: 1; }
-    .rt-add-body { flex: 1; display: flex; flex-direction: column; gap: 8px; }
-    .addstep-btn { justify-content: center; width: 100%; background: var(--panel); color: var(--accent);
-        border: 1px dashed var(--border); font-weight: 600; padding: 11px; }
-    .addstep-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
-    .add-form { display: flex; gap: 8px; align-items: center; background: var(--panel); border: 1px dashed var(--border);
-        border-radius: 10px; padding: 9px 11px; }
-    .add-form select { flex: 1; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; color: var(--text); font-size: 13px; }
-    .add-form .lab { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: .04em; flex-shrink: 0; }
-
-    /* ---- Run console (right column) ---- */
-    .console { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
-    .console .lbl { font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; display: block; }
-    .console select, .console input[type=text] { width: 100%; background: var(--panel-2); border: 1px solid var(--border);
-        border-radius: 9px; padding: 9px 11px; color: var(--text); font-size: 13px; box-sizing: border-box; }
-    .console input[type=text] { font-family: var(--font-mono); font-size: 12px; }
-    .console .field + .field { margin-top: 12px; }
-    /* ---- variable table (run console) ---- */
-    .var-list { display: flex; flex-direction: column; gap: 6px; }
-    .var-row { display: flex; align-items: center; gap: 8px; }
-    .var-name { flex: 0 0 34%; font-family: var(--font-mono); font-size: 12px; color: var(--ink); font-weight: 600;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .var-row .var-in, .var-row .var-key { flex: 1; min-width: 0; background: var(--panel-2); border: 1px solid var(--border);
-        border-radius: 8px; padding: 7px 9px; color: var(--text); font-family: var(--font-mono); font-size: 12px; }
-    .var-row .var-key { flex: 0 0 34%; }
-    .var-src { flex-shrink: 0; font-size: 10px; font-weight: 700; color: var(--muted); background: var(--panel-2);
-        border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; }
-    .var-rm { flex-shrink: 0; cursor: pointer; border: 1px solid var(--border); background: transparent; color: var(--muted);
-        border-radius: 6px; padding: 4px 8px; line-height: 1; }
-    .vhint { font-size: 11.5px; color: var(--muted); margin: 8px 0 0; }
-    a.vhint.adv { display: inline-block; text-decoration: underline; cursor: pointer; }
-
-    /* ---- data-driven grid ---- */
-    .dd-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 10px; }
-    table.dd { border-collapse: collapse; width: 100%; font-size: 12px; }
-    table.dd th, table.dd td { border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); padding: 0; }
-    table.dd th:last-child, table.dd td:last-child { border-right: none; }
-    table.dd tr:last-child td { border-bottom: none; }
-    table.dd th { background: var(--panel-2); }
-    table.dd input { width: 100%; box-sizing: border-box; border: none; background: transparent; padding: 8px 9px;
-        color: var(--text); font-family: var(--font-mono); font-size: 12px; }
-    table.dd th input { font-weight: 700; color: var(--muted); }
-    table.dd input:focus { outline: 2px solid var(--accent-soft); outline-offset: -2px; }
-    .dd-rm { cursor: pointer; border: none; background: transparent; color: var(--muted); font-size: 14px; padding: 4px 8px; }
-    .dd-actions { display: flex; gap: 8px; margin: 10px 0; }
-
-    .run-go { width: 100%; justify-content: center; margin-top: 16px; font-size: 14.5px; padding: 12px; }
-    .run-alt { display: flex; gap: 8px; margin-top: 8px; }
-    .run-alt .btn { flex: 1; justify-content: center; }
-
-    /* ---- Live status panel ---- */
-    .livebox { margin-top: 14px; border: 1px solid var(--border); border-radius: 12px; padding: 14px; background: var(--panel); box-shadow: var(--shadow); }
-    .livebox[hidden] { display: none; }
-    .lb-head { display: flex; align-items: center; gap: 10px; }
-    .lb-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); flex-shrink: 0; }
-    .lb-dot.run { animation: rt-pulse 1s infinite; }
-    .lb-dot.passed { background: var(--pass); } .lb-dot.failed { background: var(--fail); } .lb-dot.cancelled { background: var(--warn); }
-    .lb-title { font-weight: 600; font-size: 14px; }
-    .lb-bar { height: 6px; border-radius: 4px; background: var(--panel-2); overflow: hidden; margin: 12px 0 8px; }
-    .lb-fill { height: 100%; width: 0; background: var(--accent); border-radius: 4px; transition: width .35s, background .3s; }
-    .lb-fill.passed { background: var(--pass); } .lb-fill.failed { background: var(--fail); }
-    .lb-meta { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); }
-    .lb-meta a { font-weight: 600; }
-
-    .foldcard { margin-top: 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); overflow: hidden; }
-    .foldcard > summary { cursor: pointer; list-style: none; padding: 13px 16px; font-size: 13px; font-weight: 600;
-        display: flex; align-items: center; gap: 8px; color: var(--ink); }
-    .foldcard > summary::-webkit-details-marker { display: none; }
-    .foldcard > summary .chev { margin-left: auto; color: var(--muted); transition: transform .2s; font-size: 11px; }
-    .foldcard[open] > summary .chev { transform: rotate(90deg); }
-    .foldcard .fold-body { padding: 0 16px 16px; }
-
-    /* ---- History ---- */
-    .hist { margin-top: 30px; }
-    .hist-row { display: flex; align-items: center; gap: 14px; padding: 13px 4px; border-bottom: 1px solid var(--border); text-decoration: none; color: inherit; }
-    .hist-row:last-child { border-bottom: none; }
-    .hist-row:hover { background: var(--panel-2); border-radius: 8px; }
-    .hist-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
-    .hist-main { flex: 1; min-width: 0; }
-    .hist-main .t { font-weight: 600; color: var(--ink); font-size: 13.5px; }
-    .hist-main .s { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
-</style>
-
 <div class="flowpage"
      data-async-url="{{ path('app_flow_run_async', {workspace: workspace.id, flow: flow.id}) }}"
      data-token="{{ csrf_token('run-flow' ~ flow.id) }}"
      id="flowPage">
 
-    <div class="fp-head">
+    <div class="pagehead">
         <div>
             <h1>{{ flow.name }}</h1>
-            <div class="fp-meta">
-                <span class="fp-tag">📍 <b>{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>
-                <span class="fp-tag">🌐 {{ flow.defaultEnvironment ? 'default:'|trans ~ ' ' : 'no env'|trans }}<b>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name }}</b></span>
-                <span class="fp-tag">{{ flow.stopOnFailure ? '⛔ ' ~ 'stops at the first error'|trans : '↪ ' ~ 'runs all steps'|trans }}</span>
-                {% if flow.scheduleEnabled %}<span class="fp-tag" style="color:var(--pass);">⏱ <b style="color:var(--pass);">{{ flow.cronExpression }}</b></span>{% endif %}
+            <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;">
+                <span class="pill"><b style="color:var(--ink);">{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>
+                <span class="pill">{{ ic.i('environments', 11) }}{{ flow.defaultEnvironment ? 'default:'|trans ~ ' ' : 'no env'|trans }}<b style="color:var(--ink);">{{ flow.defaultEnvironment ? flow.defaultEnvironment.name }}</b></span>
+                <span class="pill">{{ flow.stopOnFailure ? 'stops at the first error'|trans : 'runs all steps'|trans }}</span>
+                {% if flow.scheduleEnabled %}
+                    <span class="pill passed">{{ ic.i('clock', 11) }}<b>{{ flow.cronExpression }}</b></span>
+                {% endif %}
             </div>
         </div>
-        <div style="display:flex;gap:8px;flex-shrink:0;">
-            <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← {{ 'Flows'|trans }}</a>
+        <div class="actions">
+            <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">
+                <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Flows'|trans }}</a>
             <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('{{ 'This flow will be permanently deleted.'|trans|e('js') }}');">
                 <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ flow.id) }}">
-                <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
+                <button class="btn danger" type="submit">{{ ic.i('trash', 13) }}{{ 'Delete'|trans }}</button>
             </form>
         </div>
     </div>
 
-    {% if flow.description %}<p class="subtitle" style="margin:10px 0 0;max-width:680px;">{{ flow.description }}</p>{% endif %}
+    {% if flow.description %}<p class="subtitle" style="margin:0 0 4px;max-width:680px;">{{ flow.description }}</p>{% endif %}
 
-    <div class="fp-grid">
-        {# ============ LEFT: the vertical runline ============ #}
-        <div>
-            <div class="section-title">{{ 'Flow steps'|trans }} <span class="count">{{ flow.steps|length }}</span></div>
+    {# two columns; they wrap instead of collapsing behind a media query #}
+    <div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;margin-top:20px;">
+        {# ============ LEFT: the vertical timeline ============ #}
+        <div style="flex:2.2 1 440px;min-width:0;">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px;">
+                <span class="eyebrow">{{ 'Flow steps'|trans }}</span>
+                <span style="height:1px;flex:1;background:var(--line);"></span>
+                <span class="mono" style="font-size:10.5px;color:var(--muted);">{{ flow.steps|length }}</span>
+            </div>
 
             {% if flow.steps is empty %}
-                <div class="empty" style="text-align:left;padding:24px;">{{ 'No steps yet. Add the first one with <b>+ Add step</b> below.'|trans|raw }}</div>
+                <div class="empty" style="text-align:left;">{{ 'No steps yet. Add the first one with <b>+ Add step</b> below.'|trans|raw }}</div>
             {% else %}
-            <div class="runtrack" id="runtrack">
+            <div class="track" id="runtrack">
                 {% for step in flow.steps %}
                     {% set badge = step.isCall ? 'CALL' : (step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : step.reqMethod))) %}
-                    <div class="rt-row" data-pos="{{ loop.index0 }}">
-                        <div class="rt-rail"><div class="rt-node" data-pos="{{ loop.index0 }}" data-idx="{{ loop.index }}">{{ loop.index }}</div></div>
-                        <div class="rt-card" data-pos="{{ loop.index0 }}">
-                            <div class="rt-chead">
-                                <span class="rt-badge m-{{ badge|lower }}">{{ badge }}</span>
-                                <span class="rt-name">{{ step.name }}</span>
-                                <span class="rt-live" data-pos="{{ loop.index0 }}"></span>
-                                <div class="rt-acts">
+                    {% set kindCls = step.isCall ? 'm-call' : (step.isDb ? 'm-db' : (step.isSetvar ? 'm-set' : (step.isDelay ? 'm-wait' : 'm-' ~ step.reqMethod|lower))) %}
+                    <div class="track-row" data-pos="{{ loop.index0 }}">
+                        <div class="track-rail"><div class="node" data-pos="{{ loop.index0 }}" data-idx="{{ loop.index }}">{{ loop.index }}</div></div>
+                        <div class="step-card" data-pos="{{ loop.index0 }}" style="cursor:default;">
+                            <div class="head">
+                                <span class="kind {{ kindCls }}">{{ badge }}</span>
+                                <span class="name">{{ step.name }}</span>
+                                <span class="live" data-pos="{{ loop.index0 }}"></span>
+                                <div style="display:flex;gap:4px;align-items:center;flex-shrink:0;">
                                     <form method="post" action="{{ path('app_flow_step_move', {workspace: workspace.id, flow: flow.id, step: step.id}) }}">
                                         <input type="hidden" name="_token" value="{{ csrf_token('move-step' ~ step.id) }}">
                                         <input type="hidden" name="direction" value="up">
-                                        <button class="ib" type="submit" title="{{ 'Move up'|trans }}" {{ loop.first ? 'disabled' }}>↑</button>
+                                        <button class="icon-btn" style="width:24px;height:24px;" type="submit" title="{{ 'Move up'|trans }}" {{ loop.first ? 'disabled' }}>{{ ic.i('arrow-up', 11, 2.4) }}</button>
                                     </form>
                                     <form method="post" action="{{ path('app_flow_step_move', {workspace: workspace.id, flow: flow.id, step: step.id}) }}">
                                         <input type="hidden" name="_token" value="{{ csrf_token('move-step' ~ step.id) }}">
                                         <input type="hidden" name="direction" value="down">
-                                        <button class="ib" type="submit" title="{{ 'Move down'|trans }}" {{ loop.last ? 'disabled' }}>↓</button>
+                                        <button class="icon-btn" style="width:24px;height:24px;" type="submit" title="{{ 'Move down'|trans }}" {{ loop.last ? 'disabled' }}>{{ ic.i('arrow-down', 11, 2.4) }}</button>
                                     </form>
-                                    <a class="ib" href="{{ path('app_flow_step_edit', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" title="{{ 'Edit'|trans }}">✎</a>
+                                    <a class="icon-btn" style="width:24px;height:24px;" href="{{ path('app_flow_step_edit', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" title="{{ 'Edit'|trans }}">{{ ic.i('pencil', 12) }}</a>
                                     <form method="post" action="{{ path('app_flow_step_delete', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" onsubmit="return confirm('{{ 'The step will be deleted.'|trans|e('js') }}');">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ step.id) }}">
-                                        <button class="ib danger" type="submit" title="{{ 'Delete'|trans }}">🗑</button>
+                                        <button class="icon-btn" style="width:24px;height:24px;" type="submit" title="{{ 'Delete'|trans }}">{{ ic.i('trash', 12) }}</button>
                                     </form>
                                 </div>
                             </div>
-                            <div class="rt-detail">
-                                {% if step.isCall %}{% if step.calledFlow %}↳ {{ step.calledFlow.name }} ({{ '%count% steps'|trans({'%count%': step.calledFlow.steps|length}) }}){% else %}<span style="color:var(--danger);">{{ 'sub-flow deleted'|trans }}</span>{% endif %}
+                            <div class="detail">
+                                {% if step.isCall %}{% if step.calledFlow %}{{ step.calledFlow.name }} ({{ '%count% steps'|trans({'%count%': step.calledFlow.steps|length}) }}){% else %}<span style="color:var(--fail);">{{ 'sub-flow deleted'|trans }}</span>{% endif %}
                                 {% elseif step.isDelay %}{{ 'wait %ms% ms'|trans({'%ms%': step.query ?: 0}) }}
                                 {% elseif step.isSetvar %}{{ (step.query ?: '(no assignment)'|trans)|slice(0, 90) }}
-                                {% elseif step.isDb %}{% if step.dbConnection %}{{ step.dbConnection.type }} · {{ (step.query ?: '(no query)'|trans)|slice(0, 80) }}{% else %}<span style="color:var(--danger);">{{ 'connection deleted'|trans }}</span>{% endif %}
+                                {% elseif step.isDb %}{% if step.dbConnection %}{{ step.dbConnection.type }} · {{ (step.query ?: '(no query)'|trans)|slice(0, 80) }}{% else %}<span style="color:var(--fail);">{{ 'connection deleted'|trans }}</span>{% endif %}
                                 {% else %}{{ step.reqMethod }} {{ step.reqUrl ?: '(URL empty)'|trans }}{% endif %}
                             </div>
-                            {% if step.hasCondition %}
-                            <div class="rt-sub" style="color:var(--accent);">⤷ {{ 'only if:'|trans }} <code>{{ step.condition.left }} {{ step.condition.op }} {{ step.condition.right }}</code></div>
-                            {% endif %}
-                            {% if step.hasLoop %}
-                            <div class="rt-sub" style="color:var(--accent);">↻ {{ 'each'|trans }} <code>{{ step.loop.as }}</code> ∈ <code>{{ step.loop.over }}</code></div>
-                            {% endif %}
-                            {% if not step.isDelay and not step.isSetvar and not step.isCall %}
-                            <div class="rt-sub">
-                                {{ step.extractions|length }} extraction · {{ step.assertions|length }} assertion{% if step.retryEnabled %} · <span class="retry">↻ {{ step.retryMax }}× / {{ step.retryDelayMs }}ms</span>{% endif %}
+                            {% set verifiable = not step.isDelay and not step.isSetvar and not step.isCall %}
+                            {% if step.hasCondition or step.hasLoop or verifiable %}
+                            <div class="chips">
+                                {% if step.hasCondition %}
+                                    <span class="chip">{{ 'only if:'|trans }} {{ step.condition.left }} {{ step.condition.op }} {{ step.condition.right }}</span>
+                                {% endif %}
+                                {% if step.hasLoop %}
+                                    <span class="chip var">{{ 'each'|trans }} {{ step.loop.as }} ∈ {{ step.loop.over }}</span>
+                                {% endif %}
+                                {% if verifiable %}
+                                    <span class="chip">{{ '%count% extraction'|trans({'%count%': step.extractions|length}) }}</span>
+                                    <span class="chip">{{ '%count% assertion'|trans({'%count%': step.assertions|length}) }}</span>
+                                    {% if step.retryEnabled %}<span class="chip retry">{{ step.retryMax }}× / {{ step.retryDelayMs }}ms</span>{% endif %}
+                                {% endif %}
                             </div>
                             {% endif %}
                         </div>
@@ -241,105 +106,117 @@
             {% endif %}
 
             {# live execution trace — built from run status (handles sub-flows/loops) #}
-            <div class="runtrack" id="liveTrack" style="display:none;"></div>
+            <div class="track" id="liveTrack" style="display:none;"></div>
 
             {# add control — opens the step-type chooser page #}
-            <div class="rt-add" id="addControl">
-                <div class="rt-rail"><div class="plus">+</div></div>
-                <div class="rt-add-body">
-                    <a class="btn addstep-btn" href="{{ path('app_flow_step_new', {workspace: workspace.id, flow: flow.id}) }}">+ {{ 'Add step'|trans }}</a>
-                </div>
+            <div class="track-add" id="addControl">
+                <div class="slot"><span class="plus">{{ ic.i('plus', 12, 2.2) }}</span></div>
+                <a class="btn-add" href="{{ path('app_flow_step_new', {workspace: workspace.id, flow: flow.id}) }}"
+                   style="text-align:center;">+ {{ 'Add step'|trans }}</a>
             </div>
         </div>
 
         {# ============ RIGHT: run console + live status ============ #}
-        <div>
-            <div class="console">
-                <div class="section-title" style="margin-bottom:14px;">{{ 'Run'|trans }}</div>
-                <div class="field">
-                    <label class="lbl" for="runEnv">{{ 'Environment'|trans }}</label>
-                    <select id="runEnv">
-                        <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
-                        {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
-                    </select>
-                </div>
-                <div class="field">
-                    <label class="lbl">{{ 'Variables'|trans }}</label>
-                    {% if flow_variables is empty %}
-                        <p class="vhint">{{ 'This flow needs no extra variables. You can add some manually below if you want.'|trans }}</p>
-                    {% endif %}
-                    <div class="var-list" id="varList">
-                        {% for v in flow_variables %}
-                            <div class="var-row">
-                                <span class="var-name" title="{{ v.name }}">{{ v.name }}</span>
-                                <input type="text" class="var-in" data-var="{{ v.name }}"
-                                       placeholder="{{ v.fromEnv ? (v.envValue|length > 22 ? v.envValue|slice(0,22) ~ '…' : v.envValue) : 'enter value'|trans }}">
-                                {% if v.fromEnv %}<span class="var-src" title="{{ 'Provided by the environment — used if you leave this empty'|trans }}">env</span>{% endif %}
-                            </div>
-                        {% endfor %}
+        <div style="flex:1 1 300px;min-width:0;">
+            <div class="card">
+                <div class="card-head"><span class="t">{{ 'Run'|trans }}</span></div>
+                <div class="card-body">
+                    <div class="field">
+                        <label for="runEnv">{{ 'Environment'|trans }}</label>
+                        <select id="runEnv">
+                            <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
+                            {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+                        </select>
                     </div>
-                    <a class="vhint adv" id="addVarBtn" style="margin-top:8px;">+ {{ 'add variable'|trans }}</a>
-                </div>
+                    <div class="field">
+                        <label>{{ 'Variables'|trans }}</label>
+                        {% if flow_variables is empty %}
+                            <p class="fhint" style="margin-top:0;">{{ 'This flow needs no extra variables. You can add some manually below if you want.'|trans }}</p>
+                        {% endif %}
+                        <div id="varList">
+                            {% for v in flow_variables %}
+                                <div class="var-row var-card">
+                                    <div class="top">
+                                        <span class="vname" title="{{ v.name }}">{{ v.name }}</span>
+                                        {% if v.fromEnv %}<span class="var-src env" title="{{ 'Provided by the environment — used if you leave this empty'|trans }}">env</span>{% endif %}
+                                    </div>
+                                    <input type="text" class="var-in input-mono" data-var="{{ v.name }}"
+                                           placeholder="{{ v.fromEnv ? (v.envValue|length > 22 ? v.envValue|slice(0,22) ~ '…' : v.envValue) : 'enter value'|trans }}">
+                                </div>
+                            {% endfor %}
+                        </div>
+                        <a class="add-dashed" id="addVarBtn" style="display:block;text-align:center;">+ {{ 'add variable'|trans }}</a>
+                    </div>
 
-                <button class="btn run-go" id="runLive" {{ flow.steps is empty ? 'disabled' }}>▶ {{ 'Run live'|trans }}</button>
-                <div class="run-alt">
-                    <form method="post" action="{{ path('app_flow_run', {workspace: workspace.id, flow: flow.id}) }}" style="flex:1;" id="syncForm">
+                    <button class="btn block" id="runLive" style="margin-top:4px;padding:11px;" {{ flow.steps is empty ? 'disabled' }}>{{ 'Run live'|trans }}</button>
+                    <form method="post" action="{{ path('app_flow_run', {workspace: workspace.id, flow: flow.id}) }}" style="margin-top:8px;" id="syncForm">
                         <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
                         <input type="hidden" name="environment" id="syncEnv">
                         <input type="hidden" name="variables" id="syncVars">
-                        <button class="btn ghost" type="submit" style="width:100%;justify-content:center;" {{ flow.steps is empty ? 'disabled' }} title="{{ 'Run synchronously, open the result when done'|trans }}">{{ 'Run and wait'|trans }}</button>
+                        <button class="btn ghost block" type="submit" {{ flow.steps is empty ? 'disabled' }} title="{{ 'Run synchronously, open the result when done'|trans }}">{{ 'Run and wait'|trans }}</button>
                     </form>
                 </div>
             </div>
 
             {# live status — populated by JS #}
-            <div class="livebox" id="livebox" hidden>
-                <div class="lb-head">
-                    <span class="lb-dot run" id="lbDot"></span>
-                    <span class="lb-title" id="lbTitle">{{ 'Running…'|trans }}</span>
-                    <div style="flex:1"></div>
-                    <button class="btn danger" id="lbCancel" hidden>{{ 'Cancel run'|trans }}</button>
+            <div class="card" id="livebox" style="margin-top:12px;padding:14px 15px;" hidden>
+                <div style="display:flex;align-items:center;gap:9px;">
+                    <span class="dot running" id="lbDot"></span>
+                    <span id="lbTitle" style="font-size:12.5px;font-weight:700;color:var(--ink);">{{ 'Running…'|trans }}</span>
+                    <div class="grow"></div>
+                    <button class="btn danger small" id="lbCancel" hidden>{{ 'Cancel run'|trans }}</button>
                 </div>
-                <div class="lb-bar"><div class="lb-fill" id="lbFill"></div></div>
-                <div class="lb-meta">
-                    <span id="lbCount">{{ '%done%/%total% steps'|trans({'%done%': 0, '%total%': flow.steps|length}) }}</span>
-                    <a href="#" id="lbDetail" hidden>{{ 'View details'|trans }} →</a>
+                <div class="progress"><i id="lbFill" style="width:0;"></i></div>
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;">
+                    <span class="mono" id="lbCount" style="font-size:11px;color:var(--muted);">{{ '%done%/%total% steps'|trans({'%done%': 0, '%total%': flow.steps|length}) }}</span>
+                    <a href="#" id="lbDetail" hidden style="font-size:11.5px;font-weight:600;">{{ 'View details'|trans }}</a>
                 </div>
             </div>
 
             {# data-driven #}
-            <details class="foldcard">
-                <summary>📊 {{ 'Run data-driven'|trans }} <span class="chev">▶</span></summary>
+            <details class="fold" style="margin-top:12px;">
+                <summary>
+                    <span class="ic-box">{{ ic.i('table', 15) }}</span>                    <span><span class="t">{{ 'Run data-driven'|trans }}</span></span>
+                    <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+                </summary>
                 <div class="fold-body">
                     <form method="post" action="{{ path('app_flow_run_data', {workspace: workspace.id, flow: flow.id}) }}"
                           id="ddForm" data-cols="{{ flow_variables|map(v => v.name)|json_encode|e('html_attr') }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
-                        <label class="lbl" style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">{{ 'Environment'|trans }}</label>
-                        <select name="environment" style="width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);font-size:13px;margin-bottom:10px;box-sizing:border-box;">
-                            <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
-                            {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
-                        </select>
-                        <div class="dd-scroll"><table class="dd" id="ddTable"></table></div>
-                        <div class="dd-actions">
+                        <div class="field">
+                            <label for="ddEnv">{{ 'Environment'|trans }}</label>
+                            <select name="environment" id="ddEnv">
+                                <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
+                                {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+                            </select>
+                        </div>
+                        <div style="overflow-x:auto;"><table class="data" id="ddTable"></table></div>
+                        <div style="display:flex;gap:8px;margin:10px 0;">
                             <button class="btn ghost small" type="button" id="ddAddRow">+ {{ 'Row'|trans }}</button>
                             <button class="btn ghost small" type="button" id="ddAddCol">+ {{ 'Column'|trans }}</button>
                         </div>
                         <input type="hidden" name="dataset" id="ddDataset">
-                        <p class="subtitle" style="font-size:11px;margin:0 0 10px;">{{ 'Each row is one run. Columns map to the <code>{{variable}}</code>s in the flow.'|trans|raw }}</p>
-                        <button class="btn small" type="submit" {{ flow.steps is empty ? 'disabled' }}>▶ {{ 'Run with dataset'|trans }}</button>
+                        <p class="fhint" style="margin:0 0 10px;">{{ 'Each row is one run. Columns map to the <code>{{variable}}</code>s in the flow.'|trans|raw }}</p>
+                        <button class="btn small" type="submit" {{ flow.steps is empty ? 'disabled' }}>{{ ic.i('flows', 11) }}{{ 'Run with dataset'|trans }}</button>
                     </form>
                 </div>
             </details>
 
             {# schedule #}
-            <details class="foldcard" {{ flow.scheduleEnabled ? 'open' }}>
-                <summary>⏱ {{ 'Schedule'|trans }} {% if flow.scheduleEnabled %}<span class="pill on" style="margin-left:4px;">{{ 'on'|trans }}</span>{% endif %}<span class="chev">▶</span></summary>
+            <details class="fold" {{ flow.scheduleEnabled ? 'open' }}>
+                <summary>
+                    <span class="ic-box warn">{{ ic.i('clock', 15) }}</span>
+                    <span><span class="t">{{ 'Schedule'|trans }}</span></span>
+                    {% if flow.scheduleEnabled %}<span class="pill passed">{{ 'on'|trans }}</span>{% endif %}
+                    <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+                </summary>
                 <div class="fold-body">
                     <form method="post" action="{{ path('app_flow_schedule', {workspace: workspace.id, flow: flow.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('schedule' ~ flow.id) }}">
-                        <label style="font-size:13px;display:block;margin-bottom:10px;"><input type="checkbox" name="scheduleEnabled" value="1" {{ flow.scheduleEnabled ? 'checked' }}> {{ 'Active'|trans }}</label>
-                        <input type="text" name="cronExpression" value="{{ flow.cronExpression }}" placeholder="*/5 * * * *" style="width:100%;font-family:var(--font-mono);background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);box-sizing:border-box;margin-bottom:10px;">
-                        <p class="subtitle" style="font-size:11px;margin:0 0 10px;">{{ '5-field cron · <code>app:run-due-flows</code> runs every minute.'|trans|raw }}</p>
+                        <label style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
+                            <input type="checkbox" name="scheduleEnabled" value="1" {{ flow.scheduleEnabled ? 'checked' }} style="width:auto;"> {{ 'Active'|trans }}</label>
+                        <input type="text" name="cronExpression" value="{{ flow.cronExpression }}" placeholder="*/5 * * * *" class="input-mono" style="margin-bottom:10px;">
+                        <p class="fhint" style="margin:0 0 10px;">{{ '5-field cron · <code>app:run-due-flows</code> runs every minute.'|trans|raw }}</p>
                         <button class="btn small" type="submit">{{ 'Save'|trans }}</button>
                     </form>
                 </div>
@@ -348,32 +225,37 @@
     </div>
 
     {# ============ run history ============ #}
-    <div class="hist">
-        <div class="section-title">{{ 'Run history'|trans }}</div>
+    <div style="margin-top:30px;">
+        <div style="display:flex;align-items:center;gap:9px;margin-bottom:12px;">
+            <span class="eyebrow">{{ 'Run history'|trans }}</span>
+            <span style="height:1px;flex:1;background:var(--line);"></span>
+        </div>
         {% if flow.runs is empty %}
-            <div class="empty" style="text-align:left;padding:22px;">{{ 'No runs yet. Run the flow from above.'|trans }}</div>
+            <div class="empty" style="text-align:left;">{{ 'No runs yet. Run the flow from above.'|trans }}</div>
         {% else %}
-            <div class="card" style="padding:4px 14px;">
             {% for run in flow.runs %}
-                {% set dotc = run.status == 'passed' ? 'var(--pass)' : (run.status == 'running' ? 'var(--accent)' : (run.status == 'cancelled' ? 'var(--warn)' : 'var(--fail)')) %}
-                <a class="hist-row" href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: flow.id, run: run.id}) }}">
-                    <span class="hist-dot" style="background:{{ dotc }};"></span>
-                    <span class="hist-main">
-                        <span class="t">{{ '%done%/%total% steps'|trans({'%done%': run.passedSteps, '%total%': run.totalSteps}) }}{% if run.batchId %} <span class="pill" style="background:var(--panel-2);color:var(--muted);">data #{{ run.iteration + 1 }}</span>{% endif %}</span>
-                        <span class="s">{{ run.environmentName ?: 'no env'|trans }} · {{ run.durationMs is not null ? run.durationMs ~ ' ms' : '—' }} · {{ run.createdAt|date('d.m.Y H:i:s') }}</span>
+                <a class="hi-row" href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: flow.id, run: run.id}) }}">
+                    <span class="hi-dot {{ run.status }}"></span>
+                    <span class="hi-flow">
+                        <span class="nm">{{ '%done%/%total% steps'|trans({'%done%': run.passedSteps, '%total%': run.totalSteps}) }}</span>
+                        <span class="tags">
+                            <span class="hi-tag">{{ run.environmentName ?: 'no env'|trans }}</span>
+                            {% if run.batchId %}<span class="hi-tag suite">data #{{ run.iteration + 1 }}</span>{% endif %}
+                        </span>
                     </span>
                     {{ rl.line(run) }}
-                    {% if run.batchId %}<span class="pill" style="background:var(--accent-soft);color:var(--accent);">batch</span>{% endif %}
+                    <span class="hi-num">{{ run.durationMs is not null ? run.durationMs ~ ' ms' : '—' }}</span>
+                    <span class="hi-date">{{ run.createdAt|date('d.m.Y H:i:s') }}</span>
+                    {{ include('app/flow/_status.html.twig', {status: run.status}) }}
                 </a>
             {% endfor %}
-            </div>
         {% endif %}
     </div>
 </div>
 
 <script type="application/json" id="fp-i18n">{{ {
     error: 'error'|trans,
-    runningLive: '● ' ~ 'running'|trans,
+    runningLive: 'running'|trans,
     skipped: 'skipped'|trans,
     steps: '%done%/%total% steps'|trans,
     cancelRequested: ' · cancel requested…'|trans,
@@ -382,11 +264,19 @@
     failed: 'Failed'|trans,
     starting: 'Starting…'|trans,
     runningTitle: 'Running…'|trans,
-    runLive: '▶ ' ~ 'Run live'|trans,
+    runLive: 'Run live'|trans,
     notStarted: 'Could not start'|trans,
     notStartedWorker: 'Could not start — is the worker running?'|trans,
     varName: 'variable'|trans,
     varValue: 'value'|trans
+}|json_encode|raw }}</script>
+
+{# node glyphs as icons — the same Lucide set the templates use #}
+<script type="application/json" id="fp-glyphs">{{ {
+    passed: ic.i('check', 13, 3) ~ '',
+    failed: ic.i('x', 13, 3) ~ '',
+    error: ic.i('x', 13, 3) ~ '',
+    skipped: ic.i('minus', 13, 3) ~ ''
 }|json_encode|raw }}</script>
 
 {% verbatim %}
@@ -395,17 +285,17 @@
     var page = document.getElementById('flowPage');
     if (!page) return;
     var T = JSON.parse(document.getElementById('fp-i18n').textContent);
+    var GLYPH = JSON.parse(document.getElementById('fp-glyphs').textContent);
     var asyncUrl = page.dataset.asyncUrl, token = page.dataset.token;
     var runBtn = document.getElementById('runLive');
     var box = document.getElementById('livebox'), dot = document.getElementById('lbDot');
     var title = document.getElementById('lbTitle'), fill = document.getElementById('lbFill');
     var count = document.getElementById('lbCount'), detail = document.getElementById('lbDetail');
     var cancelBtn = document.getElementById('lbCancel');
-    var GLYPH = { passed: '✓', failed: '✗', error: '✗', skipped: '–', running: '' };
     var staticTrack = document.getElementById('runtrack');
     var liveTrack = document.getElementById('liveTrack');
     var addControl = document.getElementById('addControl');
-    var total = staticTrack ? staticTrack.querySelectorAll('.rt-node').length : 0;
+    var total = staticTrack ? staticTrack.querySelectorAll('.node').length : 0;
 
     function stepsLabel(done, all, cancelRequested) {
         return T.steps.replace('%done%', done).replace('%total%', all) + (cancelRequested ? T.cancelRequested : '');
@@ -430,26 +320,27 @@
         liveTrack.innerHTML = '';
         steps.forEach(function (s, i) {
             var st = s.status;
-            var row = document.createElement('div'); row.className = 'rt-row';
-            if (st === 'passed') row.classList.add('is-done');
-            if (st === 'failed' || st === 'error') row.classList.add('is-fail');
+            var row = document.createElement('div'); row.className = 'track-row';
+            if (st === 'passed') row.classList.add('passed');
+            if (st === 'failed' || st === 'error') row.classList.add('failed');
 
-            var rail = document.createElement('div'); rail.className = 'rt-rail';
-            var node = document.createElement('div'); node.className = 'rt-node st-' + st;
+            var rail = document.createElement('div'); rail.className = 'track-rail';
+            var node = document.createElement('div'); node.className = 'node ' + st;
             var g = GLYPH[st];
-            node.textContent = (g === '' || g === undefined) ? (i + 1) : g;
+            if (g) node.innerHTML = g; else node.textContent = (i + 1);
             rail.appendChild(node);
 
-            var card = document.createElement('div'); card.className = 'rt-card st-' + st;
-            var head = document.createElement('div'); head.className = 'rt-chead';
+            var card = document.createElement('div'); card.className = 'step-card ' + st;
+            card.style.cursor = 'default';
+            var head = document.createElement('div'); head.className = 'head';
             var b = badgeInfo(s.method);
-            var badge = document.createElement('span'); badge.className = 'rt-badge ' + b.cls; badge.textContent = b.label;
-            var name = document.createElement('span'); name.className = 'rt-name'; name.textContent = s.label || '';
-            var live = document.createElement('span'); live.className = 'rt-live';
-            if (st === 'passed' && s.responseStatus) { live.textContent = s.responseStatus + ' · ' + (s.durationMs || 0) + 'ms'; live.style.color = 'var(--pass)'; }
-            else if (st === 'failed' || st === 'error') { live.textContent = (s.responseStatus || T.error); live.style.color = 'var(--fail)'; }
-            else if (st === 'running') { live.textContent = T.runningLive; live.style.color = 'var(--accent)'; }
-            else if (st === 'skipped') { live.textContent = T.skipped; live.style.color = 'var(--muted)'; }
+            var badge = document.createElement('span'); badge.className = 'kind ' + b.cls; badge.textContent = b.label;
+            var name = document.createElement('span'); name.className = 'name'; name.textContent = s.label || '';
+            var live = document.createElement('span'); live.className = 'live ' + st;
+            if (st === 'passed' && s.responseStatus) { live.textContent = s.responseStatus + ' · ' + (s.durationMs || 0) + 'ms'; }
+            else if (st === 'failed' || st === 'error') { live.textContent = (s.responseStatus || T.error); }
+            else if (st === 'running') { live.textContent = T.runningLive; }
+            else if (st === 'skipped') { live.textContent = T.skipped; }
             head.appendChild(badge); head.appendChild(name); head.appendChild(live);
             card.appendChild(head);
 
@@ -459,7 +350,7 @@
     }
 
     function setHead(state, label) {
-        dot.className = 'lb-dot' + (state === 'running' ? ' run' : ' ' + state);
+        dot.className = 'dot ' + (state === 'running' ? 'running' : state);
         title.textContent = label;
     }
 
@@ -474,9 +365,9 @@
                 count.textContent = stepsLabel(done, d.totalSteps || total, d.cancelRequested);
                 if (d.finished) {
                     cancelBtn.hidden = true;
-                    if (d.status === 'passed') { setHead('passed', T.donePassed); fill.className = 'lb-fill passed'; fill.style.width = '100%'; }
+                    if (d.status === 'passed') { setHead('passed', T.donePassed); fill.className = 'passed'; fill.style.width = '100%'; }
                     else if (d.status === 'cancelled') { setHead('cancelled', T.cancelled); }
-                    else { setHead('failed', T.failed); fill.className = 'lb-fill failed'; }
+                    else { setHead('failed', T.failed); fill.className = 'failed'; }
                     detail.hidden = false; detail.href = detailUrl;
                     return;
                 }
@@ -495,7 +386,7 @@
 
         runBtn.disabled = true; runBtn.textContent = T.starting;
         enterLiveMode();
-        box.hidden = false; fill.className = 'lb-fill'; fill.style.width = '0';
+        box.hidden = false; fill.className = ''; fill.style.width = '0';
         setHead('running', T.runningTitle); detail.hidden = true; cancelBtn.hidden = true;
         count.textContent = stepsLabel(0, total, false);
 
@@ -543,8 +434,10 @@
     }
     var addVarBtn = document.getElementById('addVarBtn');
     if (addVarBtn) addVarBtn.addEventListener('click', function () {
-        var row = document.createElement('div'); row.className = 'var-row';
-        row.innerHTML = '<input class="var-key" placeholder="' + T.varName + '"><input class="var-val var-in-c" placeholder="' + T.varValue + '" style="flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-family:var(--font-mono);font-size:12px;"><button type="button" class="var-rm">×</button>';
+        var row = document.createElement('div'); row.className = 'var-row var-card';
+        row.innerHTML = '<div class="top"><input class="var-key input-mono" placeholder="' + T.varName + '">'
+            + '<button type="button" class="var-rm icon-btn" style="width:22px;height:22px;flex-shrink:0">×</button></div>'
+            + '<input class="var-val var-in-c input-mono" placeholder="' + T.varValue + '">';
         row.querySelector('.var-rm').addEventListener('click', function () { row.remove(); });
         document.getElementById('varList').appendChild(row);
         row.querySelector('.var-key').focus();
@@ -558,15 +451,17 @@
         try { cols = JSON.parse(ddForm.dataset.cols || '[]'); } catch (e) { cols = []; }
         if (!cols.length) cols = ['value'];
         var rows = [ cols.map(function () { return ''; }), cols.map(function () { return ''; }) ];
+        var CELL = ' style="padding:0" ';
+        var INPUT = ' style="border:none;border-radius:0;background:transparent;padding:7px 9px" ';
 
         function renderDd() {
             var thead = '<tr>' + cols.map(function (c, ci) {
-                return '<th><input class="dd-col" data-c="' + ci + '" value="' + String(c).replace(/"/g, '&quot;') + '"></th>';
+                return '<th' + CELL + '><input class="dd-col input-mono"' + INPUT + 'data-c="' + ci + '" value="' + String(c).replace(/"/g, '&quot;') + '"></th>';
             }).join('') + '<th style="width:34px;"></th></tr>';
             var body = rows.map(function (r, ri) {
                 return '<tr>' + cols.map(function (c, ci) {
-                    return '<td><input data-r="' + ri + '" data-cc="' + ci + '" value="' + String(r[ci] || '').replace(/"/g, '&quot;') + '"></td>';
-                }).join('') + '<td><button type="button" class="dd-rm" data-del="' + ri + '">×</button></td></tr>';
+                    return '<td' + CELL + '><input class="input-mono"' + INPUT + 'data-r="' + ri + '" data-cc="' + ci + '" value="' + String(r[ci] || '').replace(/"/g, '&quot;') + '"></td>';
+                }).join('') + '<td' + CELL + '><button type="button" class="icon-btn" style="width:26px;height:26px;border:none;background:none" data-del="' + ri + '">×</button></td></tr>';
             }).join('');
             ddTable.innerHTML = '<thead>' + thead + '</thead><tbody>' + body + '</tbody>';
         }
