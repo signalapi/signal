@@ -20,7 +20,8 @@
 
 {% block title %}{{ 'Tests'|trans }} · {{ workspace.name }}{% endblock %}
 
-{% macro flow_row(workspace, flow, ic) %}
+{% macro flow_row(workspace, flow) %}
+{% import '_icons.html.twig' as ic %}
     {% set last = flow.runs|first %}
     <div class="flow-row" data-flow="{{ flow.id }}">
         <span class="grip" title="{{ 'Drag to reorder'|trans }}">{{ ic.i('grip', 12) }}</span>
@@ -112,7 +113,7 @@
             </form>
         </div>
         <div class="suite-body">
-            {% for flow in gflows %}{{ t.flow_row(workspace, flow, ic) }}{% endfor %}
+            {% for flow in gflows %}{{ t.flow_row(workspace, flow) }}{% endfor %}
             {% if gflows is empty %}<div class="flow-row" style="color:var(--faint)">{{ 'Empty — add a flow below.'|trans }}</div>{% endif %}
             {% set inThis = gflows|map(x => x.id) %}
             {% set addable = flows|filter(x => x.id not in inThis) %}
@@ -141,7 +142,7 @@
             <span class="count">{{ '%count% flows'|trans({'%count%': loose|length}) }}</span>
         </div>
         <div class="suite-body">
-            {% for flow in loose %}{{ t.flow_row(workspace, flow, ic) }}{% endfor %}
+            {% for flow in loose %}{{ t.flow_row(workspace, flow) }}{% endfor %}
         </div>
     </section>
 {% endif %}
