@@ -12,6 +12,8 @@ final class RunFlowGroupMessage
         public readonly string $groupId,
         public readonly string $batchId,
         public readonly ?string $environmentId = null,
+        /** Whose run this is; null for scheduled runs. */
+        public readonly ?string $triggeredByUserId = null,
     ) {
     }
 }

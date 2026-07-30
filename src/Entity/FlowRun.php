@@ -39,6 +39,14 @@ class FlowRun
     #[ORM\Column(length: 20)]
     private string $trigger = 'manual';
 
+    /**
+     * Who set this run off. Null for scheduled runs, which have no actor.
+     * Also decides whose personal cookie jar and environment values apply.
+     */
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?User $triggeredBy = null;
+
     /** Groups iterations of one data-driven run; null for single runs. */
     #[ORM\Column(length: 36, nullable: true)]
     private ?string $batchId = null;
@@ -150,6 +158,18 @@ class FlowRun
     public function setStatus(string $status): static
     {
         $this->status = $status;
+
+        return $this;
+    }
+
+    public function getTriggeredBy(): ?User
+    {
+        return $this->triggeredBy;
+    }
+
+    public function setTriggeredBy(?User $triggeredBy): static
+    {
+        $this->triggeredBy = $triggeredBy;
 
         return $this;
     }

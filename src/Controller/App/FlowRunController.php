@@ -72,7 +72,7 @@ class FlowRunController extends AbstractAppController
         // run variables still win over them.
         $vars = array_merge($envResolver->overridesFor($environment, $this->currentUser()), $vars);
 
-        $run = $runner->run($flow, $environment, 'manual', $vars);
+        $run = $runner->run($flow, $environment, 'manual', $vars, $this->currentUser());
 
         $this->addFlash(
             FlowRun::STATUS_PASSED === $run->getStatus() ? 'success' : 'error',
@@ -122,7 +122,7 @@ class FlowRunController extends AbstractAppController
             }
         }
 
-        $run = $runner->createRun($flow, $environment, 'async', null, 0, []);
+        $run = $runner->createRun($flow, $environment, 'async', null, 0, [], $this->currentUser());
 
         // The worker has no request context, so the acting user's personal
         // environment values travel with the message; explicit run variables
@@ -143,6 +143,7 @@ class FlowRunController extends AbstractAppController
             (string) $flow->getId(),
             $environment ? (string) $environment->getId() : null,
             $vars,
+            (string) $this->currentUser()->getId(),
         ));
 
         // Live in-page run: the flow detail page starts the run over fetch and polls /status,
@@ -374,6 +375,7 @@ class FlowRunController extends AbstractAppController
             $dataset,
             'manual',
             $envResolver->overridesFor($environment, $this->currentUser()),
+            $this->currentUser(),
         );
         $passed = \count(array_filter($runs, static fn (FlowRun $r) => FlowRun::STATUS_PASSED === $r->getStatus()));
         $this->addFlash($passed === \count($runs) ? 'success' : 'error', $translator->trans('Data-driven run: %passed%/%total% iterations passed.', ['%passed%' => $passed, '%total%' => \count($runs)]));

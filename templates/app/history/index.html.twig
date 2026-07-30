@@ -58,6 +58,7 @@
                     <span class="nm">{{ run.flow.name }}</span>
                     <span class="tags">
                         <span class="hi-tag">{{ trig[run.trigger] ?? run.trigger }}</span>
+                        {% if run.triggeredBy %}<span class="hi-tag">👤 {{ run.triggeredBy.name }}</span>{% endif %}
                         {% for g in run.flow.groups %}<span class="hi-tag suite">🧩 {{ g.name }}</span>{% endfor %}
                         {% if run.environmentName %}<span class="hi-tag">{{ run.environmentName }}</span>{% endif %}
                     </span>

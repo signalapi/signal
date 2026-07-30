@@ -94,6 +94,10 @@
     <div class="ru-stat"><div class="n">{{ run.passedSteps }}/{{ run.totalSteps }}</div><div class="l">{{ 'Passed steps'|trans }}</div></div>
     <div class="ru-stat"><div class="n">{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</div><div class="l">{{ 'Total duration'|trans }}</div></div>
     <div class="ru-stat"><div class="n" style="font-size:16px;">{{ run.environmentName ?: '—' }}</div><div class="l">{{ 'Environment'|trans }}</div></div>
+    <div class="ru-stat">
+        <div class="n" style="font-size:16px;">{{ run.triggeredBy ? run.triggeredBy.name : 'Scheduled'|trans }}</div>
+        <div class="l">{{ 'Run by'|trans }}</div>
+    </div>
 </div>
 
 {% if sc != 'running' %}

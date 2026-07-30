@@ -8,6 +8,7 @@ use App\Message\RunFlowGroupMessage;
 use App\Repository\EnvironmentRepository;
 use App\Repository\FlowGroupRepository;
 use App\Repository\FlowGroupRunRepository;
+use App\Repository\UserRepository;
 use App\Service\FlowRunner;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 
@@ -19,11 +20,14 @@ final class RunFlowGroupMessageHandler
         private readonly FlowGroupRunRepository $groupRuns,
         private readonly EnvironmentRepository $environments,
         private readonly FlowRunner $runner,
+        private readonly UserRepository $users,
     ) {
     }
 
     public function __invoke(RunFlowGroupMessage $message): void
     {
+        $actor = null !== $message->triggeredByUserId ? $this->users->find($message->triggeredByUserId) : null;
+
         $group = $this->groups->find($message->groupId);
         if (null === $group) {
             return;
@@ -40,7 +44,7 @@ final class RunFlowGroupMessageHandler
             $env = $override ?? $flow->getDefaultEnvironment();
             // createRun tags each run with the shared batchId + its order (iteration);
             // executeInto runs it to completion before the loop moves to the next flow.
-            $run = $this->runner->createRun($flow, $env, 'group', $message->batchId, $i, []);
+            $run = $this->runner->createRun($flow, $env, 'group', $message->batchId, $i, [], $actor);
             $this->runner->executeInto($run, $flow, $env);
             if (FlowRun::STATUS_PASSED !== $run->getStatus()) {
                 $allPassed = false;

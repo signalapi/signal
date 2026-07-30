@@ -7,6 +7,7 @@ use App\Message\RunFlowMessage;
 use App\Repository\EnvironmentRepository;
 use App\Repository\FlowRunRepository;
 use App\Repository\TestFlowRepository;
+use App\Repository\UserRepository;
 use App\Service\FlowRunner;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
@@ -19,6 +20,7 @@ final class RunFlowMessageHandler
         private readonly TestFlowRepository $flows,
         private readonly EnvironmentRepository $environments,
         private readonly FlowRunner $runner,
+        private readonly UserRepository $users,
         private readonly EntityManagerInterface $em,
     ) {
     }
@@ -40,6 +42,13 @@ final class RunFlowMessageHandler
         }
 
         $environment = $message->environmentId ? $this->environments->find($message->environmentId) : null;
+
+        // The run was created in the web request, but re-attach the actor in case
+        // the row was created before this field existed.
+        if (null === $run->getTriggeredBy() && null !== $message->triggeredByUserId) {
+            $run->setTriggeredBy($this->users->find($message->triggeredByUserId));
+            $this->em->flush();
+        }
 
         $this->runner->executeInto($run, $flow, $environment, $message->vars);
     }

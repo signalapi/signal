@@ -49,6 +49,7 @@ class McpToolRegistry
         private readonly \App\Repository\DataFactoryRepository $dataFactories,
         private readonly \App\Service\DynamicVariableGenerator $dynamic,
         private readonly DbQueryRunner $dbQuery,
+        private readonly \Symfony\Bundle\SecurityBundle\Security $security,
         private readonly FlowExpressionParser $parser,
         private readonly FlowVariableScanner $varScanner,
         private readonly FlowRunReporter $reporter,
@@ -575,9 +576,17 @@ class McpToolRegistry
             $environment = $this->findEnvironmentByName($ws, (string) $args['environmentName']);
         }
 
-        $run = $this->runner->run($flow, $environment, 'mcp', $this->scalarVars($args['variables'] ?? []));
+        $run = $this->runner->run($flow, $environment, 'mcp', $this->scalarVars($args['variables'] ?? []), $this->actor());
 
         return $this->reporter->toArray($run);
+    }
+
+    /** The user the MCP bearer token belongs to — the actor behind MCP-triggered runs. */
+    private function actor(): ?\App\Entity\User
+    {
+        $user = $this->security->getUser();
+
+        return $user instanceof \App\Entity\User ? $user : null;
     }
 
     private function runFlowAsync(Workspace $ws, array $args): array
@@ -592,7 +601,7 @@ class McpToolRegistry
             $environment = $this->findEnvironmentByName($ws, (string) $args['environmentName']);
         }
 
-        $run = $this->runner->createRun($flow, $environment, 'mcp', null, 0, []);
+        $run = $this->runner->createRun($flow, $environment, 'mcp', null, 0, [], $this->actor());
         $this->bus->dispatch(new RunFlowMessage(
             (string) $run->getId(),
             (string) $flow->getId(),

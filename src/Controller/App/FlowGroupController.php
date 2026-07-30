@@ -227,7 +227,7 @@ class FlowGroupController extends AbstractAppController
         $groupRun->setTotal($group->getFlows()->count());
         $groupRuns->save($groupRun);
 
-        $bus->dispatch(new RunFlowGroupMessage((string) $group->getId(), $batchId, $envId));
+        $bus->dispatch(new RunFlowGroupMessage((string) $group->getId(), $batchId, $envId, (string) $this->currentUser()->getId()));
 
         return $this->redirectToRoute('app_flow_group_run_show', [
             'workspace' => $workspace->getId(),

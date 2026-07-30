@@ -21,6 +21,14 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/v1')]
 class ApiController extends AbstractController
 {
+    /** The user the bearer token belongs to — the actor behind API-triggered runs. */
+    private function tokenOwner(): ?\App\Entity\User
+    {
+        $user = $this->getUser();
+
+        return $user instanceof \App\Entity\User ? $user : null;
+    }
+
     #[Route('/flows', name: 'api_flow_list', methods: ['GET'])]
     public function listFlows(Request $request, TestFlowRepository $flows): JsonResponse
     {
@@ -65,7 +73,7 @@ class ApiController extends AbstractController
             if ([] === $dataset) {
                 return $this->json(['ok' => false, 'error' => 'data is empty.'], 422);
             }
-            $runs = $runner->runDataset($flow, $environment, $dataset, 'api');
+            $runs = $runner->runDataset($flow, $environment, $dataset, 'api', [], $this->tokenOwner());
             $passed = \count(array_filter($runs, static fn ($r) => \App\Entity\FlowRun::STATUS_PASSED === $r->getStatus()));
             $allPassed = $passed === \count($runs);
             $iterations = array_map(static fn ($r) => [
@@ -94,7 +102,7 @@ class ApiController extends AbstractController
             }
         }
 
-        $run = $runner->run($flow, $environment, 'api', $vars);
+        $run = $runner->run($flow, $environment, 'api', $vars, $this->tokenOwner());
 
         $passed = \App\Entity\FlowRun::STATUS_PASSED === $run->getStatus();
         $httpStatus = $passed ? 200 : 422;

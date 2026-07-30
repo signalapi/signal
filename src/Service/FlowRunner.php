@@ -7,6 +7,7 @@ use App\Entity\FlowRun;
 use App\Entity\FlowStep;
 use App\Entity\StepResult;
 use App\Entity\TestFlow;
+use App\Entity\User;
 use App\Service\Db\DbQueryRunner;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -37,9 +38,9 @@ class FlowRunner
     /**
      * @param array<string, string> $vars one-off variables merged over the environment
      */
-    public function run(TestFlow $flow, ?Environment $environment, string $trigger = 'manual', array $vars = []): FlowRun
+    public function run(TestFlow $flow, ?Environment $environment, string $trigger = 'manual', array $vars = [], ?User $actor = null): FlowRun
     {
-        $run = $this->createRun($flow, $environment, $trigger, null, 0, []);
+        $run = $this->createRun($flow, $environment, $trigger, null, 0, [], $actor);
 
         return $this->executeInto($run, $flow, $environment, $vars);
     }
@@ -53,13 +54,13 @@ class FlowRunner
      *
      * @return FlowRun[]
      */
-    public function runDataset(TestFlow $flow, ?Environment $environment, array $dataset, string $trigger = 'manual', array $baseVars = []): array
+    public function runDataset(TestFlow $flow, ?Environment $environment, array $dataset, string $trigger = 'manual', array $baseVars = [], ?User $actor = null): array
     {
         $batchId = \Symfony\Component\Uid\Uuid::v4()->toRfc4122();
         $runs = [];
         $i = 0;
         foreach ($dataset as $row) {
-            $run = $this->createRun($flow, $environment, $trigger, $batchId, $i, \is_array($row) ? $row : []);
+            $run = $this->createRun($flow, $environment, $trigger, $batchId, $i, \is_array($row) ? $row : [], $actor);
             // Dataset row wins over $baseVars (which carries the user's personal env values).
             $runs[] = $this->executeInto($run, $flow, $environment, array_merge($baseVars, $this->rowVars($row)));
             ++$i;
@@ -74,11 +75,12 @@ class FlowRunner
      *
      * @param array<string, mixed> $iterationData
      */
-    public function createRun(TestFlow $flow, ?Environment $environment, string $trigger, ?string $batchId, int $iteration, array $iterationData): FlowRun
+    public function createRun(TestFlow $flow, ?Environment $environment, string $trigger, ?string $batchId, int $iteration, array $iterationData, ?User $actor = null): FlowRun
     {
         $run = new FlowRun();
         $run->setFlow($flow);
         $run->setTrigger($trigger);
+        $run->setTriggeredBy($actor);
         $run->setEnvironmentName($environment?->getName());
         $run->setBatchId($batchId);
         $run->setIteration($iteration);
@@ -246,7 +248,7 @@ class FlowRunner
             $step->isDelay() => $this->runDelayStep($step, $result),
             $step->isSetvar() => $this->runSetvarStep($step, $result, $context),
             $step->isDb() => $this->runDbStep($step, $result, $context, $flow->getWorkspace()),
-            default => $this->runHttpStep($step, $result, $context, $flow->getWorkspace()),
+            default => $this->runHttpStep($step, $result, $context, $flow->getWorkspace(), $run->getTriggeredBy()),
         };
 
         $run->addStepResult($result);
@@ -397,7 +399,7 @@ class FlowRunner
     /**
      * @param array<string, string> $context
      */
-    private function runHttpStep(FlowStep $step, StepResult $result, array &$context, \App\Entity\Workspace $workspace): string
+    private function runHttpStep(FlowStep $step, StepResult $result, array &$context, \App\Entity\Workspace $workspace, ?User $actor): string
     {
         // Each step carries its own flow-owned request copy (independent of the collection).
         $apiRequest = $step->toTransientRequest();
@@ -414,7 +416,9 @@ class FlowRunner
 
         while ($attempt < $max) {
             ++$attempt;
-            $response = $this->requestRunner->send($apiRequest, $context, $workspace);
+            // The jar belongs to whoever set the run off; scheduled runs (no
+            // actor) use the workspace's shared jar.
+            $response = $this->requestRunner->send($apiRequest, $context, $workspace, $actor);
             $result->setRequestMethod($response->method);
             $result->setRequestUrl($response->url);
             $result->setResponseStatus($response->statusCode);

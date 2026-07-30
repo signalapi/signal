@@ -10,7 +10,8 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: CookieRepository::class)]
 #[ORM\Table(name: 'cookie')]
-#[ORM\UniqueConstraint(name: 'uniq_cookie', columns: ['workspace_id', 'domain', 'path', 'name'])]
+// The jar is per user, so the same cookie name may exist once per person.
+#[ORM\UniqueConstraint(name: 'uniq_cookie', columns: ['workspace_id', 'user_id', 'domain', 'path', 'name'])]
 class Cookie
 {
     #[ORM\Id]

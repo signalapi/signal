@@ -15,6 +15,8 @@ final class RunFlowMessage
         public readonly string $flowId,
         public readonly ?string $environmentId = null,
         public readonly array $vars = [],
+        /** Whose run this is; null for scheduled runs. */
+        public readonly ?string $triggeredByUserId = null,
     ) {
     }
 }
