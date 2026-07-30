@@ -86,7 +86,7 @@ class MerchantMember
     public function setRole(string $role): static
     {
         if (!\in_array($role, self::ROLES, true)) {
-            throw new \InvalidArgumentException(sprintf('Geçersiz merchant rolü: "%s"', $role));
+            throw new \InvalidArgumentException(sprintf('Invalid merchant role: "%s"', $role));
         }
         $this->role = $role;
 

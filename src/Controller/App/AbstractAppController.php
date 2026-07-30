@@ -8,6 +8,7 @@ use App\Entity\Workspace;
 use App\Service\MerchantContext;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Contracts\Service\Attribute\Required;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Base controller for the merchant-facing app. Centralises tenant ownership checks
@@ -16,11 +17,18 @@ use Symfony\Contracts\Service\Attribute\Required;
 abstract class AbstractAppController extends AbstractController
 {
     protected MerchantContext $merchantContext;
+    protected TranslatorInterface $translator;
 
     #[Required]
     public function setMerchantContext(MerchantContext $merchantContext): void
     {
         $this->merchantContext = $merchantContext;
+    }
+
+    #[Required]
+    public function setTranslator(TranslatorInterface $translator): void
+    {
+        $this->translator = $translator;
     }
 
     protected function currentUser(): User
@@ -36,7 +44,7 @@ abstract class AbstractAppController extends AbstractController
         $merchant = $this->merchantContext->current();
 
         if (null === $merchant) {
-            throw $this->createAccessDeniedException('Hesabınız bir merchant ile ilişkili değil.');
+            throw $this->createAccessDeniedException($this->translator->trans('Your account is not associated with a merchant.'));
         }
 
         return $merchant;
@@ -50,7 +58,7 @@ abstract class AbstractAppController extends AbstractController
         $this->denyAccessUnlessGranted(
             'WORKSPACE_' . strtoupper($permission),
             $workspace,
-            'Bu workspace üzerinde yetkiniz yok.'
+            $this->translator->trans('You do not have permission on this workspace.')
         );
 
         // A workspace of another merchant can be opened via URL when the user is

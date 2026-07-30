@@ -1,24 +1,24 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Hoş geldiniz · {{ merchant.name }}{% endblock %}
+{% block title %}{{ 'Welcome'|trans }} · {{ merchant.name }}{% endblock %}
 
 {% block panel %}
 <div class="hero">
     <div class="dots"></div>
-    <h1>Hoş geldiniz, {{ app.user.name }}</h1>
+    <h1>{{ 'Welcome, %name%'|trans({'%name%': app.user.name}) }}</h1>
     {% if is_granted('MERCHANT_MANAGE_WORKSPACES', merchant) %}
-        <p class="lead">{{ merchant.name }} · Başlamak için ilk workspace'inizi oluşturun. Collection'lar, environment'lar ve test akışları workspace içinde yaşar.</p>
+        <p class="lead">{{ merchant.name }} · {{ 'Create your first workspace to get started. Collections, environments and test flows live inside a workspace.'|trans }}</p>
         <div class="actions">
-            <a class="btn" href="{{ path('app_workspace_new') }}">+ İlk Workspace'i Oluştur</a>
+            <a class="btn" href="{{ path('app_workspace_new') }}">{{ '+ Create First Workspace'|trans }}</a>
         </div>
     {% else %}
-        <p class="lead">{{ merchant.name }} · Henüz erişiminiz olan bir workspace yok. Bir workspace admin'inin ya da genel yöneticinin sizi eklemesi gerekiyor.</p>
+        <p class="lead">{{ merchant.name }} · {{ "You don't have access to any workspace yet. A workspace admin or a company admin needs to add you."|trans }}</p>
     {% endif %}
 </div>
 
 <div class="quick-grid">
     <div class="quick"><div class="ic">📁</div><div><div class="t">Postman import</div><div class="s">Collection & environment</div></div></div>
-    <div class="quick"><div class="ic">🔗</div><div><div class="t">Zincirleme testler</div><div class="s">Adımları birbirine bağla</div></div></div>
-    <div class="quick"><div class="ic">🗄️</div><div><div class="t">DB doğrulama</div><div class="s">Postgres · MySQL · Redis · Mongo</div></div></div>
+    <div class="quick"><div class="ic">🔗</div><div><div class="t">{{ 'Chained tests'|trans }}</div><div class="s">{{ 'Chain steps together'|trans }}</div></div></div>
+    <div class="quick"><div class="ic">🗄️</div><div><div class="t">{{ 'DB validation'|trans }}</div><div class="s">Postgres · MySQL · Redis · Mongo</div></div></div>
 </div>
 {% endblock %}

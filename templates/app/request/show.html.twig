@@ -11,9 +11,9 @@
             <a href="{{ path('app_collection_show', {workspace: workspace.id, collection: request.collection.id}) }}">← {{ request.collection.name }}</a>
         </p>
     </div>
-    <form class="inline" method="post" action="{{ path('app_request_delete', {workspace: workspace.id, request: request.id}) }}" onsubmit="return confirm('İstek silinecek. Emin misiniz?');">
+    <form class="inline" method="post" action="{{ path('app_request_delete', {workspace: workspace.id, request: request.id}) }}" onsubmit="return confirm('{{ 'The request will be deleted. Are you sure?'|trans|e('js') }}');">
         <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ request.id) }}">
-        <button class="btn danger" type="submit">Sil</button>
+        <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
     </form>
 </div>
 
@@ -21,7 +21,7 @@
     <input type="hidden" name="_token" value="{{ csrf_token('save-request' ~ request.id) }}">
 
     <div class="field">
-        <label>İstek adı</label>
+        <label>{{ 'Request name'|trans }}</label>
         <input type="text" name="name" value="{{ request.name }}">
     </div>
 
@@ -33,36 +33,36 @@
                 {% endfor %}
             </select>
             <input type="text" name="url" value="{{ request.url }}" placeholder="https://api.example.com/{{ '{{basePath}}' }}" style="flex:1;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;color:var(--text);font-family:monospace;">
-            <button class="btn" type="submit">Gönder ▸</button>
-            <button class="btn ghost" type="submit" formaction="{{ path('app_request_save', {workspace: workspace.id, request: request.id}) }}">Kaydet</button>
+            <button class="btn" type="submit">{{ 'Send'|trans }} ▸</button>
+            <button class="btn ghost" type="submit" formaction="{{ path('app_request_save', {workspace: workspace.id, request: request.id}) }}">{{ 'Save'|trans }}</button>
         </div>
         <div style="margin-top:10px;display:flex;align-items:center;gap:8px;">
-            <label style="color:var(--muted);font-size:13px;">Environment:</label>
+            <label style="color:var(--muted);font-size:13px;">{{ 'Environment'|trans }}:</label>
             <select name="environment" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);">
-                <option value="">— yok —</option>
+                <option value="">— {{ 'none'|trans }} —</option>
                 {% for env in environments %}
                     <option value="{{ env.id }}" {{ (selected_env is defined and selected_env == env.id) ? 'selected' }}>{{ env.name }}</option>
                 {% endfor %}
             </select>
-            <span class="subtitle" style="margin:0;font-size:12px;">{{ '{{değişken}}' }} sözdizimi desteklenir.</span>
+            <span class="subtitle" style="margin:0;font-size:12px;">{{ 'The {{variable}} syntax is supported.'|trans }}</span>
         </div>
     </div>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
         <div class="field">
-            <label>Header'lar (her satır <code>Ad: değer</code>)</label>
+            <label>{{ 'Headers (one <code>Name: value</code> per line)'|trans|raw }}</label>
             <textarea name="headers" rows="5" style="font-family:monospace;">{% for h in request.headers %}{{ h.name }}: {{ h.value }}
 {% endfor %}</textarea>
         </div>
         <div class="field">
-            <label>Query parametreleri (her satır <code>ad=değer</code>)</label>
+            <label>{{ 'Query parameters (one <code>name=value</code> per line)'|trans|raw }}</label>
             <textarea name="params" rows="5" style="font-family:monospace;">{% for p in request.queryParams %}{{ p.name }}={{ p.value }}
 {% endfor %}</textarea>
         </div>
     </div>
 
     <div class="field">
-        <label>Body modu</label>
+        <label>{{ 'Body mode'|trans }}</label>
         <select name="bodyMode" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);">
             {% for mode in ['none', 'raw', 'json', 'form'] %}
                 <option value="{{ mode }}" {{ request.bodyMode == mode ? 'selected' }}>{{ mode }}</option>
@@ -76,7 +76,7 @@
 </form>
 
 {% if result %}
-    <h1 style="font-size:18px;margin-top:28px;">Yanıt</h1>
+    <h1 style="font-size:18px;margin-top:28px;">{{ 'Response'|trans }}</h1>
     {% if result.ok %}
         {% set sc = result.statusCode %}
         {% set color = sc < 300 ? 'var(--accent-2)' : (sc < 400 ? 'var(--warn)' : 'var(--danger)') %}
@@ -89,7 +89,7 @@
             <pre style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:14px;overflow:auto;max-height:420px;font-size:13px;">{{ result.prettyBody() }}</pre>
         </div>
     {% else %}
-        <div class="flash error">İstek başarısız: {{ result.error }}</div>
+        <div class="flash error">{{ 'Request failed: %error%'|trans({'%error%': result.error}) }}</div>
     {% endif %}
 {% endif %}
 {% endblock %}

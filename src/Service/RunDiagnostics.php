@@ -6,7 +6,7 @@ use App\Entity\FlowRun;
 
 /**
  * Builds the raw evidence for diagnosing a failed run — shared by the MCP
- * diagnose_run tool and the in-panel "AI ile teşhis et" action, so both see
+ * diagnose_run tool and the in-panel "Diagnose with AI" action, so both see
  * exactly the same picture.
  */
 class RunDiagnostics

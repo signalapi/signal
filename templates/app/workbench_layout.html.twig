@@ -18,16 +18,16 @@
 <div class="wb">
     <nav class="rail">
         <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="logo" title="API Test">🧪</a>
-        <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="item" title="Genel Bakış">🏠</a>
-        <a href="{{ path('app_collection_index', {workspace: ws.id}) }}" class="item active" title="Collection'lar">📁</a>
-        <a href="{{ path('app_environment_index', {workspace: ws.id}) }}" class="item" title="Environment'lar">🌐</a>
-        <a href="{{ path('app_flow_index', {workspace: ws.id}) }}" class="item" title="Test Akışları">▶️</a>
-        <a href="{{ path('app_trends', {workspace: ws.id}) }}" class="item" title="Trendler">📈</a>
-        <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="item" title="DB Bağlantıları">🗄️</a>
-        <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="item" title="API Token'ları">🔑</a>
-        <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="item" title="Cookie'ler">🍪</a>
+        <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="item" title="{{ 'Overview'|trans }}">🏠</a>
+        <a href="{{ path('app_collection_index', {workspace: ws.id}) }}" class="item active" title="{{ 'Collections'|trans }}">📁</a>
+        <a href="{{ path('app_environment_index', {workspace: ws.id}) }}" class="item" title="{{ 'Environments'|trans }}">🌐</a>
+        <a href="{{ path('app_flow_index', {workspace: ws.id}) }}" class="item" title="{{ 'Test Flows'|trans }}">▶️</a>
+        <a href="{{ path('app_trends', {workspace: ws.id}) }}" class="item" title="{{ 'Trends'|trans }}">📈</a>
+        <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="item" title="{{ 'DB Connections'|trans }}">🗄️</a>
+        <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="item" title="{{ 'API Tokens'|trans }}">🔑</a>
+        <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="item" title="{{ 'Cookies'|trans }}">🍪</a>
         <div class="spacer"></div>
-        <a href="{{ path('app_logout') }}" class="item" title="Çıkış">⎋</a>
+        <a href="{{ path('app_logout') }}" class="item" title="{{ 'Sign out'|trans }}">⎋</a>
     </nav>
     {% block workbench %}{% endblock %}
 </div>

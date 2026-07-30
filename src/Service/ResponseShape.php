@@ -48,11 +48,11 @@ class ResponseShape
     {
         // Container vs scalar (or object vs list) — treat as a type change.
         if (\is_array($base) !== \is_array($current)) {
-            return ['~ ' . ($path ?: '(kök)') . ': ' . $this->describe($base) . ' → ' . $this->describe($current)];
+            return ['~ ' . ($path ?: '(root)') . ': ' . $this->describe($base) . ' → ' . $this->describe($current)];
         }
 
         if (!\is_array($base)) {
-            return $base === $current ? [] : ['~ ' . ($path ?: '(kök)') . ': ' . $base . ' → ' . $current];
+            return $base === $current ? [] : ['~ ' . ($path ?: '(root)') . ': ' . $base . ' → ' . $current];
         }
 
         // 'empty' list placeholder shouldn't be reported as drift against a typed list.
@@ -66,7 +66,7 @@ class ResponseShape
         foreach ($base as $k => $bv) {
             $p = $this->join($path, $k);
             if (!\array_key_exists($k, $current)) {
-                $changes[] = '− ' . $p . ' kaldırıldı';
+                $changes[] = '− ' . $p . ' removed';
             } else {
                 $changes = array_merge($changes, $this->diff($bv, $current[$k], $p));
             }

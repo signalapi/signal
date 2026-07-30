@@ -80,7 +80,7 @@ class WorkspaceMemberController extends AbstractAppController
         $email = mb_strtolower(trim((string) $request->request->get('email')));
         $role = (string) $request->request->get('role', WorkspaceMember::ROLE_EDITOR);
         if (!filter_var($email, \FILTER_VALIDATE_EMAIL) || !\in_array($role, WorkspaceMember::ROLES, true)) {
-            $this->addFlash('error', 'Geçerli bir e-posta ve rol seçin.');
+            $this->addFlash('error', $this->translator->trans('Select a valid e-mail address and role.'));
 
             return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
         }
@@ -91,9 +91,9 @@ class WorkspaceMemberController extends AbstractAppController
                 continue;
             }
             if ($mm->canManage()) {
-                $this->addFlash('error', 'Bu kişi şirket yöneticisi; zaten tüm workspace\'lere erişiyor.');
+                $this->addFlash('error', $this->translator->trans('This person is a company admin; they already have access to every workspace.'));
             } elseif (null !== $members->findOneByUserAndWorkspace($mm->getUser(), $workspace)) {
-                $this->addFlash('error', 'Bu kişi zaten workspace üyesi.');
+                $this->addFlash('error', $this->translator->trans('This person is already a workspace member.'));
             } else {
                 $membership = new WorkspaceMember();
                 $membership->setWorkspace($workspace);
@@ -101,7 +101,10 @@ class WorkspaceMemberController extends AbstractAppController
                 $membership->setRole($role);
                 $em->persist($membership);
                 $em->flush();
-                $this->addFlash('success', sprintf('%s şirkette zaten kayıtlıydı; workspace\'e eklendi (%s).', $mm->getUser()->getName(), $role));
+                $this->addFlash('success', $this->translator->trans('%name% was already registered in the company; added to the workspace (%role%).', [
+                    '%name%' => $mm->getUser()->getName(),
+                    '%role%' => $role,
+                ]));
             }
 
             return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
@@ -109,7 +112,7 @@ class WorkspaceMemberController extends AbstractAppController
 
         foreach ($this->pendingForWorkspace($invitations, $workspace) as $pending) {
             if ($pending->getEmail() === $email) {
-                $this->addFlash('error', 'Bu e-posta için bekleyen bir davet zaten var.');
+                $this->addFlash('error', $this->translator->trans('There is already a pending invitation for this e-mail address.'));
 
                 return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
             }
@@ -128,7 +131,7 @@ class WorkspaceMemberController extends AbstractAppController
         $em->flush();
 
         $this->addFlash('invite_link', $this->generateUrl('app_invite_show', ['token' => $plaintext], UrlGeneratorInterface::ABSOLUTE_URL));
-        $this->addFlash('success', sprintf('%s bu workspace\'e davet edildi. Linki iletin — yalnızca şimdi gösterilir.', $email));
+        $this->addFlash('success', $this->translator->trans('%email% has been invited to this workspace. Share the link — it is shown only now.', ['%email%' => $email]));
 
         return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
     }
@@ -154,7 +157,7 @@ class WorkspaceMemberController extends AbstractAppController
         $em->flush();
 
         $this->addFlash('invite_link', $this->generateUrl('app_invite_show', ['token' => $plaintext], UrlGeneratorInterface::ABSOLUTE_URL));
-        $this->addFlash('success', sprintf('%s için yeni davet linki üretildi.', $invitation->getEmail()));
+        $this->addFlash('success', $this->translator->trans('A new invitation link was generated for %email%.', ['%email%' => $invitation->getEmail()]));
 
         return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
     }
@@ -176,7 +179,7 @@ class WorkspaceMemberController extends AbstractAppController
 
         $em->remove($invitation);
         $em->flush();
-        $this->addFlash('success', 'Davet iptal edildi.');
+        $this->addFlash('success', $this->translator->trans('Invitation cancelled.'));
 
         return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
     }
@@ -213,7 +216,7 @@ class WorkspaceMemberController extends AbstractAppController
             throw $this->createNotFoundException();
         }
         if (null !== $members->findOneByUserAndWorkspace($candidate, $workspace)) {
-            $this->addFlash('error', 'Kullanıcı zaten bu workspace\'in üyesi.');
+            $this->addFlash('error', $this->translator->trans('The user is already a member of this workspace.'));
 
             return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
         }
@@ -224,7 +227,10 @@ class WorkspaceMemberController extends AbstractAppController
         $membership->setRole($role);
         $em->persist($membership);
         $em->flush();
-        $this->addFlash('success', sprintf('%s workspace\'e eklendi (%s).', $candidate->getName(), $role));
+        $this->addFlash('success', $this->translator->trans('%name% was added to the workspace (%role%).', [
+            '%name%' => $candidate->getName(),
+            '%role%' => $role,
+        ]));
 
         return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
     }
@@ -250,7 +256,10 @@ class WorkspaceMemberController extends AbstractAppController
         }
         $member->setRole($role);
         $em->flush();
-        $this->addFlash('success', sprintf('%s artık %s.', $member->getUser()->getName(), $role));
+        $this->addFlash('success', $this->translator->trans('%name% is now %role%.', [
+            '%name%' => $member->getUser()->getName(),
+            '%role%' => $role,
+        ]));
 
         return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
     }
@@ -272,7 +281,7 @@ class WorkspaceMemberController extends AbstractAppController
 
         $em->remove($member);
         $em->flush();
-        $this->addFlash('success', sprintf('%s workspace\'ten çıkarıldı.', $member->getUser()->getName()));
+        $this->addFlash('success', $this->translator->trans('%name% was removed from the workspace.', ['%name%' => $member->getUser()->getName()]));
 
         return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
     }

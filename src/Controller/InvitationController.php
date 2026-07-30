@@ -20,6 +20,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Public landing for invite links. The plaintext token lives only in the URL;
@@ -55,6 +56,7 @@ class InvitationController extends AbstractController
         WorkspaceRepository $workspaces,
         MerchantContext $merchantContext,
         EntityManagerInterface $em,
+        TranslatorInterface $translator,
     ): Response {
         $invitation = $invitations->findOneByToken($token);
         if ('accept' !== $this->resolveState($invitation, $users)) {
@@ -68,7 +70,7 @@ class InvitationController extends AbstractController
         $user = $this->getUser();
         $this->apply($invitation, $user, $merchantMembers, $workspaceMembers, $workspaces, $em);
         $merchantContext->remember($invitation->getMerchant());
-        $this->addFlash('success', sprintf('"%s" merchant\'ına katıldınız.', $invitation->getMerchant()->getName()));
+        $this->addFlash('success', $translator->trans('You have joined the "%name%" merchant.', ['%name%' => $invitation->getMerchant()->getName()]));
 
         return $this->redirectToRoute('app_dashboard');
     }
@@ -86,6 +88,7 @@ class InvitationController extends AbstractController
         UserPasswordHasherInterface $hasher,
         Security $security,
         EntityManagerInterface $em,
+        TranslatorInterface $translator,
     ): Response {
         $invitation = $invitations->findOneByToken($token);
         if ('register' !== $this->resolveState($invitation, $users)) {
@@ -101,12 +104,12 @@ class InvitationController extends AbstractController
         $confirm = (string) $request->request->get('password_confirm');
 
         if ('' === $name) {
-            $errors[] = 'Ad soyad gerekli.';
+            $errors[] = $translator->trans('Full name is required.');
         }
         if (mb_strlen($password) < 8) {
-            $errors[] = 'Şifre en az 8 karakter olmalı.';
+            $errors[] = $translator->trans('Password must be at least 8 characters.');
         } elseif ($password !== $confirm) {
-            $errors[] = 'Şifreler eşleşmiyor.';
+            $errors[] = $translator->trans('Passwords do not match.');
         }
 
         if ([] !== $errors) {
@@ -128,7 +131,7 @@ class InvitationController extends AbstractController
         $this->apply($invitation, $user, $merchantMembers, $workspaceMembers, $workspaces, $em);
         $merchantContext->remember($invitation->getMerchant());
         $security->login($user, 'form_login', 'main');
-        $this->addFlash('success', sprintf('Hoş geldiniz! "%s" merchant\'ına katıldınız.', $invitation->getMerchant()->getName()));
+        $this->addFlash('success', $translator->trans('Welcome! You have joined the "%name%" merchant.', ['%name%' => $invitation->getMerchant()->getName()]));
 
         return $this->redirectToRoute('app_dashboard');
     }

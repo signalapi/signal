@@ -1,15 +1,15 @@
 {% extends 'admin/_layout.html.twig' %}
 
-{% block title %}Genel Bakış · Süper Admin{% endblock %}
+{% block title %}{{ 'Overview'|trans }} · {{ 'Super Admin'|trans }}{% endblock %}
 
 {% block panel %}
 <div class="hero">
     <div class="dots"></div>
-    <h1>Genel Bakış</h1>
-    <p class="lead">Platform geneli durum: merchant'lar, workspace'ler ve kullanıcılar.</p>
+    <h1>{{ 'Overview'|trans }}</h1>
+    <p class="lead">{{ 'Platform-wide status: merchants, workspaces and users.'|trans }}</p>
     <div class="actions">
-        <a class="btn" href="{{ path('admin_merchant_new') }}">+ Yeni Merchant</a>
-        <a class="btn ghost" href="{{ path('admin_merchant_index') }}">Merchant'ları yönet</a>
+        <a class="btn" href="{{ path('admin_merchant_new') }}">{{ '+ New Merchant'|trans }}</a>
+        <a class="btn ghost" href="{{ path('admin_merchant_index') }}">{{ 'Manage merchants'|trans }}</a>
     </div>
 </div>
 
@@ -24,22 +24,22 @@
     </div>
     <div class="metric">
         <div class="ic">👤</div><div class="num">{{ user_count }}</div>
-        <div class="cap"><span>Kullanıcı</span></div>
+        <div class="cap"><span>{{ 'Users'|trans }}</span></div>
     </div>
 </div>
 
-<div class="section-title">Son eklenen merchant'lar</div>
+<div class="section-title">{{ 'Recently added merchants'|trans }}</div>
 {% if recent_merchants is empty %}
-    <div class="empty">Henüz merchant yok.</div>
+    <div class="empty">{{ 'No merchants yet.'|trans }}</div>
 {% else %}
     <table>
-        <thead><tr><th>Ad</th><th>Slug</th><th>Durum</th><th>Workspace</th><th>Oluşturulma</th></tr></thead>
+        <thead><tr><th>{{ 'Name'|trans }}</th><th>Slug</th><th>{{ 'Status'|trans }}</th><th>Workspace</th><th>{{ 'Created'|trans }}</th></tr></thead>
         <tbody>
         {% for m in recent_merchants %}
             <tr>
                 <td>{{ m.name }}</td>
                 <td><code>{{ m.slug }}</code></td>
-                <td>{% if m.active %}<span class="pill on">aktif</span>{% else %}<span class="pill off">pasif</span>{% endif %}</td>
+                <td>{% if m.active %}<span class="pill on">{{ 'active'|trans }}</span>{% else %}<span class="pill off">{{ 'inactive'|trans }}</span>{% endif %}</td>
                 <td>{{ m.workspaces|length }}</td>
                 <td>{{ m.createdAt|date('d.m.Y H:i') }}</td>
             </tr>

@@ -1,6 +1,6 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Akışlar · {{ workspace.name }}{% endblock %}
+{% block title %}{{ 'Flows'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
 <style>
@@ -37,18 +37,18 @@
 
 <div class="fl-head">
     <div>
-        <h1>Akışlar</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ flows|length }} akış · suite'leri ve geçmişi soldaki menüden gör</p>
+        <h1>{{ 'Flows'|trans }}</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ '%count% flows · see suites and history in the left menu'|trans({'%count%': flows|length}) }}</p>
     </div>
     <div style="display:flex;gap:8px;">
-        <a class="btn" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">+ Yeni akış</a>
+        <a class="btn" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">+ {{ 'New flow'|trans }}</a>
         <a class="btn ghost" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
     </div>
 </div>
 
 <div class="fl-list stagger">
     {% if flows is empty %}
-        <div class="fl-empty">Henüz akış yok. <a href="{{ path('app_flow_new', {workspace: workspace.id}) }}">Yeni akış</a> oluştur.</div>
+        <div class="fl-empty">{{ 'No flows yet.'|trans }} <a href="{{ path('app_flow_new', {workspace: workspace.id}) }}">{{ 'Create a new flow'|trans }}</a>.</div>
     {% endif %}
     {% for flow in flows %}
         {% set last = flow.runs|first %}
@@ -63,28 +63,28 @@
                 <form class="fl-assign" method="post" action="{{ path('app_flow_group_assign', {workspace: workspace.id}) }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}">
                     <input type="hidden" name="flow" value="{{ flow.id }}">
-                    <select name="group" onchange="this.form.submit()" title="Suite'e ekle">
-                        <option value="">+ suite'e ekle</option>
+                    <select name="group" onchange="this.form.submit()" title="{{ 'Add to suite'|trans }}">
+                        <option value="">+ {{ 'Add to suite'|trans }}</option>
                         {% for g in groups|filter(g => g.id not in myGroupIds) %}<option value="{{ g.id }}">🧩 {{ g.name }}</option>{% endfor %}
                     </select>
                 </form>
-                <a class="btn ghost small" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">Aç →</a>
-                <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('Akış ve koşum geçmişi silinecek. Emin misiniz?');">
+                <a class="btn ghost small" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">{{ 'Open'|trans }} →</a>
+                <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('{{ 'The flow and its run history will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ flow.id) }}">
-                    <button class="btn danger" type="submit">Sil</button>
+                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
                 </form>
             </div>
             <div class="fl-meta">
-                <span><b>{{ flow.steps|length }}</b> adım</span>
-                <span><b>{{ flow.runs|length }}</b> koşum</span>
+                <span><b>{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>
+                <span><b>{{ flow.runs|length }}</b> {{ 'runs'|trans }}</span>
                 {% for g in flow.groups %}<span class="fl-suite">🧩 {{ g.name }}
-                    <form method="post" action="{{ path('app_flow_group_unassign', {workspace: workspace.id}) }}" style="display:inline;" title="Bu suite'ten çıkar">
+                    <form method="post" action="{{ path('app_flow_group_unassign', {workspace: workspace.id}) }}" style="display:inline;" title="{{ 'Remove from this suite'|trans }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('flow-group') }}"><input type="hidden" name="flow" value="{{ flow.id }}"><input type="hidden" name="group" value="{{ g.id }}">
                         <button type="submit" style="border:none;background:none;cursor:pointer;color:var(--muted);padding:0 2px;">×</button>
                     </form></span>{% endfor %}
-                <span>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name : 'env yok' }}</span>
+                <span>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name : 'no env'|trans }}</span>
                 {% if recent is not empty %}
-                    <span class="fl-runs"><span class="lbl">Son</span>
+                    <span class="fl-runs"><span class="lbl">{{ 'Last'|trans }}</span>
                         {% for run in recent|reverse %}
                             <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
                                title="{{ run.status }} · {{ run.passedSteps }}/{{ run.totalSteps }} · {{ run.createdAt|date('d.m H:i') }}"><span class="rdot {{ run.status }}"></span></a>

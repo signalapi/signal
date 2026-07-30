@@ -1,33 +1,33 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Veri Fabrikaları · {{ workspace.name }}{% endblock %}
+{% block title %}{{ 'Data Factories'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
 <a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
 <div class="pagehead">
     <div>
-        <h1>Veri Fabrikaları</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ factories|length }} fabrika · her istekte taze test verisi</p>
+        <h1>{{ 'Data Factories'|trans }}</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ '%count% factories'|trans({'%count%': factories|length}) }} · {{ 'fresh test data on every request'|trans }}</p>
     </div>
 </div>
 
 <p class="subtitle" style="font-size:12.5px;margin:0 0 14px;max-width:720px;">
-    Yönetilebilir üreteçler. Bir fabrika tanımla, akışın her yerinde <code>{{ '{{$adı}}' }}</code> ile kullan — her kullanımda taze değer üretir.
-    Yerleşiklere ek olarak çalışır (<code>{{ '{{$guid}}' }}</code>, <code>{{ '{{$randomEmail}}' }}</code> …).
+    {{ 'Managed generators. Define a factory and use it anywhere in the flow as %token% — it produces a fresh value on every use.'|trans({'%token%': '<code>' ~ ('{{$name}}')|e ~ '</code>'})|raw }}
+    {{ 'Works in addition to the built-ins (%tokens% …).'|trans({'%tokens%': '<code>' ~ ('{{$guid}}')|e ~ '</code>, <code>' ~ ('{{$randomEmail}}')|e ~ '</code>'})|raw }}
 </p>
 
 <form class="addbar" method="post" action="{{ path('app_factory_new', {workspace: workspace.id}) }}">
-    <input type="text" name="name" placeholder="Yeni fabrika adı (örn. testCard, provider)">
+    <input type="text" name="name" placeholder="{{ 'New factory name (e.g. testCard, provider)'|trans }}">
     <input type="hidden" name="_token" value="{{ csrf_token('factory-new') }}">
-    <button class="btn small" type="submit">+ Oluştur</button>
+    <button class="btn small" type="submit">+ {{ 'Create'|trans }}</button>
 </form>
 
 {% if factories is empty %}
-    <div class="empty" style="text-align:left;padding:24px;margin-top:14px;">Henüz fabrika yok. Yukarıdan bir tane oluştur — örn. <code>provider</code> için Yuno/Payrails seçen bir “oneOf”.</div>
+    <div class="empty" style="text-align:left;padding:24px;margin-top:14px;">{{ 'No factories yet. Create one above — e.g. a “oneOf” that picks Yuno/Payrails for %name%.'|trans({'%name%': '<code>provider</code>'})|raw }}</div>
 {% else %}
 <div class="res-grid stagger" style="margin-top:14px;">
     {% for f in factories %}
-        {% set kindLabel = {'oneOf':'listeden biri','template':'şablon','intRange':'sayı aralığı','pattern':'desen'} %}
+        {% set kindLabel = {'oneOf': 'one of a list'|trans, 'template': 'template'|trans, 'intRange': 'number range'|trans, 'pattern': 'pattern'|trans} %}
         <div class="res-card">
             <div class="rc-top">
                 <div class="ic">🎲</div>
@@ -37,13 +37,13 @@
                 </div>
             </div>
             <div style="font-family:var(--font-mono);font-size:12px;color:var(--accent);background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:4px 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
-                örnek: {{ samples[f.id] ?? '—' }}
+                {{ 'sample:'|trans }} {{ samples[f.id] ?? '—' }}
             </div>
             <div class="rc-foot">
-                <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_factory_edit', {workspace: workspace.id, factory: f.id}) }}">Düzenle</a>
-                <form method="post" action="{{ path('app_factory_delete', {workspace: workspace.id, factory: f.id}) }}" onsubmit="return confirm('Fabrika silinecek. Emin misiniz?');">
+                <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_factory_edit', {workspace: workspace.id, factory: f.id}) }}">{{ 'Edit'|trans }}</a>
+                <form method="post" action="{{ path('app_factory_delete', {workspace: workspace.id, factory: f.id}) }}" onsubmit="return confirm('{{ 'The factory will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('factory-delete' ~ f.id) }}">
-                    <button class="btn danger" type="submit">Sil</button>
+                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
                 </form>
             </div>
         </div>
@@ -52,11 +52,11 @@
 {% endif %}
 
 {# ---- built-in generators (read-only reference) ---- #}
-<div class="section-title" style="font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:34px 0 4px;">Yerleşik üreteçler</div>
-<p class="subtitle" style="font-size:12px;margin:0 0 14px;">Hazır gelir, tanımlamana gerek yok. Token'a tıkla → kopyalanır.</p>
+<div class="section-title" style="font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:34px 0 4px;">{{ 'Built-in generators'|trans }}</div>
+<p class="subtitle" style="font-size:12px;margin:0 0 14px;">{{ 'Available out of the box, nothing to define. Click a token → it is copied.'|trans }}</p>
 <div class="bi-grid">
     {% for b in builtins %}
-        <button type="button" class="bi-card" data-copy="{{ b.token }}" title="Kopyala">
+        <button type="button" class="bi-card" data-copy="{{ b.token }}" title="{{ 'Copy'|trans }}">
             <code class="bi-tok">{{ b.token }}</code>
             <span class="bi-desc">{{ b.description }}</span>
             <span class="bi-sample">{{ b.sample }}</span>

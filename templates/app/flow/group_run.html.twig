@@ -1,6 +1,6 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}{{ group.name }} · Grup koşumu{% endblock %}
+{% block title %}{{ group.name }} · {{ 'Group run'|trans }}{% endblock %}
 
 {% block panel %}
 <style>
@@ -24,16 +24,16 @@
     .gr-state.pending { color: var(--muted); }
 </style>
 
-{% set labels = {'passed':'geçti','failed':'başarısız','error':'hata','running':'çalışıyor','skipped':'atlandı','cancelled':'iptal'} %}
+{% set labels = {'passed':'passed'|trans,'failed':'failed'|trans,'error':'error'|trans,'running':'running'|trans,'skipped':'skipped'|trans,'cancelled':'cancelled'|trans} %}
 {% set failedCount = 0 %}
 {% for it in byIteration %}{% if it.status in ['failed','error'] %}{% set failedCount = failedCount + 1 %}{% endif %}{% endfor %}
 
-<a class="backlink" href="{{ path('app_flow_suite_index', {workspace: workspace.id}) }}">← Suite'ler</a>
+<a class="backlink" href="{{ path('app_flow_suite_index', {workspace: workspace.id}) }}">← {{ 'Suites'|trans }}</a>
 <div class="gr-head">
     <h1>▶ {{ group.name }}</h1>
     <span class="muted-sm" id="grSummary">
-        {%- if finished -%}{{ failedCount ? failedCount ~ '/' ~ total ~ ' akış başarısız' : 'Tüm akışlar geçti (' ~ total ~ ')' }}
-        {%- else -%}{{ done }}/{{ total }} akış bitti{% endif -%}
+        {%- if finished -%}{{ failedCount ? '%count%/%total% flows failed'|trans({'%count%': failedCount, '%total%': total}) : 'All flows passed (%total%)'|trans({'%total%': total}) }}
+        {%- else -%}{{ '%done%/%total% flows finished'|trans({'%done%': done, '%total%': total}) }}{% endif -%}
     </span>
 </div>
 <div class="gr-bar {{ finished ? (failedCount ? 'fail' : 'done') }}" id="grBar"><span id="grFill" style="width:{{ total ? (done / total * 100)|round : 0 }}%;"></span></div>
@@ -46,7 +46,7 @@
             <span class="idx">{{ loop.index }}</span>
             <span class="gr-name">{{ flow.name }}</span>
             <span class="gr-meta" data-meta>{% if r %}{{ r.passed }}/{{ r.total }}{{ r.durationMs is not null ? ' · ' ~ r.durationMs ~ 'ms' }}{% endif %}</span>
-            <span class="gr-state {{ st }}" data-state>{{ labels[st] ?? 'bekliyor' }}</span>
+            <span class="gr-state {{ st }}" data-state>{{ labels[st] ?? 'pending'|trans }}</span>
         </{{ r ? 'a' : 'div' }}>
     {% endfor %}
 </div>
@@ -54,15 +54,29 @@
 {% if not finished %}
 <span id="grCfg" data-status-url="{{ path('app_flow_group_run_status', {workspace: workspace.id, group: group.id, batchId: batchId}) }}" data-total="{{ total }}" hidden></span>
 
+<script type="application/json" id="gr-i18n">{{ {
+    passed: 'passed'|trans,
+    failed: 'failed'|trans,
+    error: 'error'|trans,
+    running: 'running'|trans,
+    cancelled: 'cancelled'|trans,
+    pending: 'pending'|trans,
+    progress: '%done%/%total% flows finished'|trans,
+    failedSuffix: ' · %count% failed'|trans,
+    someFailed: '%count%/%total% flows failed'|trans,
+    allPassed: 'All flows passed (%total%)'|trans
+}|json_encode|raw }}</script>
+
 {% verbatim %}
 <script>
 (function () {
     var cfg = document.getElementById('grCfg');
+    var T = JSON.parse(document.getElementById('gr-i18n').textContent);
     var statusUrl = cfg.dataset.statusUrl, total = parseInt(cfg.dataset.total, 10) || 0;
     var bar = document.getElementById('grBar'), fill = document.getElementById('grFill'), summary = document.getElementById('grSummary');
     var rows = [].slice.call(document.querySelectorAll('.gr-row'));
 
-    function label(s) { return {passed:'geçti',failed:'başarısız',error:'hata',running:'çalışıyor',cancelled:'iptal'}[s] || s; }
+    function label(s) { return T[s] || s; }
 
     function poll() {
         fetch(statusUrl, {headers: {'X-Requested-With': 'XMLHttpRequest'}}).then(function (r) { return r.json(); }).then(function (d) {
@@ -81,14 +95,17 @@
                     if (run.status !== 'running') done++;
                     if (run.status === 'failed' || run.status === 'error') failed++;
                 } else {
-                    st.className = 'gr-state pending'; st.textContent = 'bekliyor'; meta.textContent = '';
+                    st.className = 'gr-state pending'; st.textContent = T.pending; meta.textContent = '';
                 }
             });
             fill.style.width = (total ? Math.round(done / total * 100) : 0) + '%';
-            summary.textContent = done + '/' + total + ' akış bitti' + (failed ? ' · ' + failed + ' başarısız' : '');
+            summary.textContent = T.progress.replace('%done%', done).replace('%total%', total)
+                + (failed ? T.failedSuffix.replace('%count%', failed) : '');
             if (d.finished) {
                 bar.className = 'gr-bar ' + (failed ? 'fail' : 'done');
-                summary.textContent = failed ? (failed + '/' + total + ' akış başarısız') : ('Tüm akışlar geçti (' + total + ')');
+                summary.textContent = failed
+                    ? T.someFailed.replace('%count%', failed).replace('%total%', total)
+                    : T.allPassed.replace('%total%', total);
                 return;
             }
             setTimeout(poll, 1200);

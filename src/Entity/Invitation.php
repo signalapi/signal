@@ -101,7 +101,7 @@ class Invitation
     public function setMerchantRole(string $merchantRole): static
     {
         if (!\in_array($merchantRole, [MerchantMember::ROLE_ADMIN, MerchantMember::ROLE_MEMBER], true)) {
-            throw new \InvalidArgumentException(sprintf('Davetle verilemeyecek merchant rolü: "%s"', $merchantRole));
+            throw new \InvalidArgumentException(sprintf('Merchant role that cannot be granted via invitation: "%s"', $merchantRole));
         }
         $this->merchantRole = $merchantRole;
 

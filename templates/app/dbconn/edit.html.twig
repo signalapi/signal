@@ -1,15 +1,15 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}{{ connection ? 'Bağlantı düzenle' : 'Yeni bağlantı' }}{% endblock %}
+{% block title %}{{ connection ? 'Edit connection'|trans : 'New connection'|trans }}{% endblock %}
 
 {% block panel %}
 {% set action = connection ? path('app_dbconn_edit', {workspace: workspace.id, connection: connection.id}) : path('app_dbconn_new', {workspace: workspace.id}) %}
 {% set csrf_id = connection ? 'dbconn-edit' ~ connection.id : 'dbconn-new' %}
 
-<a class="backlink" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">← Bağlantılar</a>
+<a class="backlink" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">← {{ 'Connections'|trans }}</a>
 <div class="pagehead">
     <div>
-        <h1>{{ connection ? 'Bağlantı düzenle' : 'Yeni veritabanı bağlantısı' }}</h1>
+        <h1>{{ connection ? 'Edit connection'|trans : 'New database connection'|trans }}</h1>
         <p class="subtitle">{{ workspace.name }}</p>
     </div>
 </div>
@@ -18,9 +18,9 @@
     <form method="post" action="{{ action }}">
         <input type="hidden" name="_token" value="{{ csrf_token(csrf_id) }}">
         <div class="grid2">
-            <div class="field"><label>Ad</label><input type="text" name="name" value="{{ connection ? connection.name }}" placeholder="örn. pg-staging" required></div>
+            <div class="field"><label>{{ 'Name'|trans }}</label><input type="text" name="name" value="{{ connection ? connection.name }}" placeholder="{{ 'e.g. pg-staging'|trans }}" required></div>
             <div class="field">
-                <label>Tip</label>
+                <label>{{ 'Type'|trans }}</label>
                 <select name="type" id="type" onchange="syncPort()">
                     {% for t in ['postgres','mysql','redis','mongo'] %}<option value="{{ t }}" {{ connection and connection.type == t ? 'selected' }}>{{ t }}</option>{% endfor %}
                 </select>
@@ -30,24 +30,24 @@
             <div class="field"><label>Host</label><input type="text" id="host" name="host" value="{{ connection ? connection.host }}" placeholder="database / redis / mongo" required></div>
             <div class="field"><label>Port</label><input type="number" id="port" name="port" value="{{ connection ? connection.port : 5432 }}"></div>
         </div>
-        <div class="field"><label>Veritabanı adı</label><input type="text" name="databaseName" value="{{ connection ? connection.databaseName }}" placeholder="(redis için boş bırakılabilir)"></div>
+        <div class="field"><label>{{ 'Database name'|trans }}</label><input type="text" name="databaseName" value="{{ connection ? connection.databaseName }}" placeholder="{{ '(can be left empty for redis)'|trans }}"></div>
         <div class="grid2">
-            <div class="field"><label>Kullanıcı</label><input type="text" name="username" value="{{ connection ? connection.username }}"></div>
-            <div class="field"><label>Şifre</label><input type="password" name="password" placeholder="{{ connection and connection.hasPassword ? '•••• (değiştirmek için yazın)' : '' }}"></div>
+            <div class="field"><label>{{ 'Username'|trans }}</label><input type="text" name="username" value="{{ connection ? connection.username }}"></div>
+            <div class="field"><label>{{ 'Password'|trans }}</label><input type="password" name="password" placeholder="{{ connection and connection.hasPassword ? '•••• (type to change)'|trans : '' }}"></div>
         </div>
         <div class="grid2">
             <div class="field"><label>authSource (mongo)</label><input type="text" name="authSource" value="{{ connection ? connection.options.authSource ?? '' }}" placeholder="admin"></div>
             <div class="field"><label>DB index (redis)</label><input type="number" name="redisDb" value="{{ connection ? connection.options.db ?? '' }}" placeholder="0"></div>
         </div>
         <div class="form-actions">
-            <button class="btn" type="submit">Kaydet</button>
-            <a class="btn ghost" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">Vazgeç</a>
+            <button class="btn" type="submit">{{ 'Save'|trans }}</button>
+            <a class="btn ghost" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
         </div>
     </form>
 </div>
 
 <p class="fhint" style="max-width:600px;margin-top:14px;">
-    🔒 Şifreler veritabanında libsodium ile şifrelenerek saklanır; arayüze düz metin olarak hiç dönmez. Önerilen: hedef veritabanında <strong>salt-okunur</strong> bir kullanıcı kullanın.
+    🔒 {{ 'Passwords are stored in the database encrypted with libsodium; they are never returned to the UI in plain text.'|trans }} {{ 'Recommended: use a <strong>read-only</strong> user on the target database.'|trans|raw }}
 </p>
 
 <script>

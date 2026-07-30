@@ -1,31 +1,31 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Environment'lar · {{ workspace.name }}{% endblock %}
+{% block title %}{{ 'Environments'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
 <a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
 <div class="pagehead">
     <div>
-        <h1>Environment'lar</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ environments|length }} environment</p>
+        <h1>{{ 'Environments'|trans }}</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ '%count% environments'|trans({'%count%': environments|length}) }}</p>
     </div>
 </div>
 
 <form class="addbar" method="post" action="{{ path('app_environment_new', {workspace: workspace.id}) }}">
-    <input type="text" name="name" placeholder="Yeni environment adı (örn. staging)">
+    <input type="text" name="name" placeholder="{{ 'New environment name (e.g. staging)'|trans }}">
     <input type="hidden" name="_token" value="{{ csrf_token('new-environment') }}">
-    <button class="btn small" type="submit">+ Boş oluştur</button>
+    <button class="btn small" type="submit">+ {{ 'Create empty'|trans }}</button>
 </form>
 <form class="addbar" method="post" action="{{ path('app_environment_import', {workspace: workspace.id}) }}" enctype="multipart/form-data">
-    <span class="hint">⬆ Postman environment yükle</span>
+    <span class="hint">⬆ {{ 'Upload a Postman environment'|trans }}</span>
     <input type="file" name="environment" accept="application/json,.json">
     <input type="hidden" name="_token" value="{{ csrf_token('env-import') }}">
-    <button class="btn small ghost" type="submit">İçe aktar</button>
+    <button class="btn small ghost" type="submit">{{ 'Import'|trans }}</button>
 </form>
-<p class="subtitle" style="font-size:12px;margin:0 0 18px;">Postman'de: Environments → ⋯ → <em>Export</em>. Collection sonradan da olsa environment'ı buradan ekleyebilirsiniz.</p>
+<p class="subtitle" style="font-size:12px;margin:0 0 18px;">{{ 'In Postman:'|trans }} Environments → ⋯ → <em>Export</em>. {{ 'You can add the environment here even if the collection came first.'|trans }}</p>
 
 {% if environments is empty %}
-    <div class="empty" style="text-align:left;padding:24px;">Henüz environment yok. Yukarıdan oluşturun ya da Postman'den içe aktarın.</div>
+    <div class="empty" style="text-align:left;padding:24px;">{{ 'No environments yet. Create one above or import from Postman.'|trans }}</div>
 {% else %}
 <div class="res-grid stagger">
     {% for env in environments %}
@@ -34,14 +34,14 @@
                 <div class="ic">🌐</div>
                 <div class="rc-name">
                     <a href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ env.name }}</a>
-                    <div class="s">{{ env.variables|length }} değişken</div>
+                    <div class="s">{{ '%count% variables'|trans({'%count%': env.variables|length}) }}</div>
                 </div>
             </div>
             <div class="rc-foot">
-                <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">Düzenle</a>
-                <form method="post" action="{{ path('app_environment_delete', {workspace: workspace.id, environment: env.id}) }}" onsubmit="return confirm('Environment silinecek. Emin misiniz?');">
+                <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ 'Edit'|trans }}</a>
+                <form method="post" action="{{ path('app_environment_delete', {workspace: workspace.id, environment: env.id}) }}" onsubmit="return confirm('{{ 'The environment will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ env.id) }}">
-                    <button class="btn danger" type="submit">Sil</button>
+                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
                 </form>
             </div>
         </div>

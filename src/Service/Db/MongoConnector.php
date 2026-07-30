@@ -18,12 +18,12 @@ class MongoConnector
     public function run(DbConnection $conn, string $password, string $query): array
     {
         if (!class_exists(\MongoDB\Client::class)) {
-            throw new \RuntimeException('mongodb eklentisi/kütüphanesi yüklü değil.');
+            throw new \RuntimeException('The mongodb extension/library is not installed.');
         }
 
         $spec = json_decode(trim($query) ?: '{}', true);
         if (!\is_array($spec) || !isset($spec['collection'])) {
-            throw new \InvalidArgumentException('Mongo sorgusu JSON olmalı ve "collection" içermeli.');
+            throw new \InvalidArgumentException('A Mongo query must be JSON and contain "collection".');
         }
 
         $client = new \MongoDB\Client($this->buildUri($conn, $password));

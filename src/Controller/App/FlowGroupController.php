@@ -19,6 +19,7 @@ use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Flow groups (suites): bundle flows and run them all sequentially in the background.
@@ -74,6 +75,7 @@ class FlowGroupController extends AbstractAppController
         #[MapEntity(mapping: ['group' => 'id'])] FlowGroup $group,
         Request $httpRequest,
         FlowGroupRepository $groups,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertGroup($workspace, $group);
@@ -86,7 +88,7 @@ class FlowGroupController extends AbstractAppController
         }
         $group->setDescription(trim((string) $httpRequest->request->get('description')) ?: null);
         $groups->save($group);
-        $this->addFlash('success', 'Suite güncellendi.');
+        $this->addFlash('success', $translator->trans('Suite updated.'));
 
         return $this->redirectToRoute('app_flow_suite_index', ['workspace' => $workspace->getId()]);
     }
@@ -96,6 +98,7 @@ class FlowGroupController extends AbstractAppController
         Workspace $workspace,
         Request $httpRequest,
         FlowGroupRepository $groups,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         if (!$this->isCsrfTokenValid('flow-group', (string) $httpRequest->request->get('_token'))) {
@@ -108,7 +111,7 @@ class FlowGroupController extends AbstractAppController
             $group->setWorkspace($workspace);
             $group->setName($name);
             $groups->save($group);
-            $this->addFlash('success', sprintf('Grup oluşturuldu: %s', $name));
+            $this->addFlash('success', $translator->trans('Group created: %name%', ['%name%' => $name]));
         }
 
         return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()]);
@@ -120,6 +123,7 @@ class FlowGroupController extends AbstractAppController
         #[MapEntity(mapping: ['group' => 'id'])] FlowGroup $group,
         Request $httpRequest,
         FlowGroupRepository $groups,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertGroup($workspace, $group);
@@ -128,7 +132,7 @@ class FlowGroupController extends AbstractAppController
         }
 
         $groups->remove($group);
-        $this->addFlash('success', 'Grup silindi (akışlar korundu).');
+        $this->addFlash('success', $translator->trans('Group deleted (flows kept).'));
 
         return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()]);
     }
@@ -193,6 +197,7 @@ class FlowGroupController extends AbstractAppController
         EnvironmentRepository $environments,
         \App\Repository\FlowGroupRunRepository $groupRuns,
         MessageBusInterface $bus,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertGroup($workspace, $group);
@@ -200,7 +205,7 @@ class FlowGroupController extends AbstractAppController
             throw $this->createAccessDeniedException();
         }
         if ($group->getFlows()->isEmpty()) {
-            $this->addFlash('error', 'Grupta akış yok.');
+            $this->addFlash('error', $translator->trans('The group has no flows.'));
 
             return $this->redirectToRoute('app_flow_suite_index', ['workspace' => $workspace->getId()]);
         }

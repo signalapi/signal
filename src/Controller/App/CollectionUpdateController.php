@@ -14,6 +14,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Reviews and applies a catalog version update onto an imported collection.
@@ -30,11 +31,12 @@ class CollectionUpdateController extends AbstractAppController
         Workspace $workspace,
         #[MapEntity(mapping: ['collection' => 'id'])] ApiCollection $collection,
         CollectionUpdatePlanner $planner,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $target = $this->resolveTarget($workspace, $collection);
         if (null === $target) {
-            $this->addFlash('success', 'Collection zaten katalogdaki son versiyonda.');
+            $this->addFlash('success', $translator->trans('Collection is already at the latest catalog version.'));
 
             return $this->redirectToRoute('app_collection_show', ['workspace' => $workspace->getId(), 'collection' => $collection->getId()]);
         }
@@ -55,6 +57,7 @@ class CollectionUpdateController extends AbstractAppController
         Request $request,
         CollectionUpdatePlanner $planner,
         EntityManagerInterface $em,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         if (!$this->isCsrfTokenValid('collection-update' . $collection->getId(), (string) $request->request->get('_token'))) {
@@ -116,13 +119,15 @@ class CollectionUpdateController extends AbstractAppController
         $collection->setSourceVersion($target);
         $em->flush();
 
-        $this->addFlash('success', sprintf(
-            '"%s" versiyonuna güncellendi: %d eklendi, %d uygulandı, %d yerel korundu, %d deprecated.',
-            $target->getLabel(),
-            $stats['added'],
-            $stats['applied'],
-            $stats['kept'],
-            $stats['deprecated'],
+        $this->addFlash('success', $translator->trans(
+            'Updated to version "%version%": %added% added, %applied% applied, %kept% kept local, %deprecated% deprecated.',
+            [
+                '%version%' => $target->getLabel(),
+                '%added%' => $stats['added'],
+                '%applied%' => $stats['applied'],
+                '%kept%' => $stats['kept'],
+                '%deprecated%' => $stats['deprecated'],
+            ],
         ));
 
         return $this->redirectToRoute('app_collection_show', ['workspace' => $workspace->getId(), 'collection' => $collection->getId()]);
@@ -136,7 +141,7 @@ class CollectionUpdateController extends AbstractAppController
         }
         $current = $collection->getSourceVersion();
         if (null === $current) {
-            throw $this->createNotFoundException('Bu collection bir katalogdan içe aktarılmamış.');
+            throw $this->createNotFoundException($this->translator->trans('This collection was not imported from a catalog.'));
         }
 
         $latest = $current->getCatalogApi()->getLatestVersion();

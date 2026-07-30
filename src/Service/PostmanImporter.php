@@ -26,12 +26,12 @@ class PostmanImporter
     public function importCollection(array $data, Workspace $workspace): ApiCollection
     {
         if (!isset($data['item']) || !\is_array($data['item'])) {
-            throw new \InvalidArgumentException('Geçerli bir Postman collection değil ("item" alanı yok).');
+            throw new \InvalidArgumentException('Not a valid Postman collection (missing "item" field).');
         }
 
         $collection = new ApiCollection();
         $collection->setWorkspace($workspace);
-        $collection->setName((string) ($data['info']['name'] ?? 'İçe aktarılan collection'));
+        $collection->setName((string) ($data['info']['name'] ?? 'Imported collection'));
         $collection->setDescription($this->stringOrNull($data['info']['description'] ?? null));
         $collection->setSourceType('postman');
         $this->em->persist($collection);
@@ -53,7 +53,7 @@ class PostmanImporter
     {
         $env = new Environment();
         $env->setWorkspace($workspace);
-        $env->setName((string) ($data['name'] ?? 'İçe aktarılan environment'));
+        $env->setName((string) ($data['name'] ?? 'Imported environment'));
 
         foreach (($data['values'] ?? []) as $value) {
             if (!\is_array($value) || !isset($value['key'])) {
@@ -149,7 +149,7 @@ class PostmanImporter
         $request = new ApiRequest();
         $request->setCollection($collection);
         $request->setFolder($folder);
-        $request->setName((string) ($item['name'] ?? 'İsimsiz istek'));
+        $request->setName((string) ($item['name'] ?? 'Untitled request'));
         $request->setMethod((string) ($req['method'] ?? 'GET'));
         $request->setPosition($position);
 
@@ -225,7 +225,7 @@ class PostmanImporter
 
             $name = trim((string) ($r['name'] ?? '')) ?: trim((string) ($r['status'] ?? ''));
             if ('' === $name) {
-                $name = null === $code ? 'Örnek' : ($code . ' Response');
+                $name = null === $code ? 'Example' : ($code . ' Response');
             }
 
             $ex = new ResponseExample();

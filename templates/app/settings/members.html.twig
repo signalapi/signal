@@ -1,49 +1,49 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Şirket kullanıcıları · {{ merchant.name }}{% endblock %}
+{% block title %}{{ 'Company users'|trans }} · {{ merchant.name }}{% endblock %}
 
 {% block panel %}
 <div class="pagehead">
     <div>
-        <h1>Şirket kullanıcıları</h1>
-        <p class="subtitle">{{ merchant.name }} · şirket geneli hesaplar ve rolleri. Tek bir workspace'e erişim vermek için o workspace'in kendi <strong>Üyeler</strong> sayfasını kullanın.</p>
+        <h1>{{ 'Company users'|trans }}</h1>
+        <p class="subtitle">{{ merchant.name }} · {{ "Company-wide accounts and their roles. To grant access to a single workspace, use that workspace's own <strong>Members</strong> page."|trans|raw }}</p>
     </div>
 </div>
 
 {% for link in app.flashes('invite_link') %}
     <div class="flash success" style="word-break:break-all;">
-        <strong>Davet linki — yalnızca şimdi gösterilir, davet edilen kişiye iletin:</strong><br>
+        <strong>{{ 'Invite link — shown only now, forward it to the invited person:'|trans }}</strong><br>
         <code id="inviteLink" style="font-size:13px;">{{ link }}</code>
-        <button class="btn small" type="button" style="margin-left:8px;" onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').textContent)">Kopyala</button>
+        <button class="btn small" type="button" style="margin-left:8px;" onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').textContent)">{{ 'Copy'|trans }}</button>
     </div>
 {% endfor %}
 
 <form class="card" method="post" action="{{ path('app_member_invite') }}" style="margin-bottom:18px;">
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Şirket geneli davet</div>
-    <p class="subtitle" style="margin:0 0 10px;font-size:12px;">Yönetici davet etmek ya da tek seferde birden çok workspace'e erişim vermek için. Tek workspace'lik davetler için ilgili workspace'in Üyeler sayfası daha pratiktir.</p>
+    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Company-wide invite'|trans }}</div>
+    <p class="subtitle" style="margin:0 0 10px;font-size:12px;">{{ "For inviting admins or granting access to multiple workspaces at once. For single-workspace invites, that workspace's Members page is more practical."|trans }}</p>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <div style="flex:2;min-width:220px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">E-posta</label>
+            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Email'|trans }}</label>
             <input type="email" name="email" required placeholder="kisi@sirket.com" style="width:100%;">
         </div>
         <div style="flex:1;min-width:140px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">Merchant rolü</label>
+            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Merchant role'|trans }}</label>
             <select name="merchant_role" style="width:100%;" onchange="document.getElementById('wsGrants').style.display = this.value == 'member' ? '' : 'none';">
-                <option value="member" selected>Üye</option>
-                <option value="admin">Genel Yönetici</option>
+                <option value="member" selected>{{ 'Member'|trans }}</option>
+                <option value="admin">{{ 'Company Admin'|trans }}</option>
             </select>
         </div>
-        <button class="btn small" type="submit">Davet linki oluştur</button>
+        <button class="btn small" type="submit">{{ 'Create invite link'|trans }}</button>
     </div>
     <div id="wsGrants" style="margin-top:12px;">
-        <label style="display:block;font-size:12px;margin-bottom:6px;">Workspace erişimi (üyeler yalnızca seçilenleri görür)</label>
+        <label style="display:block;font-size:12px;margin-bottom:6px;">{{ 'Workspace access (members only see the selected ones)'|trans }}</label>
         <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
             {% for w in workspaces %}
                 <label style="display:flex;gap:6px;align-items:center;font-size:13px;">
                     <input type="checkbox" name="workspace_ids[]" value="{{ w.id }}"> {{ w.name }}
                 </label>
             {% else %}
-                <span class="subtitle" style="font-size:13px;">Henüz workspace yok.</span>
+                <span class="subtitle" style="font-size:13px;">{{ 'No workspaces yet.'|trans }}</span>
             {% endfor %}
             {% if workspaces is not empty %}
                 <select name="workspace_role">
@@ -58,7 +58,7 @@
 </form>
 
 <table style="margin-bottom:22px;">
-    <thead><tr><th>Ad</th><th>E-posta</th><th>Şirket rolü</th><th>Workspace erişimi</th><th>Katılım</th><th></th></tr></thead>
+    <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Email'|trans }}</th><th>{{ 'Company role'|trans }}</th><th>{{ 'Workspace access'|trans }}</th><th>{{ 'Joined'|trans }}</th><th></th></tr></thead>
     <tbody>
     {% for m in members %}
         <tr>
@@ -66,34 +66,34 @@
             <td>{{ m.user.email }}</td>
             <td>
                 {% if m.owner %}
-                    <span class="pill on">Owner</span>
+                    <span class="pill on">{{ 'Owner'|trans }}</span>
                 {% else %}
                     <form class="inline" method="post" action="{{ path('app_member_role', {id: m.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('member-role' ~ m.id) }}">
                         <select name="role" onchange="this.form.submit()">
-                            <option value="admin" {{ m.role == 'admin' ? 'selected' }}>Genel Yönetici</option>
-                            <option value="member" {{ m.role == 'member' ? 'selected' }}>Üye</option>
+                            <option value="admin" {{ m.role == 'admin' ? 'selected' }}>{{ 'Company Admin'|trans }}</option>
+                            <option value="member" {{ m.role == 'member' ? 'selected' }}>{{ 'Member'|trans }}</option>
                         </select>
                     </form>
                 {% endif %}
             </td>
             <td>
                 {% if m.canManage %}
-                    <span class="pill on">tüm workspace'ler</span>
+                    <span class="pill on">{{ 'all workspaces'|trans }}</span>
                 {% else %}
                     {% for a in workspace_access[m.user.id ~ ''] ?? [] %}
                         <span class="pill">{{ a }}</span>
                     {% else %}
-                        <span class="subtitle" style="font-size:12px;">erişim yok</span>
+                        <span class="subtitle" style="font-size:12px;">{{ 'no access'|trans }}</span>
                     {% endfor %}
                 {% endif %}
             </td>
             <td>{{ m.createdAt|date('d.m.Y') }}</td>
             <td style="text-align:right;">
                 {% if not m.owner %}
-                <form class="inline" method="post" action="{{ path('app_member_remove', {id: m.id}) }}" onsubmit="return confirm('{{ m.user.name }} üyelikten çıkarılacak.');">
+                <form class="inline" method="post" action="{{ path('app_member_remove', {id: m.id}) }}" onsubmit="return confirm('{{ '%name% will be removed from membership.'|trans({'%name%': m.user.name})|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('member-remove' ~ m.id) }}">
-                    <button class="btn danger" type="submit">Çıkar</button>
+                    <button class="btn danger" type="submit">{{ 'Remove'|trans }}</button>
                 </form>
                 {% endif %}
             </td>
@@ -103,23 +103,23 @@
 </table>
 
 {% if invitations is not empty %}
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Bekleyen davetler</div>
+    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Pending invitations'|trans }}</div>
     <table>
-        <thead><tr><th>E-posta</th><th>Rol</th><th>Son geçerlilik</th><th></th></tr></thead>
+        <thead><tr><th>{{ 'Email'|trans }}</th><th>{{ 'Role'|trans }}</th><th>{{ 'Expires'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for inv in invitations %}
             <tr>
                 <td>{{ inv.email }}</td>
-                <td><span class="pill">{{ inv.merchantRole == 'admin' ? 'Genel Yönetici' : 'Üye' }}</span></td>
+                <td><span class="pill">{{ inv.merchantRole == 'admin' ? 'Company Admin'|trans : 'Member'|trans }}</span></td>
                 <td>{{ inv.expiresAt|date('d.m.Y H:i') }}</td>
                 <td style="text-align:right;white-space:nowrap;">
                     <form class="inline" method="post" action="{{ path('app_invitation_rotate', {id: inv.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('invite-rotate' ~ inv.id) }}">
-                        <button class="btn small" type="submit">Yeni link üret</button>
+                        <button class="btn small" type="submit">{{ 'Generate new link'|trans }}</button>
                     </form>
-                    <form class="inline" method="post" action="{{ path('app_invitation_cancel', {id: inv.id}) }}" onsubmit="return confirm('Davet iptal edilecek.');">
+                    <form class="inline" method="post" action="{{ path('app_invitation_cancel', {id: inv.id}) }}" onsubmit="return confirm('{{ 'The invitation will be cancelled.'|trans|e('js') }}');">
                         <input type="hidden" name="_token" value="{{ csrf_token('invite-cancel' ~ inv.id) }}">
-                        <button class="btn danger" type="submit">İptal</button>
+                        <button class="btn danger" type="submit">{{ 'Cancel invitation'|trans }}</button>
                     </form>
                 </td>
             </tr>

@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/app/workspaces/{workspace}')]
 #[IsGranted('ROLE_USER')]
@@ -26,6 +27,7 @@ class ApiRequestController extends AbstractAppController
         #[MapEntity(mapping: ['collection' => 'id'])] ApiCollection $collection,
         Request $request,
         ApiRequestRepository $requests,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
 
@@ -35,7 +37,7 @@ class ApiRequestController extends AbstractAppController
 
         $apiRequest = new ApiRequest();
         $apiRequest->setCollection($collection);
-        $apiRequest->setName(trim((string) $request->request->get('name')) ?: 'Yeni istek');
+        $apiRequest->setName(trim((string) $request->request->get('name')) ?: $translator->trans('New request'));
         $apiRequest->setMethod('GET');
         $apiRequest->setUrl('https://');
         $requests->save($apiRequest);
@@ -69,6 +71,7 @@ class ApiRequestController extends AbstractAppController
         #[MapEntity(mapping: ['request' => 'id'])] ApiRequest $apiRequest,
         Request $httpRequest,
         ApiRequestRepository $requests,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertRequest($workspace, $apiRequest);
@@ -79,7 +82,7 @@ class ApiRequestController extends AbstractAppController
 
         $this->applyForm($apiRequest, $httpRequest);
         $requests->save($apiRequest);
-        $this->addFlash('success', 'İstek kaydedildi.');
+        $this->addFlash('success', $translator->trans('Request saved.'));
 
         return $this->redirectToRoute('app_request_show', [
             'workspace' => $workspace->getId(),
@@ -134,6 +137,7 @@ class ApiRequestController extends AbstractAppController
         #[MapEntity(mapping: ['request' => 'id'])] ApiRequest $apiRequest,
         Request $httpRequest,
         ApiRequestRepository $requests,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertRequest($workspace, $apiRequest);
@@ -144,7 +148,7 @@ class ApiRequestController extends AbstractAppController
 
         $collectionId = $apiRequest->getCollection()->getId();
         $requests->remove($apiRequest);
-        $this->addFlash('success', 'İstek silindi.');
+        $this->addFlash('success', $translator->trans('Request deleted.'));
 
         return $this->redirectToRoute('app_collection_show', [
             'workspace' => $workspace->getId(),

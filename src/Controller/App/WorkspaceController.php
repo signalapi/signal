@@ -27,7 +27,7 @@ class WorkspaceController extends AbstractAppController
         ]);
     }
 
-    /** Workspace inventory is a company-admin concern: only owner / genel yönetici. */
+    /** Workspace inventory is a company-admin concern: only owner / company admin. */
     #[Route('/new', name: 'app_workspace_new', methods: ['GET', 'POST'])]
     public function new(
         Request $request,
@@ -38,11 +38,11 @@ class WorkspaceController extends AbstractAppController
 
         $form = $this->createFormBuilder()
             ->add('name', TextType::class, [
-                'label' => 'Workspace adı',
+                'label' => 'Workspace name',
                 'constraints' => [new Assert\NotBlank()],
             ])
             ->add('description', TextareaType::class, [
-                'label' => 'Açıklama',
+                'label' => 'Description',
                 'required' => false,
             ])
             ->getForm();
@@ -60,7 +60,7 @@ class WorkspaceController extends AbstractAppController
             $workspace->setSlug($slugger->slug($data['name'])->lower() . '-' . substr(uniqid(), -5));
             $workspaces->save($workspace);
 
-            $this->addFlash('success', sprintf('Workspace "%s" oluşturuldu.', $workspace->getName()));
+            $this->addFlash('success', $this->translator->trans('Workspace "%name%" created.', ['%name%' => $workspace->getName()]));
 
             return $this->redirectToRoute('app_workspace_show', ['id' => $workspace->getId()]);
         }
@@ -95,7 +95,7 @@ class WorkspaceController extends AbstractAppController
         ]);
     }
 
-    /** Deleting a workspace is governance, not content admin: owner / genel yönetici only. */
+    /** Deleting a workspace is governance, not content admin: owner / company admin only. */
     #[Route('/{id}', name: 'app_workspace_delete', methods: ['POST'])]
     public function delete(Request $request, Workspace $workspace, WorkspaceRepository $workspaces): Response
     {
@@ -107,7 +107,7 @@ class WorkspaceController extends AbstractAppController
         }
 
         $workspaces->remove($workspace);
-        $this->addFlash('success', 'Workspace silindi.');
+        $this->addFlash('success', $this->translator->trans('Workspace deleted.'));
 
         return $this->redirectToRoute('app_workspace_index');
     }
@@ -128,6 +128,6 @@ class WorkspaceController extends AbstractAppController
             }
         }
 
-        throw $this->createAccessDeniedException('Bu merchant üyeliğiniz yok.');
+        throw $this->createAccessDeniedException($this->translator->trans('You are not a member of this merchant.'));
     }
 }

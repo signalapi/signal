@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/app/workspaces/{workspace}/flows/{flow}/steps')]
 #[IsGranted('ROLE_USER')]
@@ -72,7 +73,7 @@ class FlowStepController extends AbstractAppController
 
         $apiRequest = $requests->find((string) $httpRequest->request->get('request'));
         if (null === $apiRequest || $apiRequest->getCollection()->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
-            $this->addFlash('error', 'Geçersiz istek seçimi.');
+            $this->addFlash('error', $this->translator->trans('Invalid request selection.'));
 
             return $this->redirectToRoute('app_flow_step_new', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -102,7 +103,7 @@ class FlowStepController extends AbstractAppController
 
         $connection = $connections->find((string) $httpRequest->request->get('connection'));
         if (null === $connection || $connection->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
-            $this->addFlash('error', 'Geçersiz bağlantı seçimi.');
+            $this->addFlash('error', $this->translator->trans('Invalid connection selection.'));
 
             return $this->redirectToRoute('app_flow_step_new', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -132,7 +133,7 @@ class FlowStepController extends AbstractAppController
 
         $type = (string) $httpRequest->request->get('type');
         if (!\in_array($type, [FlowStep::TYPE_SETVAR, FlowStep::TYPE_DELAY], true)) {
-            $this->addFlash('error', 'Geçersiz adım türü.');
+            $this->addFlash('error', $this->translator->trans('Invalid step type.'));
 
             return $this->redirectToRoute('app_flow_step_new', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -141,10 +142,10 @@ class FlowStepController extends AbstractAppController
         $step->setFlow($flow);
         $step->setType($type);
         if (FlowStep::TYPE_DELAY === $type) {
-            $step->setName('Bekle');
+            $step->setName($this->translator->trans('Wait'));
             $step->setQuery('1000');
         } else {
-            $step->setName('Değişken set et');
+            $step->setName($this->translator->trans('Set variable'));
             $step->setQuery('');
         }
 
@@ -169,7 +170,7 @@ class FlowStepController extends AbstractAppController
         if (null === $called
             || $called->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()
             || $called->getId()?->toRfc4122() === $flow->getId()?->toRfc4122()) {
-            $this->addFlash('error', 'Geçersiz alt-akış seçimi.');
+            $this->addFlash('error', $this->translator->trans('Invalid sub-flow selection.'));
 
             return $this->redirectToRoute('app_flow_step_new', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -230,7 +231,7 @@ class FlowStepController extends AbstractAppController
 
         $this->hydrateStep($step, $httpRequest, $workspace, $connections, $parser);
         $steps->save($step);
-        $this->addFlash('success', 'Adım eklendi.');
+        $this->addFlash('success', $this->translator->trans('Step added.'));
 
         return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
     }
@@ -256,7 +257,7 @@ class FlowStepController extends AbstractAppController
 
             $this->hydrateStep($step, $httpRequest, $workspace, $connections, $parser);
             $steps->save($step);
-            $this->addFlash('success', 'Adım kaydedildi.');
+            $this->addFlash('success', $this->translator->trans('Step saved.'));
 
             return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -375,10 +376,10 @@ class FlowStepController extends AbstractAppController
     {
         $out = [];
         foreach ($this->varScanner->externalVariables($flow) as $v) {
-            $out[] = ['token' => '{{' . $v['name'] . '}}', 'label' => $v['name'], 'desc' => $v['fromEnv'] ? 'env değişkeni' : 'değişken', 'group' => 'var'];
+            $out[] = ['token' => '{{' . $v['name'] . '}}', 'label' => $v['name'], 'desc' => $v['fromEnv'] ? $this->translator->trans('env variable') : $this->translator->trans('variable'), 'group' => 'var'];
         }
         foreach ($this->dataFactories->findByWorkspace($workspace) as $f) {
-            $out[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => 'fabrika · ' . $f->getKind(), 'group' => 'gen'];
+            $out[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => $this->translator->trans('factory') . ' · ' . $f->getKind(), 'group' => 'gen'];
         }
         foreach ($this->dynamic->builtins() as $b) {
             $out[] = ['token' => $b['token'], 'label' => $b['name'], 'desc' => $b['description'], 'group' => 'gen'];
@@ -439,7 +440,7 @@ class FlowStepController extends AbstractAppController
 
         if ($step->isDb()) {
             if (null === $step->getDbConnection()) {
-                return new JsonResponse(['ok' => false, 'error' => 'Bağlantı seçili değil.']);
+                return new JsonResponse(['ok' => false, 'error' => $this->translator->trans('No connection selected.')]);
             }
             $r = $dbQuery->run($step->getDbConnection(), $step->getQuery(), $vars);
 
@@ -479,7 +480,7 @@ class FlowStepController extends AbstractAppController
         $step->setResponseShape(null);
         $step->setContractBaselineAt(null);
         $steps->save($step);
-        $this->addFlash('success', 'Kontrat baseline\'ı sıfırlandı; sonraki başarılı koşumda yeniden alınacak.');
+        $this->addFlash('success', $this->translator->trans('Contract baseline reset; it will be captured again on the next successful run.'));
 
         return $this->redirectToRoute('app_flow_step_edit', ['workspace' => $workspace->getId(), 'flow' => $flow->getId(), 'step' => $step->getId()]);
     }
@@ -536,7 +537,7 @@ class FlowStepController extends AbstractAppController
         }
 
         $steps->remove($step);
-        $this->addFlash('success', 'Adım silindi.');
+        $this->addFlash('success', $this->translator->trans('Step deleted.'));
 
         return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
     }

@@ -40,7 +40,7 @@ class OpenApiImporter
 
         $collection = new ApiCollection();
         $collection->setWorkspace($workspace);
-        $collection->setName((string) ($data['info']['title'] ?? 'İçe aktarılan API'));
+        $collection->setName((string) ($data['info']['title'] ?? 'Imported API'));
         $collection->setDescription($this->stringOrNull($data['info']['description'] ?? null));
         $collection->setSourceType('openapi');
         $this->em->persist($collection);
@@ -92,7 +92,7 @@ class OpenApiImporter
     {
         $paths = $data['paths'] ?? null;
         if (!\is_array($paths) || [] === $paths) {
-            throw new \InvalidArgumentException('Geçerli bir OpenAPI dokümanı değil ("paths" alanı yok ya da boş).');
+            throw new \InvalidArgumentException('Not a valid OpenAPI document ("paths" field missing or empty).');
         }
 
         $securitySchemes = (array) ($data['components']['securitySchemes'] ?? $data['securityDefinitions'] ?? []);

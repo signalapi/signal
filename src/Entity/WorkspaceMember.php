@@ -86,7 +86,7 @@ class WorkspaceMember
     public function setRole(string $role): static
     {
         if (!\in_array($role, self::ROLES, true)) {
-            throw new \InvalidArgumentException(sprintf('Geçersiz workspace rolü: "%s"', $role));
+            throw new \InvalidArgumentException(sprintf('Invalid workspace role: "%s"', $role));
         }
         $this->role = $role;
 

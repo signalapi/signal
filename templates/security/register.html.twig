@@ -1,12 +1,12 @@
 {% extends 'security/_auth_base.html.twig' %}
 
-{% block title %}Kayıt Ol · Signal: Test Platform{% endblock %}
-{% block brand_title %}Dakikalar içinde test etmeye başlayın.{% endblock %}
+{% block title %}{{ 'Sign Up'|trans }} · Signal: Test Platform{% endblock %}
+{% block brand_title %}{{ 'Start testing in minutes.'|trans }}{% endblock %}
 
 {% block auth_card %}
-    <p class="eyebrow">Merchant kaydı</p>
-    <h1>Hesap oluşturun</h1>
-    <p class="sub">Şirketinizi ve ilk yöneticinizi oluşturun.</p>
+    <p class="eyebrow">{{ 'Merchant registration'|trans }}</p>
+    <h1>{{ 'Create an account'|trans }}</h1>
+    <p class="sub">{{ 'Create your company and its first administrator.'|trans }}</p>
 
     {% for error in errors %}
         <div class="flash error">{{ error }}</div>
@@ -14,30 +14,30 @@
 
     <form method="post" action="{{ path('app_register') }}">
         <div class="field">
-            <label for="merchant">Şirket / Merchant adı</label>
+            <label for="merchant">{{ 'Company / Merchant name'|trans }}</label>
             <input type="text" id="merchant" name="merchant" value="{{ old.merchant }}" required autofocus placeholder="Acme Ltd.">
         </div>
         <div class="field">
-            <label for="name">Ad Soyad</label>
+            <label for="name">{{ 'Full name'|trans }}</label>
             <input type="text" id="name" name="name" value="{{ old.name }}" required placeholder="Ada Lovelace">
         </div>
         <div class="field">
-            <label for="email">E-posta</label>
+            <label for="email">{{ 'Email'|trans }}</label>
             <input type="email" id="email" name="email" value="{{ old.email }}" required placeholder="ad@sirket.com">
         </div>
         <div class="row2">
             <div class="field">
-                <label for="password">Şifre</label>
-                <input type="password" id="password" name="password" required placeholder="En az 8 karakter">
+                <label for="password">{{ 'Password'|trans }}</label>
+                <input type="password" id="password" name="password" required placeholder="{{ 'At least 8 characters'|trans }}">
             </div>
             <div class="field">
-                <label for="password_confirm">Şifre (tekrar)</label>
+                <label for="password_confirm">{{ 'Password (again)'|trans }}</label>
                 <input type="password" id="password_confirm" name="password_confirm" required placeholder="••••••••">
             </div>
         </div>
         <input type="hidden" name="_token" value="{{ csrf_token('register') }}">
-        <button class="btn-primary" type="submit">Hesap oluştur</button>
+        <button class="btn-primary" type="submit">{{ 'Create account'|trans }}</button>
     </form>
 
-    <p class="alt">Zaten hesabınız var mı? <a href="{{ path('app_login') }}">Giriş yapın</a></p>
+    <p class="alt">{{ 'Already have an account?'|trans }} <a href="{{ path('app_login') }}">{{ 'Sign In'|trans }}</a></p>
 {% endblock %}

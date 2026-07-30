@@ -19,7 +19,7 @@ class RedisConnector
     public function run(DbConnection $conn, string $password, string $query): array
     {
         if (!class_exists(\Redis::class)) {
-            throw new \RuntimeException('phpredis eklentisi yüklü değil.');
+            throw new \RuntimeException('The phpredis extension is not installed.');
         }
 
         $redis = new \Redis();
@@ -34,7 +34,7 @@ class RedisConnector
 
         $tokens = preg_split('/\s+/', trim($query)) ?: [];
         if ([] === $tokens || '' === $tokens[0]) {
-            throw new \InvalidArgumentException('Boş Redis komutu.');
+            throw new \InvalidArgumentException('Empty Redis command.');
         }
 
         $command = strtoupper(array_shift($tokens));

@@ -1,6 +1,6 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Güncelleme · {{ collection.name }}{% endblock %}
+{% block title %}{{ 'Update'|trans }} · {{ collection.name }}{% endblock %}
 
 {% macro reqline(r) %}
     <code style="font-size:12px;"><strong>{{ r.method }}</strong> {{ r.url }}</code>
@@ -10,17 +10,17 @@
 <a class="backlink" href="{{ path('app_collection_show', {workspace: workspace.id, collection: collection.id}) }}">← {{ collection.name }}</a>
 <div class="pagehead">
     <div>
-        <h1>Katalog güncellemesi</h1>
+        <h1>{{ 'Catalog update'|trans }}</h1>
         <p class="subtitle">
             {{ current.catalogApi.name }} · <span class="pill">{{ current.label }}</span> → <span class="pill on">{{ target.label }}</span>
             {% if target.changelog %} · {{ target.changelog }}{% endif %}
-            {% if plan.unchanged > 0 %} · {{ plan.unchanged }} endpoint değişmedi{% endif %}
+            {% if plan.unchanged > 0 %} · {{ '%count% endpoints unchanged'|trans({'%count%': plan.unchanged}) }}{% endif %}
         </p>
     </div>
 </div>
 
 {% if plan.isEmpty %}
-    <div class="empty" style="text-align:left;padding:24px;">İçerik farkı yok — versiyon etiketi ilerletilecek.</div>
+    <div class="empty" style="text-align:left;padding:24px;">{{ 'No content differences — the version label will be advanced.'|trans }}</div>
 {% endif %}
 
 <form method="post" action="{{ path('app_collection_update_apply', {workspace: workspace.id, collection: collection.id}) }}">
@@ -28,7 +28,7 @@
 
     {% if plan.added is not empty %}
         <div class="card" style="margin-bottom:14px;">
-            <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Yeni endpoint'ler ({{ plan.added|length }})</div>
+            <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'New endpoints'|trans }} ({{ plan.added|length }})</div>
             {% for item in plan.added %}
                 <label style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
                     <input type="checkbox" name="add[]" value="{{ item.request.originKey }}" checked>
@@ -40,13 +40,13 @@
 
     {% if plan.autoApply is not empty %}
         <div class="card" style="margin-bottom:14px;">
-            <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Upstream değişti — sizde yerel değişiklik yok ({{ plan.autoApply|length }})</div>
+            <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Changed upstream — no local changes on your side'|trans }} ({{ plan.autoApply|length }})</div>
             {% for pair in plan.autoApply %}
                 <div style="display:flex;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
-                    <span style="flex:1;">{{ pair.existing.name }}<br>{{ _self.reqline(pair.existing) }}<br><span class="subtitle" style="font-size:11px;">yeni:</span> {{ _self.reqline(pair.incoming) }}</span>
+                    <span style="flex:1;">{{ pair.existing.name }}<br>{{ _self.reqline(pair.existing) }}<br><span class="subtitle" style="font-size:11px;">{{ 'new:'|trans }}</span> {{ _self.reqline(pair.incoming) }}</span>
                     <select name="change[{{ pair.existing.originKey }}]">
-                        <option value="apply" selected>Güncellemeyi uygula</option>
-                        <option value="keep">Benimkini koru</option>
+                        <option value="apply" selected>{{ 'Apply update'|trans }}</option>
+                        <option value="keep">{{ 'Keep mine'|trans }}</option>
                     </select>
                 </div>
             {% endfor %}
@@ -55,13 +55,13 @@
 
     {% if plan.conflicts is not empty %}
         <div class="card" style="margin-bottom:14px;border-color:var(--accent);">
-            <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">⚠ Çakışma — hem siz hem upstream değiştirdi ({{ plan.conflicts|length }})</div>
+            <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">⚠ {{ 'Conflict — both you and upstream changed it'|trans }} ({{ plan.conflicts|length }})</div>
             {% for pair in plan.conflicts %}
                 <div style="display:flex;gap:12px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
-                    <span style="flex:1;">{{ pair.existing.name }}<br><span class="subtitle" style="font-size:11px;">sizinki:</span> {{ _self.reqline(pair.existing) }}<br><span class="subtitle" style="font-size:11px;">upstream:</span> {{ _self.reqline(pair.incoming) }}</span>
+                    <span style="flex:1;">{{ pair.existing.name }}<br><span class="subtitle" style="font-size:11px;">{{ 'yours:'|trans }}</span> {{ _self.reqline(pair.existing) }}<br><span class="subtitle" style="font-size:11px;">{{ 'upstream:'|trans }}</span> {{ _self.reqline(pair.incoming) }}</span>
                     <select name="change[{{ pair.existing.originKey }}]">
-                        <option value="keep" selected>Benimkini koru</option>
-                        <option value="apply">Upstream'i al (yerel değişiklik kaybolur)</option>
+                        <option value="keep" selected>{{ 'Keep mine'|trans }}</option>
+                        <option value="apply">{{ 'Take upstream (local changes will be lost)'|trans }}</option>
                     </select>
                 </div>
             {% endfor %}
@@ -70,8 +70,8 @@
 
     {% if plan.removed is not empty %}
         <div class="card" style="margin-bottom:14px;">
-            <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Upstream'den kaldırıldı ({{ plan.removed|length }})</div>
-            <p class="subtitle" style="margin:0 0 8px;font-size:12px;">Silinmez — flow adımları bu isteklere bağlı olabilir. İşaretlenenler "deprecated" rozeti alır.</p>
+            <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Removed from upstream'|trans }} ({{ plan.removed|length }})</div>
+            <p class="subtitle" style="margin:0 0 8px;font-size:12px;">{{ 'Nothing is deleted — flow steps may depend on these requests. Checked items get a "deprecated" badge.'|trans }}</p>
             {% for r in plan.removed %}
                 <label style="display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--border);">
                     <input type="checkbox" name="deprecate[]" value="{{ r.originKey }}" checked>
@@ -82,8 +82,8 @@
     {% endif %}
 
     <div class="form-actions">
-        <button class="btn" type="submit">Güncellemeyi uygula → {{ target.label }}</button>
-        <a class="btn ghost" href="{{ path('app_collection_show', {workspace: workspace.id, collection: collection.id}) }}">Vazgeç</a>
+        <button class="btn" type="submit">{{ 'Apply update'|trans }} → {{ target.label }}</button>
+        <a class="btn ghost" href="{{ path('app_collection_show', {workspace: workspace.id, collection: collection.id}) }}">{{ 'Cancel'|trans }}</a>
     </div>
 </form>
 {% endblock %}

@@ -15,6 +15,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\PasswordHasher\Hasher\UserPasswordHasherInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\String\Slugger\SluggerInterface;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 class RegistrationController extends AbstractController
 {
@@ -27,6 +28,7 @@ class RegistrationController extends AbstractController
         SluggerInterface $slugger,
         Security $security,
         EntityManagerInterface $em,
+        TranslatorInterface $translator,
     ): Response {
         if ($this->isGranted('IS_AUTHENTICATED_FULLY')) {
             return $this->redirectToRoute('app_dashboard');
@@ -47,20 +49,20 @@ class RegistrationController extends AbstractController
             $confirm = (string) $request->request->get('password_confirm');
 
             if ('' === $old['merchant']) {
-                $errors[] = 'Şirket/merchant adı gerekli.';
+                $errors[] = $translator->trans('Company/merchant name is required.');
             }
             if ('' === $old['name']) {
-                $errors[] = 'Ad soyad gerekli.';
+                $errors[] = $translator->trans('Full name is required.');
             }
             if (!filter_var($old['email'], \FILTER_VALIDATE_EMAIL)) {
-                $errors[] = 'Geçerli bir e-posta girin.';
+                $errors[] = $translator->trans('Enter a valid e-mail address.');
             } elseif ($users->findOneBy(['email' => $old['email']])) {
-                $errors[] = 'Bu e-posta zaten kayıtlı.';
+                $errors[] = $translator->trans('This e-mail is already registered.');
             }
             if (mb_strlen($password) < 8) {
-                $errors[] = 'Şifre en az 8 karakter olmalı.';
+                $errors[] = $translator->trans('Password must be at least 8 characters.');
             } elseif ($password !== $confirm) {
-                $errors[] = 'Şifreler eşleşmiyor.';
+                $errors[] = $translator->trans('Passwords do not match.');
             }
 
             if ([] === $errors) {
@@ -84,7 +86,7 @@ class RegistrationController extends AbstractController
 
                 // Log the new merchant admin straight into the merchant firewall.
                 $security->login($user, 'form_login', 'main');
-                $this->addFlash('success', sprintf('Hoş geldiniz! "%s" hesabı oluşturuldu.', $merchant->getName()));
+                $this->addFlash('success', $translator->trans('Welcome! The "%name%" account has been created.', ['%name%' => $merchant->getName()]));
 
                 return $this->redirectToRoute('app_dashboard');
             }

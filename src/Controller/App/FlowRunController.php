@@ -17,6 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Messenger\MessageBusInterface;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/app/workspaces/{workspace}/flows/{flow}/runs')]
 #[IsGranted('ROLE_USER')]
@@ -29,6 +30,7 @@ class FlowRunController extends AbstractAppController
         Request $httpRequest,
         EnvironmentRepository $environments,
         FlowRunner $runner,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -38,7 +40,7 @@ class FlowRunController extends AbstractAppController
         }
 
         if ($flow->getSteps()->isEmpty()) {
-            $this->addFlash('error', 'Akışta hiç adım yok.');
+            $this->addFlash('error', $translator->trans('The flow has no steps.'));
 
             return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -68,7 +70,11 @@ class FlowRunController extends AbstractAppController
 
         $this->addFlash(
             FlowRun::STATUS_PASSED === $run->getStatus() ? 'success' : 'error',
-            sprintf('Koşum tamamlandı: %s (%d/%d adım geçti).', strtoupper($run->getStatus()), $run->getPassedSteps(), $run->getTotalSteps()),
+            $translator->trans('Run finished: %status% (%passed%/%total% steps passed).', [
+                '%status%' => strtoupper($run->getStatus()),
+                '%passed%' => $run->getPassedSteps(),
+                '%total%' => $run->getTotalSteps(),
+            ]),
         );
 
         return $this->redirectToRoute('app_flow_run_show', [
@@ -86,6 +92,7 @@ class FlowRunController extends AbstractAppController
         EnvironmentRepository $environments,
         FlowRunner $runner,
         MessageBusInterface $bus,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -94,7 +101,7 @@ class FlowRunController extends AbstractAppController
             throw $this->createAccessDeniedException();
         }
         if ($flow->getSteps()->isEmpty()) {
-            $this->addFlash('error', 'Akışta hiç adım yok.');
+            $this->addFlash('error', $translator->trans('The flow has no steps.'));
 
             return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -134,7 +141,7 @@ class FlowRunController extends AbstractAppController
             ]);
         }
 
-        $this->addFlash('success', 'Akış arka planda başlatıldı — ilerleme aşağıda canlı güncellenir.');
+        $this->addFlash('success', $translator->trans('Flow started in the background — progress updates live below.'));
 
         return $this->redirectToRoute('app_flow_run_show', [
             'workspace' => $workspace->getId(),
@@ -201,7 +208,7 @@ class FlowRunController extends AbstractAppController
         }
 
         try {
-            return new JsonResponse(['configured' => true, 'analysis' => $ai->diagnose($run)]);
+            return new JsonResponse(['configured' => true, 'analysis' => $ai->diagnose($run, $httpRequest->getLocale())]);
         } catch (\Throwable $e) {
             return new JsonResponse(['configured' => true, 'error' => $e->getMessage()], 502);
         }
@@ -270,6 +277,7 @@ class FlowRunController extends AbstractAppController
         #[MapEntity(mapping: ['run' => 'id'])] FlowRun $run,
         Request $httpRequest,
         FlowRunRepository $runs,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -283,7 +291,7 @@ class FlowRunController extends AbstractAppController
         if (FlowRun::STATUS_RUNNING === $run->getStatus()) {
             $run->setCancelRequested(true);
             $runs->save($run);
-            $this->addFlash('success', 'İptal istendi — çalışan adım bitince durdurulacak.');
+            $this->addFlash('success', $translator->trans('Cancellation requested — it will stop once the running step finishes.'));
         }
 
         return $this->redirectToRoute('app_flow_run_show', [
@@ -300,6 +308,7 @@ class FlowRunController extends AbstractAppController
         Request $httpRequest,
         EnvironmentRepository $environments,
         FlowRunner $runner,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -308,7 +317,7 @@ class FlowRunController extends AbstractAppController
             throw $this->createAccessDeniedException();
         }
         if ($flow->getSteps()->isEmpty()) {
-            $this->addFlash('error', 'Akışta hiç adım yok.');
+            $this->addFlash('error', $translator->trans('The flow has no steps.'));
 
             return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -316,12 +325,12 @@ class FlowRunController extends AbstractAppController
         try {
             $dataset = $this->parseDataset((string) $httpRequest->request->get('dataset'));
         } catch (\Throwable $e) {
-            $this->addFlash('error', 'Veri kümesi hatası: ' . $e->getMessage());
+            $this->addFlash('error', $translator->trans('Dataset error: %error%', ['%error%' => $e->getMessage()]));
 
             return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
         if ([] === $dataset) {
-            $this->addFlash('error', 'Veri kümesi boş.');
+            $this->addFlash('error', $translator->trans('Dataset is empty.'));
 
             return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -337,7 +346,7 @@ class FlowRunController extends AbstractAppController
 
         $runs = $runner->runDataset($flow, $environment, $dataset, 'manual');
         $passed = \count(array_filter($runs, static fn (FlowRun $r) => FlowRun::STATUS_PASSED === $r->getStatus()));
-        $this->addFlash($passed === \count($runs) ? 'success' : 'error', sprintf('Data-driven koşum: %d/%d iterasyon geçti.', $passed, \count($runs)));
+        $this->addFlash($passed === \count($runs) ? 'success' : 'error', $translator->trans('Data-driven run: %passed%/%total% iterations passed.', ['%passed%' => $passed, '%total%' => \count($runs)]));
 
         return $this->redirectToRoute('app_flow_batch_show', [
             'workspace' => $workspace->getId(),
@@ -414,7 +423,7 @@ class FlowRunController extends AbstractAppController
         if (str_starts_with($raw, '[') || str_starts_with($raw, '{')) {
             $data = json_decode($raw, true);
             if (\JSON_ERROR_NONE !== json_last_error() || !\is_array($data)) {
-                throw new \InvalidArgumentException('Geçerli JSON değil.');
+                throw new \InvalidArgumentException('Not valid JSON.');
             }
 
             return array_is_list($data) ? $data : [$data];

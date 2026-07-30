@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="tr">
+<html lang="{{ app.request.locale }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Rapor bulunamadı · Signal</title>
+<title>{{ 'Report not found'|trans }} · Signal</title>
 <style>
     body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
         background:#f4f1ea; color:#211f1a; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
@@ -16,8 +16,8 @@
 <body>
 <div class="box">
     <div class="b">Signal</div>
-    <h1>Rapor bulunamadı</h1>
-    <p>Bu paylaşım bağlantısının süresi dolmuş veya iptal edilmiş olabilir.</p>
+    <h1>{{ 'Report not found'|trans }}</h1>
+    <p>{{ 'This share link may have expired or been revoked.'|trans }}</p>
 </div>
 </body>
 </html>

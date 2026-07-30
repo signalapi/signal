@@ -2,12 +2,18 @@
 
 namespace App\Service;
 
+use Symfony\Contracts\Translation\TranslatorInterface;
+
 /**
  * Generates values for Postman-style dynamic variables ({{$randomEmail}} etc.).
  * A fresh value is produced on every call, matching Postman's behaviour.
  */
 class DynamicVariableGenerator
 {
+    public function __construct(private readonly TranslatorInterface $translator)
+    {
+    }
+
     private const FIRST_NAMES = ['Ada', 'Liam', 'Mia', 'Noah', 'Elif', 'Defne', 'Can', 'Zara', 'Leo', 'Ece', 'Aria', 'Kerem', 'Nora', 'Emir', 'Sofia', 'Aylin'];
     private const LAST_NAMES = ['Yilmaz', 'Demir', 'Kaya', 'Smith', 'Johnson', 'Brown', 'Sahin', 'Celik', 'Arslan', 'Dogan', 'Wright', 'Lopez'];
     private const WORDS = ['lorem', 'ipsum', 'dolor', 'amet', 'magna', 'aliqua', 'tempor', 'labore', 'fugit', 'nisi', 'velit', 'cillum'];
@@ -16,28 +22,28 @@ class DynamicVariableGenerator
     private const COMPANIES = ['Acme', 'Globex', 'Initech', 'Umbrella', 'Hooli', 'Soylent', 'Vehement', 'Massive Dynamic'];
     private const COLORS = ['red', 'green', 'blue', 'yellow', 'purple', 'cyan', 'magenta', 'orange'];
 
-    /** Discoverable catalog: primary token name → short description (TR). */
+    /** Discoverable catalog: primary token name → short description (translation key). */
     public const BUILTINS = [
         'guid' => 'UUID (v4)',
-        'timestamp' => 'Unix zaman damgası',
-        'isoTimestamp' => 'ISO 8601 zaman (UTC)',
-        'isoDate' => 'ISO tarih (YYYY-MM-DD)',
-        'randomInt' => 'Rastgele tam sayı (0–1000)',
-        'randomPrice' => 'Rastgele fiyat (0.00)',
+        'timestamp' => 'Unix timestamp',
+        'isoTimestamp' => 'ISO 8601 timestamp (UTC)',
+        'isoDate' => 'ISO date (YYYY-MM-DD)',
+        'randomInt' => 'Random integer (0–1000)',
+        'randomPrice' => 'Random price (0.00)',
         'randomBoolean' => 'true / false',
-        'randomEmail' => 'Rastgele e-posta',
-        'randomUserName' => 'Rastgele kullanıcı adı',
-        'randomFirstName' => 'Rastgele ad',
-        'randomLastName' => 'Rastgele soyad',
-        'randomFullName' => 'Rastgele ad soyad',
-        'randomPhoneNumber' => 'Rastgele telefon',
-        'randomCompanyName' => 'Rastgele şirket',
-        'randomCity' => 'Rastgele şehir',
-        'randomCountry' => 'Rastgele ülke',
-        'randomColor' => 'Rastgele renk',
-        'randomWord' => 'Rastgele kelime',
-        'randomWords' => 'Rastgele kelimeler (3)',
-        'randomIP' => 'Rastgele IPv4',
+        'randomEmail' => 'Random e-mail',
+        'randomUserName' => 'Random username',
+        'randomFirstName' => 'Random first name',
+        'randomLastName' => 'Random last name',
+        'randomFullName' => 'Random full name',
+        'randomPhoneNumber' => 'Random phone number',
+        'randomCompanyName' => 'Random company',
+        'randomCity' => 'Random city',
+        'randomCountry' => 'Random country',
+        'randomColor' => 'Random color',
+        'randomWord' => 'Random word',
+        'randomWords' => 'Random words (3)',
+        'randomIP' => 'Random IPv4',
     ];
 
     /**
@@ -75,7 +81,7 @@ class DynamicVariableGenerator
             $out[] = [
                 'name' => $name,
                 'token' => '{{$' . $name . '}}',
-                'description' => $desc,
+                'description' => $this->translator->trans($desc),
                 'sample' => (string) $this->builtin($name),
             ];
         }

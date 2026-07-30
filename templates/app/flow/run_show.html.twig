@@ -1,6 +1,6 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Koşum · {{ flow.name }}{% endblock %}
+{% block title %}{{ 'Run'|trans }} · {{ flow.name }}{% endblock %}
 
 {% block panel %}
 <style>
@@ -80,20 +80,20 @@
     : path('app_flow_show', {workspace: workspace.id, flow: flow.id}) %}
 <div class="ru-head">
     <div>
-        <a class="backlink" href="{{ backUrl }}">← {{ inGroup ? '🧩 ' ~ suiteGroup.name ~ ' koşumu' : flow.name }}</a>
-        <h1>Koşum detayı · {{ flow.name }}</h1>
+        <a class="backlink" href="{{ backUrl }}">← {{ inGroup ? '🧩 %name% run'|trans({'%name%': suiteGroup.name}) : flow.name }}</a>
+        <h1>{{ 'Run detail'|trans }} · {{ flow.name }}</h1>
         <p class="subtitle" style="margin:0;">{{ run.createdAt|date('d.m.Y H:i:s') }}
             {%- if inGroup %} · <span class="pill" style="background:var(--accent-soft);color:var(--accent);">🧩 {{ suiteGroup.name }}</span>
             {%- elseif run.batchId %} · <span class="pill" style="background:var(--accent-soft);color:var(--accent);">data #{{ run.iteration + 1 }}</span>{% endif %}</p>
     </div>
-    <a class="btn ghost" href="{{ backUrl }}">{{ inGroup ? '← Suite koşumuna dön' : 'Akışa dön' }}</a>
+    <a class="btn ghost" href="{{ backUrl }}">{{ inGroup ? '← ' ~ 'Back to suite run'|trans : 'Back to flow'|trans }}</a>
 </div>
 
 <div class="ru-sum">
-    <div class="ru-stat"><div class="n" style="color:{{ sdot }};">{{ include('app/flow/_status.html.twig', {status: sc}) }}</div><div class="l">Durum</div></div>
-    <div class="ru-stat"><div class="n">{{ run.passedSteps }}/{{ run.totalSteps }}</div><div class="l">Geçen adım</div></div>
-    <div class="ru-stat"><div class="n">{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</div><div class="l">Toplam süre</div></div>
-    <div class="ru-stat"><div class="n" style="font-size:16px;">{{ run.environmentName ?: '—' }}</div><div class="l">Environment</div></div>
+    <div class="ru-stat"><div class="n" style="color:{{ sdot }};">{{ include('app/flow/_status.html.twig', {status: sc}) }}</div><div class="l">{{ 'Status'|trans }}</div></div>
+    <div class="ru-stat"><div class="n">{{ run.passedSteps }}/{{ run.totalSteps }}</div><div class="l">{{ 'Passed steps'|trans }}</div></div>
+    <div class="ru-stat"><div class="n">{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</div><div class="l">{{ 'Total duration'|trans }}</div></div>
+    <div class="ru-stat"><div class="n" style="font-size:16px;">{{ run.environmentName ?: '—' }}</div><div class="l">{{ 'Environment'|trans }}</div></div>
 </div>
 
 {% if sc != 'running' %}
@@ -101,14 +101,14 @@
      data-share="{{ path('app_flow_run_share', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
      data-unshare="{{ path('app_flow_run_unshare', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
      data-token="{{ csrf_token('share-run' ~ run.id) }}">
-    <button type="button" class="btn ghost small" id="shareBtn">🔗 Paylaş</button>
+    <button type="button" class="btn ghost small" id="shareBtn">🔗 {{ 'Share'|trans }}</button>
     <div class="share-box" id="shareBox" {{ run.isShareValid ? '' : 'hidden' }}>
         <input type="text" id="shareUrl" readonly value="{{ run.isShareValid ? url('public_report', {token: run.shareToken}) : '' }}">
-        <button type="button" class="btn small" id="shareCopy">Kopyala</button>
-        <button type="button" class="btn ghost small" id="shareRevoke">İptal</button>
-        <span class="share-exp">{{ run.isShareValid and run.shareExpiresAt ? run.shareExpiresAt|date('d.m.Y H:i') ~ '\'e kadar' }}</span>
+        <button type="button" class="btn small" id="shareCopy">{{ 'Copy'|trans }}</button>
+        <button type="button" class="btn ghost small" id="shareRevoke">{{ 'Revoke'|trans }}</button>
+        <span class="share-exp">{{ run.isShareValid and run.shareExpiresAt ? 'until %date%'|trans({'%date%': run.shareExpiresAt|date('d.m.Y H:i')}) }}</span>
     </div>
-    <p class="share-hint">Login gerektirmeyen, süreli bir rapor bağlantısı. Paydaşlarla paylaşılabilir.</p>
+    <p class="share-hint">{{ 'A time-limited report link that requires no login. Shareable with stakeholders.'|trans }}</p>
 </div>
 <style>
     .share { margin: 2px 0 18px; }
@@ -130,12 +130,12 @@
     }
     document.getElementById('shareBtn').addEventListener('click', function () {
         post(root.dataset.share).then(function (d) {
-            if (d.url) { urlIn.value = d.url; box.hidden = false; root.querySelector('.share-exp').textContent = d.expiresAt ? d.expiresAt + "'e kadar" : ''; }
+            if (d.url) { urlIn.value = d.url; box.hidden = false; root.querySelector('.share-exp').textContent = d.expiresAt ? '{{ 'until %date%'|trans|e('js') }}'.replace('%date%', d.expiresAt) : ''; }
         });
     });
     document.getElementById('shareCopy').addEventListener('click', function () {
         urlIn.select(); (navigator.clipboard ? navigator.clipboard.writeText(urlIn.value) : Promise.resolve()).catch(function(){});
-        var b = this; var t = b.textContent; b.textContent = 'Kopyalandı ✓'; setTimeout(function(){ b.textContent = t; }, 900);
+        var b = this; var t = b.textContent; b.textContent = '{{ 'Copied'|trans|e('js') }} ✓'; setTimeout(function(){ b.textContent = t; }, 900);
     });
     document.getElementById('shareRevoke').addEventListener('click', function () {
         post(root.dataset.unshare).then(function () { box.hidden = true; urlIn.value = ''; });
@@ -147,7 +147,7 @@
 {% if sc in ['failed', 'error'] %}
 {% set failing = run.stepResults|filter(r => r.status in ['failed', 'error']) %}
 <div class="diag">
-    <div class="diag-head">⚠ Neden patladı?</div>
+    <div class="diag-head">⚠ {{ 'Why did it blow up?'|trans }}</div>
     {% for r in failing %}
         <div class="diag-step">
             <div class="diag-title">#{{ r.position + 1 }} · {{ r.label }}<span class="diag-meta">{{ r.requestMethod }}{% if r.responseStatus %} → HTTP {{ r.responseStatus }}{% endif %}</span></div>
@@ -155,17 +155,17 @@
             {% set failedAsserts = r.assertionResults|filter(a => not a.ok) %}
             {% if failedAsserts is not empty %}
                 <ul class="diag-asserts">
-                    {% for a in failedAsserts %}<li><code>{{ a.label }}</code> — gerçek: <b>{{ a.actual|default('(yok)') }}</b></li>{% endfor %}
+                    {% for a in failedAsserts %}<li><code>{{ a.label }}</code> — {{ 'actual:'|trans }} <b>{{ a.actual|default('(none)'|trans) }}</b></li>{% endfor %}
                 </ul>
             {% endif %}
-            {% if r.responseBody %}<details class="diag-body"><summary>Yanıt gövdesi</summary><pre>{{ r.responseBody|slice(0, 4000) }}</pre></details>{% endif %}
+            {% if r.responseBody %}<details class="diag-body"><summary>{{ 'Response body'|trans }}</summary><pre>{{ r.responseBody|slice(0, 4000) }}</pre></details>{% endif %}
         </div>
     {% endfor %}
     <div class="diag-foot" style="display:flex;align-items:center;gap:12px;">
         <button type="button" class="btn small" id="aiDiagBtn"
                 data-url="{{ path('app_flow_run_diagnose', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
-                data-token="{{ csrf_token('diagnose-run' ~ run.id) }}">🤖 AI ile teşhis et</button>
-        <span class="diag-foot-hint">Claude bu kanıtı yorumlayıp kök sebep + düzeltme önerir.</span>
+                data-token="{{ csrf_token('diagnose-run' ~ run.id) }}">🤖 {{ 'Diagnose with AI'|trans }}</button>
+        <span class="diag-foot-hint">{{ 'Claude interprets this evidence and suggests a root cause + fix.'|trans }}</span>
     </div>
     <div id="aiDiagOut" class="ai-out" hidden></div>
 </div>
@@ -183,8 +183,8 @@
     var btn = document.getElementById('aiDiagBtn'); if (!btn) return;
     var out = document.getElementById('aiDiagOut');
     btn.addEventListener('click', function () {
-        btn.disabled = true; var label = btn.textContent; btn.textContent = 'Teşhis ediliyor…';
-        out.hidden = false; out.className = 'ai-out'; out.textContent = '⏳ Claude analiz ediyor…';
+        btn.disabled = true; var label = btn.textContent; btn.textContent = '{{ 'Diagnosing…'|trans|e('js') }}';
+        out.hidden = false; out.className = 'ai-out'; out.textContent = '⏳ {{ 'Claude is analyzing…'|trans|e('js') }}';
         var body = new URLSearchParams(); body.set('_token', btn.dataset.token);
         fetch(btn.dataset.url, { method: 'POST', headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
@@ -192,16 +192,16 @@
                 btn.disabled = false; btn.textContent = label;
                 var d = res.d;
                 if (d.configured === false) {
-                    out.className = 'ai-out'; out.textContent = 'ℹ️ AI teşhis henüz bağlı değil. Etkinleştirmek için ANTHROPIC_API_KEY ortam değişkenini ayarla (kod hazır).';
+                    out.className = 'ai-out'; out.textContent = 'ℹ️ {{ 'AI diagnosis is not connected yet. Set the ANTHROPIC_API_KEY environment variable to enable it (the code is ready).'|trans|e('js') }}';
                 } else if (d.error) {
-                    out.className = 'ai-out err'; out.textContent = 'Hata: ' + d.error;
+                    out.className = 'ai-out err'; out.textContent = '{{ 'Error'|trans|e('js') }}: ' + d.error;
                 } else {
                     out.className = 'ai-out';
-                    out.innerHTML = '<span class="ai-badge">🤖 CLAUDE TEŞHİSİ</span>';
-                    var p = document.createElement('div'); p.textContent = d.analysis || '(boş yanıt)'; out.appendChild(p);
+                    out.innerHTML = '<span class="ai-badge">🤖 {{ 'CLAUDE DIAGNOSIS'|trans|e('js') }}</span>';
+                    var p = document.createElement('div'); p.textContent = d.analysis || '{{ '(empty response)'|trans|e('js') }}'; out.appendChild(p);
                 }
             })
-            .catch(function () { btn.disabled = false; btn.textContent = label; out.className = 'ai-out err'; out.textContent = 'İstek başarısız.'; });
+            .catch(function () { btn.disabled = false; btn.textContent = label; out.className = 'ai-out err'; out.textContent = '{{ 'Request failed.'|trans|e('js') }}'; });
     });
 })();
 </script>
@@ -210,12 +210,12 @@
 {% if sc == 'running' %}
 <div class="live">
     <span class="dot"></span>
-    <span class="t">Çalışıyor</span>
-    <span class="subtitle" id="liveProgress" style="margin:0;">{{ run.passedSteps }}/{{ run.totalSteps }} adım</span>
+    <span class="t">{{ 'Running'|trans }}</span>
+    <span class="subtitle" id="liveProgress" style="margin:0;">{{ '%done%/%total% steps'|trans({'%done%': run.passedSteps, '%total%': run.totalSteps}) }}</span>
     <div style="flex:1"></div>
     <form method="post" action="{{ path('app_flow_run_cancel', {workspace: workspace.id, flow: flow.id, run: run.id}) }}">
         <input type="hidden" name="_token" value="{{ csrf_token('cancel-run' ~ run.id) }}">
-        <button class="btn danger" type="submit">İptal et</button>
+        <button class="btn danger" type="submit">{{ 'Cancel run'|trans }}</button>
     </form>
 </div>
 {% endif %}
@@ -231,29 +231,29 @@
             </div>
 
             {% if r.status == 'skipped' %}
-                <div class="rt-req">Önceki adım başarısız olduğu için atlandı.</div>
+                <div class="rt-req">{{ 'Skipped because the previous step failed.'|trans }}</div>
             {% else %}
                 <div class="rt-req">
                     <b>{{ r.requestMethod }}</b> {{ r.requestUrl }}
                     {% if r.responseStatus %}→ <b>{{ r.responseStatus }}</b> ({{ r.durationMs }} ms){% endif %}
-                    {% if r.attempts > 1 %}· <span style="color:var(--accent);">↻ {{ r.attempts }} deneme</span>{% endif %}
+                    {% if r.attempts > 1 %}· <span style="color:var(--accent);">↻ {{ '%count% attempts'|trans({'%count%': r.attempts}) }}</span>{% endif %}
                 </div>
 
                 {% if r.error %}<div class="errbox">{{ r.error }}</div>{% endif %}
 
                 {% if r.extractedVars is not empty %}
                     <div class="blk">
-                        <div class="cap">Extraction'lar</div>
+                        <div class="cap">{{ 'Extractions'|trans }}</div>
                         <div class="kvline">{% for k, v in r.extractedVars %}{{ k }} = <span class="v">{{ v }}</span><br>{% endfor %}</div>
                     </div>
                 {% endif %}
 
                 {% if r.assertionResults is not empty %}
                     <div class="blk">
-                        <div class="cap">Assertion'lar</div>
+                        <div class="cap">{{ 'Assertions'|trans }}</div>
                         <div class="kvline">
                         {% for a in r.assertionResults %}
-                            {% if a.ok %}<span class="ok">✓</span>{% else %}<span class="no">✗</span>{% endif %} {{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— gelen: {{ a.actual }}</span>{% endif %}<br>
+                            {% if a.ok %}<span class="ok">✓</span>{% else %}<span class="no">✗</span>{% endif %} {{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— {{ 'received:'|trans }} {{ a.actual }}</span>{% endif %}<br>
                         {% endfor %}
                         </div>
                     </div>
@@ -261,14 +261,14 @@
 
                 {% if r.shapeDrift is not empty %}
                     <div class="blk drift">
-                        <div class="cap">⚠ Kontrat değişti <span class="drift-note">(yanıt şekli baseline'dan farklı)</span></div>
+                        <div class="cap">⚠ {{ 'Contract changed'|trans }} <span class="drift-note">{{ '(response shape differs from the baseline)'|trans }}</span></div>
                         <div class="kvline">{% for c in r.shapeDrift %}<span class="drift-line">{{ c }}</span><br>{% endfor %}</div>
                     </div>
                 {% endif %}
 
                 {% if r.responseBody %}
                     <details>
-                        <summary>Yanıt gövdesi</summary>
+                        <summary>{{ 'Response body'|trans }}</summary>
                         <pre>{{ r.responseBody }}</pre>
                     </details>
                 {% endif %}
@@ -282,10 +282,12 @@
 <script>
 (function () {
     var url = "{{ path('app_flow_run_status', {workspace: workspace.id, flow: flow.id, run: run.id}) }}";
+    var STEPS = '{{ '%done%/%total% steps'|trans|e('js') }}';
+    var CANCEL_REQ = '{{ ' · cancel requested…'|trans|e('js') }}';
     function poll() {
         fetch(url).then(function (r) { return r.json(); }).then(function (d) {
             var el = document.getElementById('liveProgress');
-            if (el) el.textContent = d.passedSteps + '/' + d.totalSteps + ' adım' + (d.cancelRequested ? ' · iptal isteniyor…' : '');
+            if (el) el.textContent = STEPS.replace('%done%', d.passedSteps).replace('%total%', d.totalSteps) + (d.cancelRequested ? CANCEL_REQ : '');
             if (d.finished) { location.reload(); return; }
             setTimeout(poll, 1500);
         }).catch(function () { setTimeout(poll, 3000); });

@@ -1,12 +1,12 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Yeni Test Akışı{% endblock %}
+{% block title %}{{ 'New test flow'|trans }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← Test akışları</a>
+<a class="backlink" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← {{ 'Test flows'|trans }}</a>
 <div class="pagehead">
     <div>
-        <h1>Yeni test akışı</h1>
+        <h1>{{ 'New test flow'|trans }}</h1>
         <p class="subtitle">{{ workspace.name }}</p>
     </div>
 </div>
@@ -15,26 +15,26 @@
     <form method="post">
         <input type="hidden" name="_token" value="{{ csrf_token('new-flow') }}">
         <div class="field">
-            <label>Akış adı</label>
-            <input type="text" name="name" placeholder="örn. Signup → Subscription doğrulama" required autofocus>
+            <label>{{ 'Flow name'|trans }}</label>
+            <input type="text" name="name" placeholder="{{ 'e.g. Signup → Subscription verification'|trans }}" required autofocus>
         </div>
         <div class="field">
-            <label>Açıklama</label>
-            <textarea name="description" rows="2" placeholder="Bu akış neyi doğruluyor?"></textarea>
+            <label>{{ 'Description'|trans }}</label>
+            <textarea name="description" rows="2" placeholder="{{ 'What does this flow verify?'|trans }}"></textarea>
         </div>
         <div class="field">
-            <label>Varsayılan environment</label>
+            <label>{{ 'Default environment'|trans }}</label>
             <select name="environment">
-                <option value="">— yok —</option>
+                <option value="">{{ '— none —'|trans }}</option>
                 {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
             </select>
         </div>
         <div class="field">
-            <label class="inline-lbl"><input type="checkbox" name="stopOnFailure" value="1" checked style="width:auto;"> İlk başarısız adımda dur</label>
+            <label class="inline-lbl"><input type="checkbox" name="stopOnFailure" value="1" checked style="width:auto;"> {{ 'Stop at the first failed step'|trans }}</label>
         </div>
         <div class="form-actions">
-            <button class="btn" type="submit">Oluştur →</button>
-            <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">Vazgeç</a>
+            <button class="btn" type="submit">{{ 'Create'|trans }} →</button>
+            <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
         </div>
     </form>
 </div>

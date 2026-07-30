@@ -1,6 +1,6 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Yeni adım · {{ flow.name }}{% endblock %}
+{% block title %}{{ 'New step'|trans }} · {{ flow.name }}{% endblock %}
 
 {% block panel %}
 <style>
@@ -67,30 +67,30 @@
      data-token="{{ csrf_token('add-step' ~ flow.id) }}">
 
     <a class="backlink" href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}">← {{ flow.name }}</a>
-    <div class="pagehead"><div><h1>Yeni adım</h1><p class="subtitle">Akışa hangi düğümü ekleyelim?</p></div></div>
+    <div class="pagehead"><div><h1>{{ 'New step'|trans }}</h1><p class="subtitle">{{ 'Which node should we add to the flow?'|trans }}</p></div></div>
 
     <div class="sw-grid">
         {# ---- type rail ---- #}
         <div class="rail" role="tablist">
             <button type="button" class="rail-item on" data-type="http">
                 <span class="rail-node">🌐</span>
-                <span class="rail-txt"><h3>HTTP isteği</h3><p>API isteği gönder, yanıtı doğrula</p></span>
+                <span class="rail-txt"><h3>{{ 'HTTP request'|trans }}</h3><p>{{ 'Send an API request, verify the response'|trans }}</p></span>
             </button>
             <button type="button" class="rail-item" data-type="db">
                 <span class="rail-node">🗄️</span>
-                <span class="rail-txt"><h3>DB doğrulama</h3><p>Sorgu çalıştır, satırı karşılaştır</p></span>
+                <span class="rail-txt"><h3>{{ 'DB verification'|trans }}</h3><p>{{ 'Run a query, compare the row'|trans }}</p></span>
             </button>
             <button type="button" class="rail-item" data-type="setvar">
                 <span class="rail-node">🔧</span>
-                <span class="rail-txt"><h3>Değişken ata</h3><p>Elle bir değişken set et</p></span>
+                <span class="rail-txt"><h3>{{ 'Set variable'|trans }}</h3><p>{{ 'Set a variable manually'|trans }}</p></span>
             </button>
             <button type="button" class="rail-item" data-type="delay">
                 <span class="rail-node">⏱️</span>
-                <span class="rail-txt"><h3>Bekle</h3><p>Adımlar arasına gecikme koy</p></span>
+                <span class="rail-txt"><h3>{{ 'Wait'|trans }}</h3><p>{{ 'Add a delay between steps'|trans }}</p></span>
             </button>
             <button type="button" class="rail-item" data-type="call">
                 <span class="rail-node">🧩</span>
-                <span class="rail-txt"><h3>Alt-akış çağır</h3><p>Başka bir akışı burada çalıştır</p></span>
+                <span class="rail-txt"><h3>{{ 'Call sub-flow'|trans }}</h3><p>{{ 'Run another flow here'|trans }}</p></span>
             </button>
         </div>
 
@@ -98,22 +98,22 @@
         <div class="detail">
             {# HTTP #}
             <div class="pane on" data-pane="http">
-                <div class="dt-head"><h2>HTTP isteği</h2><p>Bir collection isteği seç — kopyası bu adıma alınır.</p></div>
+                <div class="dt-head"><h2>{{ 'HTTP request'|trans }}</h2><p>{{ 'Pick a collection request — a copy is taken into this step.'|trans }}</p></div>
                 <div class="dt-body">
                     {% if available_requests is empty %}
-                        <div class="empty-note">Henüz istek yok. Önce <a href="{{ path('app_collection_index', {workspace: workspace.id}) }}">Collection'larda</a> bir istek oluştur.</div>
+                        <div class="empty-note">{{ 'No requests yet. First create a request in <a href="%url%">Collections</a>.'|trans({'%url%': path('app_collection_index', {workspace: workspace.id})})|raw }}</div>
                     {% else %}
-                        <input type="text" class="search" id="reqSearch" placeholder="İstek, collection veya URL ara…" autocomplete="off">
+                        <input type="text" class="search" id="reqSearch" placeholder="{{ 'Search request, collection or URL…'|trans }}" autocomplete="off">
                         <div class="plist" id="reqList"></div>
                     {% endif %}
                 </div>
             </div>
             {# DB #}
             <div class="pane" data-pane="db">
-                <div class="dt-head"><h2>DB doğrulama</h2><p>Ödeme sonrası kayıt gerçekten oluştu mu — bir bağlantı seç.</p></div>
+                <div class="dt-head"><h2>{{ 'DB verification'|trans }}</h2><p>{{ 'Did the record really get created after payment — pick a connection.'|trans }}</p></div>
                 <div class="dt-body">
                     {% if db_connections is empty %}
-                        <div class="empty-note">Bağlantı yok. Önce <a href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">Veritabanı bağlantısı</a> ekle.</div>
+                        <div class="empty-note">{{ 'No connections. First add a <a href="%url%">database connection</a>.'|trans({'%url%': path('app_dbconn_index', {workspace: workspace.id})})|raw }}</div>
                     {% else %}
                         <div class="plist">
                             {% for c in db_connections %}
@@ -128,24 +128,24 @@
             </div>
             {# setvar #}
             <div class="pane" data-pane="setvar">
-                <div class="dt-head"><h2>Değişken ata</h2><p>Sabit bir değer veya <code>{{ '{{ifade}}' }}</code> ile bir değişken set et; sonraki adımlarda kullanılır.</p></div>
+                <div class="dt-head"><h2>{{ 'Set variable'|trans }}</h2><p>{{ 'Set a variable to a fixed value or with <code>{{expression}}</code>; it is used in later steps.'|trans|raw }}</p></div>
                 <div class="dt-body util-add">
-                    <p style="font-size:13px;color:var(--muted);margin:0;">Adım eklendikten sonra atamaları düzenleyeceksin.</p>
-                    <button type="button" class="btn big-add" data-submit="setvar">🔧 Değişken adımı ekle</button>
+                    <p style="font-size:13px;color:var(--muted);margin:0;">{{ 'You will edit the assignments after the step is added.'|trans }}</p>
+                    <button type="button" class="btn big-add" data-submit="setvar">🔧 {{ 'Add variable step'|trans }}</button>
                 </div>
             </div>
             {# call sub-flow #}
             <div class="pane" data-pane="call">
-                <div class="dt-head"><h2>Alt-akış çağır</h2><p>Seçilen akışın adımları burada, aynı değişken bağlamıyla çalışır — referanslı, hep güncel hâli.</p></div>
+                <div class="dt-head"><h2>{{ 'Call sub-flow'|trans }}</h2><p>{{ "The selected flow's steps run here with the same variable context — by reference, always the current version."|trans }}</p></div>
                 <div class="dt-body">
                     {% if callable_flows is empty %}
-                        <div class="empty-note">Çağrılabilir başka akış yok. Önce başka bir akış oluştur.</div>
+                        <div class="empty-note">{{ 'No other callable flow. First create another flow.'|trans }}</div>
                     {% else %}
                         <div class="plist">
                             {% for cf in callable_flows %}
                                 <button type="button" class="prow" data-callflow="{{ cf.id }}">
-                                    <span class="mbadge">AKIŞ</span>
-                                    <span class="col"><span class="nm">{{ cf.name }}</span><span class="path">{{ cf.steps|length }} adım</span></span>
+                                    <span class="mbadge">{{ 'FLOW'|trans }}</span>
+                                    <span class="col"><span class="nm">{{ cf.name }}</span><span class="path">{{ '%count% steps'|trans({'%count%': cf.steps|length}) }}</span></span>
                                 </button>
                             {% endfor %}
                         </div>
@@ -154,10 +154,10 @@
             </div>
             {# delay #}
             <div class="pane" data-pane="delay">
-                <div class="dt-head"><h2>Bekle</h2><p>Asenkron işlemler (webhook, kuyruk) tamamlansın diye adımlar arasına gecikme koy.</p></div>
+                <div class="dt-head"><h2>{{ 'Wait'|trans }}</h2><p>{{ 'Add a delay between steps so async operations (webhook, queue) can finish.'|trans }}</p></div>
                 <div class="dt-body util-add">
-                    <p style="font-size:13px;color:var(--muted);margin:0;">Varsayılan 1000 ms — sonra düzenleyebilirsin.</p>
-                    <button type="button" class="btn big-add" data-submit="delay">⏱️ Bekleme adımı ekle</button>
+                    <p style="font-size:13px;color:var(--muted);margin:0;">{{ 'Default 1000 ms — you can edit it later.'|trans }}</p>
+                    <button type="button" class="btn big-add" data-submit="delay">⏱️ {{ 'Add wait step'|trans }}</button>
                 </div>
             </div>
         </div>
@@ -168,11 +168,16 @@
 {% for r in available_requests %}{"id":"{{ r.id }}","name":{{ r.name|json_encode|raw }},"method":"{{ r.method }}","coll":{{ r.collection.name|json_encode|raw }},"url":{{ (r.url ?: '')|json_encode|raw }}}{{ not loop.last ? ',' }}{% endfor %}
 ]</script>
 
+<script type="application/json" id="sn-i18n">{{ {
+    noHit: 'No matching request.'|trans
+}|json_encode|raw }}</script>
+
 {% verbatim %}
 <script>
 (function () {
     var sw = document.getElementById('sw');
     if (!sw) return;
+    var T = JSON.parse(document.getElementById('sn-i18n').textContent);
     var token = sw.dataset.token;
 
     function post(action, field, value) {
@@ -222,7 +227,7 @@
                 groups[r.coll].push(r);
             });
             listEl.innerHTML = '';
-            if (!order.length) { listEl.innerHTML = '<div class="no-hit">Eşleşen istek yok.</div>'; return; }
+            if (!order.length) { var nh = document.createElement('div'); nh.className = 'no-hit'; nh.textContent = T.noHit; listEl.appendChild(nh); return; }
             order.forEach(function (coll) {
                 var h = document.createElement('div'); h.className = 'grp-head'; h.textContent = coll; listEl.appendChild(h);
                 groups[coll].forEach(function (r) {

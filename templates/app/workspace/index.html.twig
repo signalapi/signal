@@ -1,17 +1,17 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Workspace'ler{% endblock %}
+{% block title %}{{ 'Workspaces'|trans }}{% endblock %}
 
 {% block panel %}
 {% set can_manage_ws = current_merchant() and is_granted('MERCHANT_MANAGE_WORKSPACES', current_merchant()) %}
 <div class="pagehead">
     <div>
-        <h1>Workspace'ler</h1>
-        <p class="subtitle">{{ workspaces|length }} workspace{{ can_manage_ws ? ' · istediğiniz kadar oluşturabilirsiniz' : ' · erişiminiz olanlar' }}</p>
+        <h1>{{ 'Workspaces'|trans }}</h1>
+        <p class="subtitle">{{ workspaces|length }} workspace · {{ can_manage_ws ? ('create as many as you like'|trans) : ('the ones you can access'|trans) }}</p>
     </div>
     {% if can_manage_ws %}
     <div class="actions">
-        <a class="btn" href="{{ path('app_workspace_new') }}">+ Yeni workspace</a>
+        <a class="btn" href="{{ path('app_workspace_new') }}">+ {{ 'New workspace'|trans }}</a>
     </div>
     {% endif %}
 </div>
@@ -28,11 +28,11 @@
             </div>
             {% if w.description %}<p class="subtitle" style="margin:12px 0 0;font-size:13px;">{{ w.description }}</p>{% endif %}
             <div class="rc-foot">
-                <a class="btn grow" style="justify-content:center;" href="{{ path('app_workspace_show', {id: w.id}) }}">Aç →</a>
+                <a class="btn grow" style="justify-content:center;" href="{{ path('app_workspace_show', {id: w.id}) }}">{{ 'Open'|trans }} →</a>
                 {% if can_manage_ws %}
-                <form method="post" action="{{ path('app_workspace_delete', {id: w.id}) }}" onsubmit="return confirm('Workspace silinecek. Emin misiniz?');">
+                <form method="post" action="{{ path('app_workspace_delete', {id: w.id}) }}" onsubmit="return confirm('{{ 'The workspace will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ w.id) }}">
-                    <button class="btn danger" type="submit">Sil</button>
+                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
                 </form>
                 {% endif %}
             </div>
@@ -41,8 +41,8 @@
     {% if can_manage_ws %}
     <a class="res-new" href="{{ path('app_workspace_new') }}">
         <span class="plus">+</span>
-        <span style="font-weight:600;">Yeni workspace</span>
-        <span style="font-size:12px;">Collection, akış ve DB'leri ayır</span>
+        <span style="font-weight:600;">{{ 'New workspace'|trans }}</span>
+        <span style="font-size:12px;">{{ 'Separate collections, flows and DBs'|trans }}</span>
     </a>
     {% endif %}
 </div>

@@ -1,10 +1,10 @@
 <!doctype html>
-<html lang="tr">
+<html lang="{{ app.request.locale }}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex, nofollow">
-<title>Koşum Raporu · {{ run.flow.name }} · Signal</title>
+<title>{{ 'Run Report'|trans }} · {{ run.flow.name }} · Signal</title>
 <style>
     :root {
         --bg:#f4f1ea; --panel:#fff; --panel-2:#f7f5ef; --ink:#211f1a; --muted:#8a857a;
@@ -54,12 +54,12 @@
 <body>
 <div class="wrap">
     {% set sc = run.status %}
-    <div class="brand">Signal <span>· Koşum Raporu</span></div>
+    <div class="brand">Signal <span>· {{ 'Run Report'|trans }}</span></div>
     <h1>{{ run.flow.name }}</h1>
-    <div><span class="sbig s-{{ sc }}">{{ {'passed':'✓ Geçti','failed':'✗ Başarısız','error':'✗ Hata','cancelled':'İptal','running':'Çalışıyor'}[sc] ?? sc }}</span></div>
+    <div><span class="sbig s-{{ sc }}">{{ {'passed': '✓ ' ~ 'Passed'|trans, 'failed': '✗ ' ~ 'Failed'|trans, 'error': '✗ ' ~ 'Error'|trans, 'cancelled': 'Cancelled'|trans, 'running': 'Running'|trans}[sc] ?? sc }}</span></div>
     <div class="meta">
-        <span class="tag"><b>{{ run.passedSteps }}/{{ run.totalSteps }}</b> adım geçti</span>
-        <span class="tag">süre <b>{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</b></span>
+        <span class="tag"><b>{{ run.passedSteps }}/{{ run.totalSteps }}</b> {{ 'steps passed'|trans }}</span>
+        <span class="tag">{{ 'duration'|trans }} <b>{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</b></span>
         <span class="tag">env <b>{{ run.environmentName ?: '—' }}</b></span>
         <span class="tag">{{ run.createdAt|date('d.m.Y H:i') }}</span>
     </div>
@@ -75,20 +75,20 @@
                     {% if r.responseStatus %}<span class="req" style="margin:0;">{{ r.responseStatus }} · {{ r.durationMs }}ms</span>{% endif %}
                 </div>
                 {% if r.requestUrl and r.status != 'skipped' %}<div class="req">{{ r.requestUrl }}</div>{% endif %}
-                {% if r.status == 'skipped' %}<div class="req">{{ r.error ?: 'Atlandı.' }}</div>{% endif %}
+                {% if r.status == 'skipped' %}<div class="req">{{ r.error ?: 'Skipped.'|trans }}</div>{% endif %}
 
                 {% if r.assertionResults is not empty %}
                     <div class="blk">
-                        <div class="cap">Doğrulamalar</div>
+                        <div class="cap">{{ 'Assertions'|trans }}</div>
                         {% for a in r.assertionResults %}
-                            <div class="aline">{% if a.ok %}<span class="a-ok">✓</span>{% else %}<span class="a-no">✗</span>{% endif %} {{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— gelen: {{ a.actual }}</span>{% endif %}</div>
+                            <div class="aline">{% if a.ok %}<span class="a-ok">✓</span>{% else %}<span class="a-no">✗</span>{% endif %} {{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— {{ 'got:'|trans }} {{ a.actual }}</span>{% endif %}</div>
                         {% endfor %}
                     </div>
                 {% endif %}
 
                 {% if r.shapeDrift is not empty %}
                     <div class="blk drift">
-                        <div class="cap">⚠ Kontrat değişti</div>
+                        <div class="cap">⚠ {{ 'Contract changed'|trans }}</div>
                         {% for c in r.shapeDrift %}<div class="aline">{{ c }}</div>{% endfor %}
                     </div>
                 {% endif %}
@@ -100,7 +100,7 @@
     </div>
 
     <div class="foot">
-        Signal ile üretildi · Bu rapor bağlantısı {{ run.shareExpiresAt ? run.shareExpiresAt|date('d.m.Y H:i') ~ ' tarihine kadar' : 'süresiz' }} geçerlidir.
+        {{ 'Generated with Signal'|trans }} · {% if run.shareExpiresAt %}{{ 'This report link is valid until %date%.'|trans({'%date%': run.shareExpiresAt|date('d.m.Y H:i')}) }}{% else %}{{ 'This report link does not expire.'|trans }}{% endif %}
     </div>
 </div>
 </body>

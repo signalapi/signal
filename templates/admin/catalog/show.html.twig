@@ -1,6 +1,6 @@
 {% extends 'admin/_layout.html.twig' %}
 
-{% block title %}{{ api.name }} · API Kataloğu{% endblock %}
+{% block title %}{{ api.name }} · {{ 'API Catalog'|trans }}{% endblock %}
 
 {% block panel %}
 <div class="toolbar">
@@ -8,47 +8,47 @@
         <h1>{{ api.logo }} {{ api.name }}</h1>
         <p class="subtitle" style="margin:0;"><code>{{ api.slug }}</code>{{ api.publisher ? ' · ' ~ api.publisher }}{{ api.category ? ' · ' ~ api.category }}</p>
     </div>
-    <a class="btn ghost" href="{{ path('admin_catalog_index') }}">← Katalog</a>
+    <a class="btn ghost" href="{{ path('admin_catalog_index') }}">← {{ 'Catalog'|trans }}</a>
 </div>
 
 {% if api.description %}<p class="subtitle">{{ api.description }}</p>{% endif %}
 
 <form class="card" method="post" action="{{ path('admin_catalog_publish', {id: api.id}) }}" enctype="multipart/form-data" style="margin-bottom:18px;">
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Yeni versiyon yayınla</div>
+    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Publish new version'|trans }}</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
         <div style="flex:2;min-width:200px;"><label style="display:block;font-size:12px;margin-bottom:4px;">OpenAPI spec (.json / .yaml)</label><input type="file" name="spec" required accept="application/json,.json,.yaml,.yml"></div>
-        <div style="flex:1;min-width:110px;"><label style="display:block;font-size:12px;margin-bottom:4px;">Etiket</label><input type="text" name="label" placeholder="{{ 'now'|date('Y-m-d') }}" style="width:100%;"></div>
-        <button class="btn" type="submit">Yayınla</button>
+        <div style="flex:1;min-width:110px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Label'|trans }}</label><input type="text" name="label" placeholder="{{ 'now'|date('Y-m-d') }}" style="width:100%;"></div>
+        <button class="btn" type="submit">{{ 'Publish'|trans }}</button>
     </div>
-    <div style="margin-top:10px;"><label style="display:block;font-size:12px;margin-bottom:4px;">Changelog (opsiyonel)</label><input type="text" name="changelog" placeholder="Neler değişti?" style="width:100%;"></div>
+    <div style="margin-top:10px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Changelog (optional)'|trans }}</label><input type="text" name="changelog" placeholder="{{ 'What changed?'|trans }}" style="width:100%;"></div>
     <input type="hidden" name="_token" value="{{ csrf_token('catalog-publish' ~ api.id) }}">
-    <p class="subtitle" style="margin:10px 0 0;font-size:12px;">Versiyonlar değişmezdir — yeni yükleme her zaman yeni bir versiyon açar; birebir aynı spec reddedilir.</p>
+    <p class="subtitle" style="margin:10px 0 0;font-size:12px;">{{ 'Versions are immutable — every upload always creates a new version; an identical spec is rejected.'|trans }}</p>
 </form>
 
 {% if api.versions is not empty %}
     <div class="card" style="margin-bottom:18px;">
-        <div class="subtitle" style="margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">"Signal'e Ekle" rozeti</div>
-        <p class="subtitle" style="margin:0 0 8px;font-size:13px;">Bu snippet'i API dokümanınıza koyun — tıklayan kullanıcı (gerekirse login olup) API'yi tek adımda workspace'ine ekler.</p>
+        <div class="subtitle" style="margin:0 0 8px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ '"Add to Signal" badge'|trans }}</div>
+        <p class="subtitle" style="margin:0 0 8px;font-size:13px;">{{ 'Put this snippet in your API docs — a user who clicks it (signing in if needed) adds the API to their workspace in one step.'|trans }}</p>
         {% set deeplink = url('app_deeplink', {slug: api.slug}) %}
         <pre class="codebox" id="badgeSnippet">&lt;a href="{{ deeplink }}" target="_blank" rel="noopener"
    style="display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:8px;
           background:#4f46e5;color:#fff;font:600 13px system-ui;text-decoration:none;"&gt;
   ⚡ Signal'e Ekle
 &lt;/a&gt;</pre>
-        <button class="btn ghost small" type="button" onclick="navigator.clipboard.writeText(document.getElementById('badgeSnippet').textContent)">Kopyala</button>
+        <button class="btn ghost small" type="button" onclick="navigator.clipboard.writeText(document.getElementById('badgeSnippet').textContent)">{{ 'Copy'|trans }}</button>
         <span class="subtitle" style="font-size:12px;margin-left:8px;">Link: <code>{{ deeplink }}</code></span>
     </div>
 {% endif %}
 
 {% if api.versions is empty %}
-    <div class="empty">Henüz versiyon yayınlanmadı — marketplace'te görünmez.</div>
+    <div class="empty">{{ 'No version published yet — it is not visible on the marketplace.'|trans }}</div>
 {% else %}
     <table>
-        <thead><tr><th>Etiket</th><th>Endpoint sayısı</th><th>Hash</th><th>Changelog</th><th>Yayın tarihi</th></tr></thead>
+        <thead><tr><th>{{ 'Label'|trans }}</th><th>{{ 'Endpoint count'|trans }}</th><th>Hash</th><th>Changelog</th><th>{{ 'Published at'|trans }}</th></tr></thead>
         <tbody>
         {% for v in api.versions %}
             <tr>
-                <td style="font-weight:600;">{{ v.label }}{% if loop.first %} <span class="pill on">güncel</span>{% endif %}</td>
+                <td style="font-weight:600;">{{ v.label }}{% if loop.first %} <span class="pill on">{{ 'latest'|trans }}</span>{% endif %}</td>
                 <td>{{ v.spec.paths|length }}</td>
                 <td><code>{{ v.specHash[:8] }}</code></td>
                 <td>{{ v.changelog ?? '—' }}</td>

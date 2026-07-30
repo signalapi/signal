@@ -1,46 +1,46 @@
 {% extends 'security/_auth_base.html.twig' %}
 
-{% block title %}Davet · Signal: Test Platform{% endblock %}
-{% block brand_title %}Ekibinize katılın.{% endblock %}
+{% block title %}{{ 'Invite'|trans }} · Signal: Test Platform{% endblock %}
+{% block brand_title %}{{ 'Join your team.'|trans }}{% endblock %}
 
 {% block auth_card %}
     {% if state == 'invalid' %}
-        <p class="eyebrow">Davet</p>
-        <h1>Geçersiz davet</h1>
-        <p class="sub">Bu davet linki geçerli değil. Sizi davet eden kişiden yeni bir link isteyin.</p>
-        <p class="alt"><a href="{{ path('app_login') }}">Giriş sayfasına dön</a></p>
+        <p class="eyebrow">{{ 'Invite'|trans }}</p>
+        <h1>{{ 'Invalid invite'|trans }}</h1>
+        <p class="sub">{{ 'This invite link is not valid.'|trans }} {{ 'Ask the person who invited you for a new link.'|trans }}</p>
+        <p class="alt"><a href="{{ path('app_login') }}">{{ 'Back to the sign-in page'|trans }}</a></p>
 
     {% elseif state == 'accepted' %}
-        <p class="eyebrow">Davet</p>
-        <h1>Davet zaten kullanıldı</h1>
-        <p class="sub">Bu davet daha önce kabul edilmiş.</p>
-        <p class="alt"><a href="{{ path('app_login') }}">Giriş yapın</a></p>
+        <p class="eyebrow">{{ 'Invite'|trans }}</p>
+        <h1>{{ 'Invite already used'|trans }}</h1>
+        <p class="sub">{{ 'This invite was already accepted.'|trans }}</p>
+        <p class="alt"><a href="{{ path('app_login') }}">{{ 'Sign In'|trans }}</a></p>
 
     {% elseif state == 'expired' %}
-        <p class="eyebrow">Davet</p>
-        <h1>Davetin süresi doldu</h1>
-        <p class="sub">Sizi davet eden kişiden yeni bir link isteyin.</p>
-        <p class="alt"><a href="{{ path('app_login') }}">Giriş sayfasına dön</a></p>
+        <p class="eyebrow">{{ 'Invite'|trans }}</p>
+        <h1>{{ 'Invite expired'|trans }}</h1>
+        <p class="sub">{{ 'Ask the person who invited you for a new link.'|trans }}</p>
+        <p class="alt"><a href="{{ path('app_login') }}">{{ 'Back to the sign-in page'|trans }}</a></p>
 
     {% elseif state == 'login' %}
-        <p class="eyebrow">Davet · {{ invitation.merchant.name }}</p>
-        <h1>Hesabınızla giriş yapın</h1>
-        <p class="sub"><strong>{{ invitation.email }}</strong> adresine ait bir hesap zaten var. Daveti kabul etmek için o hesapla giriş yapıp bu linki tekrar açın.</p>
-        <p class="alt"><a href="{{ path('app_login') }}">Giriş yap</a></p>
+        <p class="eyebrow">{{ 'Invite'|trans }} · {{ invitation.merchant.name }}</p>
+        <h1>{{ 'Sign in with your account'|trans }}</h1>
+        <p class="sub">{{ 'There is already an account for %email%. To accept the invite, sign in with that account and open this link again.'|trans({'%email%': '<strong>' ~ invitation.email|e ~ '</strong>'})|raw }}</p>
+        <p class="alt"><a href="{{ path('app_login') }}">{{ 'Sign in'|trans }}</a></p>
 
     {% elseif state == 'accept' %}
-        <p class="eyebrow">Davet · {{ invitation.merchant.name }}</p>
-        <h1>Davete katılın</h1>
-        <p class="sub"><strong>{{ invitation.merchant.name }}</strong> sizi {{ invitation.merchantRole == 'admin' ? 'genel yönetici' : 'üye' }} olarak davet ediyor.</p>
+        <p class="eyebrow">{{ 'Invite'|trans }} · {{ invitation.merchant.name }}</p>
+        <h1>{{ 'Accept the invitation'|trans }}</h1>
+        <p class="sub">{{ '%merchant% invites you as %role%.'|trans({'%merchant%': '<strong>' ~ invitation.merchant.name|e ~ '</strong>', '%role%': invitation.merchantRole == 'admin' ? ('company admin'|trans) : ('member'|trans)})|raw }}</p>
         <form method="post" action="{{ path('app_invite_accept', {token: token}) }}">
             <input type="hidden" name="_token" value="{{ csrf_token('invite-accept') }}">
-            <button class="btn-primary" type="submit">Daveti kabul et</button>
+            <button class="btn-primary" type="submit">{{ 'Accept the invite'|trans }}</button>
         </form>
 
     {% else %}
-        <p class="eyebrow">Davet · {{ invitation.merchant.name }}</p>
-        <h1>Hesabınızı oluşturun</h1>
-        <p class="sub"><strong>{{ invitation.merchant.name }}</strong> sizi {{ invitation.merchantRole == 'admin' ? 'genel yönetici' : 'üye' }} olarak davet ediyor. <strong>{{ invitation.email }}</strong> için bir şifre belirleyin.</p>
+        <p class="eyebrow">{{ 'Invite'|trans }} · {{ invitation.merchant.name }}</p>
+        <h1>{{ 'Create your account'|trans }}</h1>
+        <p class="sub">{{ '%merchant% invites you as %role%.'|trans({'%merchant%': '<strong>' ~ invitation.merchant.name|e ~ '</strong>', '%role%': invitation.merchantRole == 'admin' ? ('company admin'|trans) : ('member'|trans)})|raw }} {{ 'Set a password for %email%.'|trans({'%email%': '<strong>' ~ invitation.email|e ~ '</strong>'})|raw }}</p>
 
         {% for error in errors %}
             <div class="flash error">{{ error }}</div>
@@ -48,21 +48,21 @@
 
         <form method="post" action="{{ path('app_invite_register', {token: token}) }}">
             <div class="field">
-                <label for="name">Ad Soyad</label>
+                <label for="name">{{ 'Full name'|trans }}</label>
                 <input type="text" id="name" name="name" value="{{ old.name }}" required autofocus placeholder="Ada Lovelace">
             </div>
             <div class="row2">
                 <div class="field">
-                    <label for="password">Şifre</label>
-                    <input type="password" id="password" name="password" required placeholder="En az 8 karakter">
+                    <label for="password">{{ 'Password'|trans }}</label>
+                    <input type="password" id="password" name="password" required placeholder="{{ 'At least 8 characters'|trans }}">
                 </div>
                 <div class="field">
-                    <label for="password_confirm">Şifre (tekrar)</label>
+                    <label for="password_confirm">{{ 'Password (again)'|trans }}</label>
                     <input type="password" id="password_confirm" name="password_confirm" required placeholder="••••••••">
                 </div>
             </div>
             <input type="hidden" name="_token" value="{{ csrf_token('invite-register') }}">
-            <button class="btn-primary" type="submit">Hesabı oluştur ve katıl</button>
+            <button class="btn-primary" type="submit">{{ 'Create account and join'|trans }}</button>
         </form>
     {% endif %}
 {% endblock %}

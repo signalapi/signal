@@ -1,17 +1,17 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Collection'lar · {{ workspace.name }}{% endblock %}
+{% block title %}{{ 'Collections'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← Workspace</a>
+<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}">← {{ 'Workspace'|trans }}</a>
 <div class="pagehead">
     <div>
-        <h1>Collection'lar</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ collections|length }} collection</p>
+        <h1>{{ 'Collections'|trans }}</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ '%count% collections'|trans({'%count%': collections|length}) }}</p>
     </div>
     <div class="actions">
-        <a class="btn" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">⬆ İçe aktar (Postman / OpenAPI)</a>
-        <a class="btn ghost" href="{{ path('app_collection_new', {workspace: workspace.id}) }}">+ Boş collection</a>
+        <a class="btn" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">⬆ {{ 'Import (Postman / OpenAPI)'|trans }}</a>
+        <a class="btn ghost" href="{{ path('app_collection_new', {workspace: workspace.id}) }}">+ {{ 'Empty collection'|trans }}</a>
     </div>
 </div>
 
@@ -23,29 +23,29 @@
                 <div class="rc-name">
                     <a href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">{{ c.name }}</a>
                     <div class="s">
-                        {{ c.requests|length }} istek · {{ c.createdAt|date('d.m.Y') }}
+                        {{ '%count% requests'|trans({'%count%': c.requests|length}) }} · {{ c.createdAt|date('d.m.Y') }}
                         {% if c.sourceVersion %}
-                            · katalog {{ c.sourceVersion.label }}
+                            · {{ 'catalog'|trans }} {{ c.sourceVersion.label }}
                             {% if c.sourceVersion.catalogApi.latestVersion and c.sourceVersion.catalogApi.latestVersion.id != c.sourceVersion.id %}
-                                <a href="{{ path('app_collection_update', {workspace: workspace.id, collection: c.id}) }}"><span class="pill on">⬆ güncelleme var</span></a>
+                                <a href="{{ path('app_collection_update', {workspace: workspace.id, collection: c.id}) }}"><span class="pill on">⬆ {{ 'update available'|trans }}</span></a>
                             {% endif %}
                         {% endif %}
                     </div>
                 </div>
             </div>
             <div class="rc-foot">
-                <a class="btn grow" style="justify-content:center;" href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">Workbench'i aç →</a>
-                <form method="post" action="{{ path('app_collection_delete', {workspace: workspace.id, collection: c.id}) }}" onsubmit="return confirm('Collection ve tüm istekleri silinecek. Emin misiniz?');">
+                <a class="btn grow" style="justify-content:center;" href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">{{ 'Open workbench'|trans }} →</a>
+                <form method="post" action="{{ path('app_collection_delete', {workspace: workspace.id, collection: c.id}) }}" onsubmit="return confirm('{{ 'The collection and all its requests will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ c.id) }}">
-                    <button class="btn danger" type="submit">Sil</button>
+                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
                 </form>
             </div>
         </div>
     {% endfor %}
     <a class="res-new" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">
         <span class="plus">⬆</span>
-        <span style="font-weight:600;">Postman içe aktar</span>
-        <span style="font-size:12px;">veya boş bir collection oluştur</span>
+        <span style="font-weight:600;">{{ 'Import from Postman'|trans }}</span>
+        <span style="font-size:12px;">{{ 'or create an empty collection'|trans }}</span>
     </a>
 </div>
 {% endblock %}

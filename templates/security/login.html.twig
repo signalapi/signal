@@ -1,11 +1,11 @@
 {% extends 'security/_auth_base.html.twig' %}
 
-{% block title %}Giriş · Signal: Test Platform{% endblock %}
+{% block title %}{{ 'Sign in'|trans }} · Signal: Test Platform{% endblock %}
 
 {% block auth_card %}
     <p class="eyebrow">Merchant</p>
-    <h1>Tekrar hoş geldiniz</h1>
-    <p class="sub">Hesabınıza giriş yapın.</p>
+    <h1>{{ 'Welcome back'|trans }}</h1>
+    <p class="sub">{{ 'Sign in to your account.'|trans }}</p>
 
     {% if error %}
         <div class="flash error">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
@@ -13,16 +13,16 @@
 
     <form method="post" action="{{ path('app_login') }}">
         <div class="field">
-            <label for="username">E-posta</label>
+            <label for="username">{{ 'Email'|trans }}</label>
             <input type="email" id="username" name="_username" value="{{ last_username }}" required autofocus placeholder="ad@sirket.com">
         </div>
         <div class="field">
-            <label for="password">Şifre</label>
+            <label for="password">{{ 'Password'|trans }}</label>
             <input type="password" id="password" name="_password" required placeholder="••••••••">
         </div>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-        <button class="btn-primary" type="submit">Giriş yap</button>
+        <button class="btn-primary" type="submit">{{ 'Sign in'|trans }}</button>
     </form>
 
-    <p class="alt">Hesabınız yok mu? <a href="{{ path('app_register') }}">Kayıt olun</a></p>
+    <p class="alt">{{ 'No account yet?'|trans }} <a href="{{ path('app_register') }}">{{ 'Sign up'|trans }}</a></p>
 {% endblock %}

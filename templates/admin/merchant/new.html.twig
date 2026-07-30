@@ -1,10 +1,10 @@
 {% extends 'admin/_layout.html.twig' %}
 
-{% block title %}Yeni Merchant · Süper Admin{% endblock %}
+{% block title %}{{ 'New Merchant'|trans }} · {{ 'Super Admin'|trans }}{% endblock %}
 
 {% block panel %}
-<h1>Yeni Merchant</h1>
-<p class="subtitle">Merchant ve onun ilk yetkili (merchant admin) kullanıcısını oluşturun.</p>
+<h1>{{ 'New Merchant'|trans }}</h1>
+<p class="subtitle">{{ 'Create the merchant and its first admin (merchant admin) user.'|trans }}</p>
 
 <div class="formcard">
     {{ form_start(form) }}
@@ -25,8 +25,8 @@
             {{ form_label(form.adminPassword) }}
             {{ form_widget(form.adminPassword) }}
         </div>
-        <button class="btn" type="submit">Oluştur</button>
-        <a class="btn ghost" href="{{ path('admin_merchant_index') }}">Vazgeç</a>
+        <button class="btn" type="submit">{{ 'Create'|trans }}</button>
+        <a class="btn ghost" href="{{ path('admin_merchant_index') }}">{{ 'Cancel'|trans }}</a>
     {{ form_end(form) }}
 </div>
 {% endblock %}

@@ -8,10 +8,10 @@
     <div class="grid-accent"></div>
     <p class="eyebrow">Workspace</p>
     <h1>{{ workspace.name }}</h1>
-    <p class="lead">{{ workspace.description ?: 'İstekleri gönder, akışları zincirle, sonucu veritabanından doğrula — hepsi tek yerde.' }}</p>
+    <p class="lead">{{ workspace.description ?: ('Send requests, chain flows, verify the result from the database — all in one place.'|trans) }}</p>
     <div class="actions">
-        <a class="btn" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">▶ Test akışları</a>
-        <a class="btn ghost" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">⬆ Postman içe aktar</a>
+        <a class="btn" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">▶ {{ 'Test flows'|trans }}</a>
+        <a class="btn ghost" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">⬆ {{ 'Import Postman'|trans }}</a>
     </div>
 </div>
 
@@ -19,8 +19,8 @@
     {% set cards = [
         {icon:'🧪', n: collection_count, label:'Collection', route:'app_collection_index'},
         {icon:'🌐', n: environment_count, label:'Environment', route:'app_environment_index'},
-        {icon:'▶', n: flow_count, label:'Test Akışı', route:'app_flow_index'},
-        {icon:'🗄', n: dbconn_count, label:'DB Bağlantısı', route:'app_dbconn_index'},
+        {icon:'▶', n: flow_count, label:'Test Flow'|trans, route:'app_flow_index'},
+        {icon:'🗄', n: dbconn_count, label:'DB Connection'|trans, route:'app_dbconn_index'},
         {icon:'🔑', n: token_count, label:'API Token', route:'app_apitoken_index'},
     ] %}
     {% for c in cards %}
@@ -36,11 +36,11 @@
     {# ---- Recent runs with the runline signature ---- #}
     <div>
         <div class="toolbar" style="margin-bottom:12px;">
-            <div class="section-title" style="margin:0;">Son koşumlar</div>
-            <a href="{{ path('app_trends', {workspace: workspace.id}) }}" class="eyebrow" style="text-decoration:none;">Tüm trendler →</a>
+            <div class="section-title" style="margin:0;">{{ 'Recent runs'|trans }}</div>
+            <a href="{{ path('app_trends', {workspace: workspace.id}) }}" class="eyebrow" style="text-decoration:none;">{{ 'All trends'|trans }} →</a>
         </div>
         {% if recent_runs is empty %}
-            <div class="empty">Henüz koşum yok. Bir test akışı oluşturup çalıştırın.</div>
+            <div class="empty">{{ 'No runs yet. Create a test flow and run it.'|trans }}</div>
         {% else %}
             <div class="card" style="padding:6px 0;">
                 {% for run in recent_runs %}
@@ -49,7 +49,7 @@
                         <span style="width:8px;height:8px;border-radius:50%;flex-shrink:0;background:{{ run.status == 'passed' ? 'var(--pass)' : (run.status == 'running' ? 'var(--accent)' : (run.status == 'cancelled' ? 'var(--warn)' : 'var(--fail)')) }};"></span>
                         <span style="flex:1;min-width:0;">
                             <span style="font-weight:600;color:var(--ink);display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ run.flow.name }}{% if run.batchId %} <span class="mono" style="color:var(--muted);font-size:11px;">data #{{ run.iteration + 1 }}</span>{% endif %}</span>
-                            <span class="mono" style="font-size:11px;color:var(--muted);">{{ run.passedSteps }}/{{ run.totalSteps }} adım · {{ run.createdAt|date('d.m H:i') }}</span>
+                            <span class="mono" style="font-size:11px;color:var(--muted);">{{ run.passedSteps }}/{{ run.totalSteps }} {{ 'steps'|trans }} · {{ run.createdAt|date('d.m H:i') }}</span>
                         </span>
                         {{ rl.line(run) }}
                     </a>
@@ -60,19 +60,19 @@
 
     {# ---- Quick actions ---- #}
     <div>
-        <div class="section-title">Hızlı işlemler</div>
+        <div class="section-title">{{ 'Quick actions'|trans }}</div>
         <div class="quick-grid" style="grid-template-columns:1fr;">
             <a class="quick" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">
-                <div class="ic">🧪</div><div><div class="t">Collection workbench</div><div class="s">İstek gönder, düzenle</div></div>
+                <div class="ic">🧪</div><div><div class="t">Collection workbench</div><div class="s">{{ 'Send and edit requests'|trans }}</div></div>
             </a>
             <a class="quick" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">
-                <div class="ic">🔗</div><div><div class="t">Yeni test akışı</div><div class="s">Zincirle, DB'den doğrula</div></div>
+                <div class="ic">🔗</div><div><div class="t">{{ 'New test flow'|trans }}</div><div class="s">{{ 'Chain steps, verify from the DB'|trans }}</div></div>
             </a>
             <a class="quick" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">
-                <div class="ic">🗄</div><div><div class="t">DB bağlantısı</div><div class="s">Postgres · MySQL · Redis · Mongo</div></div>
+                <div class="ic">🗄</div><div><div class="t">{{ 'DB connection'|trans }}</div><div class="s">Postgres · MySQL · Redis · Mongo</div></div>
             </a>
             <a class="quick" href="{{ path('app_apitoken_index', {workspace: workspace.id}) }}">
-                <div class="ic">⚙️</div><div><div class="t">API & MCP</div><div class="s">CI / Claude entegrasyonu</div></div>
+                <div class="ic">⚙️</div><div><div class="t">API & MCP</div><div class="s">{{ 'CI / Claude integration'|trans }}</div></div>
             </a>
         </div>
     </div>

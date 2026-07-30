@@ -16,6 +16,7 @@ use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Super-admin curation of the public API catalog: create entries and publish
@@ -39,6 +40,7 @@ class CatalogController extends AbstractController
         CatalogApiRepository $catalog,
         SluggerInterface $slugger,
         EntityManagerInterface $em,
+        TranslatorInterface $translator,
     ): Response {
         if (!$this->isCsrfTokenValid('catalog-new', (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -46,7 +48,7 @@ class CatalogController extends AbstractController
 
         $name = trim((string) $request->request->get('name'));
         if ('' === $name) {
-            $this->addFlash('error', 'API adı gerekli.');
+            $this->addFlash('error', $translator->trans('API name is required.'));
 
             return $this->redirectToRoute('admin_catalog_index');
         }
@@ -60,14 +62,14 @@ class CatalogController extends AbstractController
         $api->setLogo(trim((string) $request->request->get('logo')) ?: null);
 
         if (null !== $catalog->findOneBy(['slug' => $api->getSlug()])) {
-            $this->addFlash('error', 'Bu isimde bir katalog kaydı zaten var.');
+            $this->addFlash('error', $translator->trans('A catalog entry with this name already exists.'));
 
             return $this->redirectToRoute('admin_catalog_index');
         }
 
         $em->persist($api);
         $em->flush();
-        $this->addFlash('success', sprintf('"%s" kataloğa eklendi. Şimdi bir spec versiyonu yayınlayın.', $api->getName()));
+        $this->addFlash('success', $translator->trans('"%name%" has been added to the catalog. Now publish a spec version.', ['%name%' => $api->getName()]));
 
         return $this->redirectToRoute('admin_catalog_show', ['id' => $api->getId()]);
     }
@@ -82,7 +84,7 @@ class CatalogController extends AbstractController
 
     /** Publishes a new immutable version from an uploaded OpenAPI JSON/YAML file. */
     #[Route('/{id}/versions', name: 'admin_catalog_publish', methods: ['POST'])]
-    public function publish(CatalogApi $api, Request $request, EntityManagerInterface $em): Response
+    public function publish(CatalogApi $api, Request $request, EntityManagerInterface $em, TranslatorInterface $translator): Response
     {
         if (!$this->isCsrfTokenValid('catalog-publish' . $api->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -91,7 +93,7 @@ class CatalogController extends AbstractController
         /** @var UploadedFile|null $file */
         $file = $request->files->get('spec');
         if (null === $file) {
-            $this->addFlash('error', 'Bir spec dosyası seçin.');
+            $this->addFlash('error', $translator->trans('Choose a spec file.'));
 
             return $this->redirectToRoute('admin_catalog_show', ['id' => $api->getId()]);
         }
@@ -99,13 +101,13 @@ class CatalogController extends AbstractController
         try {
             $data = $this->decode($file);
         } catch (\InvalidArgumentException $e) {
-            $this->addFlash('error', $e->getMessage());
+            $this->addFlash('error', $translator->trans('Import error: %error%', ['%error%' => $e->getMessage()]));
 
             return $this->redirectToRoute('admin_catalog_show', ['id' => $api->getId()]);
         }
 
         if (!OpenApiImporter::supports($data) || !isset($data['paths'])) {
-            $this->addFlash('error', 'Dosya bir OpenAPI/Swagger spec\'i değil.');
+            $this->addFlash('error', $translator->trans('The file is not an OpenAPI/Swagger spec.'));
 
             return $this->redirectToRoute('admin_catalog_show', ['id' => $api->getId()]);
         }
@@ -118,20 +120,20 @@ class CatalogController extends AbstractController
 
         $latest = $api->getLatestVersion();
         if (null !== $latest && $latest->getSpecHash() === $version->getSpecHash()) {
-            $this->addFlash('error', sprintf('Spec, son versiyonla ("%s") birebir aynı — yeni versiyon açılmadı.', $latest->getLabel()));
+            $this->addFlash('error', $translator->trans('The spec is identical to the latest version ("%label%") — no new version was created.', ['%label%' => $latest->getLabel()]));
 
             return $this->redirectToRoute('admin_catalog_show', ['id' => $api->getId()]);
         }
 
         $em->persist($version);
         $em->flush();
-        $this->addFlash('success', sprintf('"%s" versiyonu yayınlandı.', $version->getLabel()));
+        $this->addFlash('success', $translator->trans('Version "%label%" has been published.', ['%label%' => $version->getLabel()]));
 
         return $this->redirectToRoute('admin_catalog_show', ['id' => $api->getId()]);
     }
 
     #[Route('/{id}/toggle', name: 'admin_catalog_toggle', methods: ['POST'])]
-    public function toggle(CatalogApi $api, Request $request, EntityManagerInterface $em): Response
+    public function toggle(CatalogApi $api, Request $request, EntityManagerInterface $em, TranslatorInterface $translator): Response
     {
         if (!$this->isCsrfTokenValid('catalog-toggle' . $api->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -139,13 +141,13 @@ class CatalogController extends AbstractController
 
         $api->setActive(!$api->isActive());
         $em->flush();
-        $this->addFlash('success', 'Katalog kaydı güncellendi.');
+        $this->addFlash('success', $translator->trans('Catalog entry updated.'));
 
         return $this->redirectToRoute('admin_catalog_index');
     }
 
     #[Route('/{id}', name: 'admin_catalog_delete', methods: ['POST'])]
-    public function delete(CatalogApi $api, Request $request, EntityManagerInterface $em): Response
+    public function delete(CatalogApi $api, Request $request, EntityManagerInterface $em, TranslatorInterface $translator): Response
     {
         if (!$this->isCsrfTokenValid('catalog-delete' . $api->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -153,7 +155,7 @@ class CatalogController extends AbstractController
 
         $em->remove($api);
         $em->flush();
-        $this->addFlash('success', 'Katalog kaydı silindi.');
+        $this->addFlash('success', $translator->trans('Catalog entry deleted.'));
 
         return $this->redirectToRoute('admin_catalog_index');
     }
@@ -173,7 +175,7 @@ class CatalogController extends AbstractController
             $data = null;
         }
         if (!\is_array($data)) {
-            throw new \InvalidArgumentException(sprintf('"%s" geçerli bir JSON ya da YAML değil.', $file->getClientOriginalName()));
+            throw new \InvalidArgumentException(sprintf('"%s" is not valid JSON or YAML.', $file->getClientOriginalName()));
         }
 
         return $data;

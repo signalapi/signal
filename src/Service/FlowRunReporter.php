@@ -70,7 +70,7 @@ class FlowRunReporter
                         $failed[] = sprintf('%s (gelen: %s)', $a['label'] ?? '', $a['actual'] ?? '');
                     }
                 }
-                $message = $r->getError() ?? implode('; ', $failed) ?: 'assertion başarısız';
+                $message = $r->getError() ?? implode('; ', $failed) ?: 'assertion failed';
                 $failure = $dom->createElement('failure', htmlspecialchars($message));
                 $failure->setAttribute('message', $message);
                 $case->appendChild($failure);

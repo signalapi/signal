@@ -72,12 +72,12 @@
                 <span class="n anim"></span><span class="l"></span>
                 <span class="n anim"></span>
             </div>
-            <h2>{% block brand_title %}API'lerinizi test edin, sonucu veritabanından doğrulayın.{% endblock %}</h2>
-            <p class="lead">Postman collection'larınızı içe aktarın, zincirleme test akışları kurun, PostgreSQL · MySQL · Redis · MongoDB üzerinde doğrulayın — hepsi tek yerde.</p>
+            <h2>{% block brand_title %}{{ 'Test your APIs, verify the result from the database.'|trans }}{% endblock %}</h2>
+            <p class="lead">{{ 'Import your Postman collections, build chained test flows, verify on PostgreSQL · MySQL · Redis · MongoDB — all in one place.'|trans }}</p>
             <ul>
-                <li><span class="ic">✓</span> Postman uyumlu collection & environment içe aktarma</li>
-                <li><span class="ic">✓</span> Zincirleme test akışları + canlı DB doğrulama</li>
-                <li><span class="ic">✓</span> CI/cron tetikleme ve Claude (MCP) entegrasyonu</li>
+                <li><span class="ic">✓</span> {{ 'Postman-compatible collection & environment import'|trans }}</li>
+                <li><span class="ic">✓</span> {{ 'Chained test flows + live DB verification'|trans }}</li>
+                <li><span class="ic">✓</span> {{ 'CI/cron triggering and Claude (MCP) integration'|trans }}</li>
             </ul>
         </div>
         <div class="foot">© Signal: Test Platform</div>
@@ -85,6 +85,11 @@
     <div class="auth-form">
         <div class="auth-card">
             {% block auth_card %}{% endblock %}
+            <p class="alt" style="margin-top:22px;">
+                <a href="{{ path('app_locale_switch', {locale: 'en'}) }}" {% if app.request.locale == 'en' %}style="font-weight:700;"{% endif %}>English</a>
+                ·
+                <a href="{{ path('app_locale_switch', {locale: 'tr'}) }}" {% if app.request.locale == 'tr' %}style="font-weight:700;"{% endif %}>Türkçe</a>
+            </p>
         </div>
     </div>
 </div>

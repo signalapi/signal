@@ -232,7 +232,7 @@ class WorkbenchController extends AbstractAppController
         $body = $this->jsonBody($httpRequest);
         $req = new ApiRequest();
         $req->setCollection($collection);
-        $req->setName(trim((string) ($body['name'] ?? '')) ?: 'Yeni istek');
+        $req->setName(trim((string) ($body['name'] ?? '')) ?: $this->translator->trans('New request'));
         $req->setMethod('GET');
         $req->setUrl('');
         $requests->save($req);
@@ -274,7 +274,7 @@ class WorkbenchController extends AbstractAppController
         $folder = new Folder();
         $folder->setCollection($collection);
         $folder->setParent($parent);
-        $folder->setName(trim((string) ($body['name'] ?? '')) ?: 'Yeni klasör');
+        $folder->setName(trim((string) ($body['name'] ?? '')) ?: $this->translator->trans('New folder'));
         $folder->setPosition($maxPos + 1);
         $folders->save($folder);
 
@@ -431,7 +431,7 @@ class WorkbenchController extends AbstractAppController
     private function statusLabel(?int $code): string
     {
         if (null === $code) {
-            return 'Örnek';
+            return $this->translator->trans('Example');
         }
         $text = \Symfony\Component\HttpFoundation\Response::$statusTexts[$code] ?? 'Response';
 

@@ -8,15 +8,15 @@
     <div>
         <h1>{{ collection.name }}</h1>
         <p class="subtitle" style="margin:0;">
-            {{ collection.requests|length }} istek · {{ workspace.name }}
-            {% if collection.sourceVersion %} · katalog: {{ collection.sourceVersion.catalogApi.name }} <span class="pill">{{ collection.sourceVersion.label }}</span>{% endif %}
+            {{ '%count% requests'|trans({'%count%': collection.requests|length}) }} · {{ workspace.name }}
+            {% if collection.sourceVersion %} · {{ 'catalog'|trans }}: {{ collection.sourceVersion.catalogApi.name }} <span class="pill">{{ collection.sourceVersion.label }}</span>{% endif %}
         </p>
     </div>
     <div>
         {% if collection.sourceVersion and collection.sourceVersion.catalogApi.latestVersion and collection.sourceVersion.catalogApi.latestVersion.id != collection.sourceVersion.id %}
-            <a class="btn" href="{{ path('app_collection_update', {workspace: workspace.id, collection: collection.id}) }}">⬆ Güncelleme var: {{ collection.sourceVersion.catalogApi.latestVersion.label }}</a>
+            <a class="btn" href="{{ path('app_collection_update', {workspace: workspace.id, collection: collection.id}) }}">⬆ {{ 'Update available: %version%'|trans({'%version%': collection.sourceVersion.catalogApi.latestVersion.label}) }}</a>
         {% endif %}
-        <a class="btn ghost" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← Collection'lar</a>
+        <a class="btn ghost" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">← {{ 'Collections'|trans }}</a>
     </div>
 </div>
 
@@ -26,14 +26,14 @@
 
 <div class="card" style="margin-bottom:18px;">
     <form method="post" action="{{ path('app_request_new', {workspace: workspace.id, collection: collection.id}) }}" style="display:flex;gap:8px;align-items:center;">
-        <input type="text" name="name" placeholder="Yeni istek adı" style="flex:1;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);">
+        <input type="text" name="name" placeholder="{{ 'New request name'|trans }}" style="flex:1;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);">
         <input type="hidden" name="_token" value="{{ csrf_token('new-request') }}">
-        <button class="btn small" type="submit">+ İstek Ekle</button>
+        <button class="btn small" type="submit">+ {{ 'Add request'|trans }}</button>
     </form>
 </div>
 
 {% if collection.rootFolders is empty and collection.rootRequests is empty %}
-    <div class="empty">Bu collection boş.</div>
+    <div class="empty">{{ 'This collection is empty.'|trans }}</div>
 {% else %}
     <div class="card">
         {% for folder in collection.rootFolders %}

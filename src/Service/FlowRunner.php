@@ -150,7 +150,7 @@ class FlowRunner
                 $result->setPosition($state['position']++);
                 $result->setLabel($labelPrefix . $step->getName());
                 $result->setStatus(StepResult::STATUS_SKIPPED);
-                $result->setError('Koşul sağlanmadı — adım atlandı.');
+                $result->setError('Condition not met — step skipped.');
                 $run->addStepResult($result);
                 $this->em->flush();
                 continue;
@@ -166,7 +166,7 @@ class FlowRunner
                     $result->setPosition($state['position']++);
                     $result->setLabel($labelPrefix . $step->getName());
                     $result->setStatus(StepResult::STATUS_SKIPPED);
-                    $result->setError('Döngü listesi boş — 0 öğe.');
+                    $result->setError('Loop list is empty — 0 items.');
                     $run->addStepResult($result);
                     $this->em->flush();
                     continue;
@@ -217,7 +217,7 @@ class FlowRunner
                 $result->setStatus(StepResult::STATUS_SKIPPED);
             } else {
                 $result->setStatus(StepResult::STATUS_ERROR);
-                $result->setError(null === $called ? 'Çağrılan alt-akış bulunamadı/silinmiş.' : 'Döngüsel alt-akış çağrısı engellendi.');
+                $result->setError(null === $called ? 'The called sub-flow was not found or has been deleted.' : 'Recursive sub-flow call blocked.');
                 $state['sawError'] = true;
                 $state['stopped'] = $stopOnFailure;
             }
@@ -401,7 +401,7 @@ class FlowRunner
         $apiRequest = $step->toTransientRequest();
         if ('' === trim($apiRequest->getUrl())) {
             $result->setStatus(StepResult::STATUS_ERROR);
-            $result->setError('Adımın URL\'i boş.');
+            $result->setError('The step URL is empty.');
 
             return StepResult::STATUS_ERROR;
         }
@@ -465,7 +465,7 @@ class FlowRunner
 
         if (null === $connection) {
             $result->setStatus(StepResult::STATUS_ERROR);
-            $result->setError('Bu adıma bağlı veritabanı bağlantısı silinmiş.');
+            $result->setError('The database connection for this step has been deleted.');
 
             return StepResult::STATUS_ERROR;
         }
@@ -563,7 +563,7 @@ class FlowRunner
             $set[$name] = $value;
         }
 
-        $result->setRequestUrl(\count($set) . ' değişken set edildi');
+        $result->setRequestUrl(\count($set) . ' variables set');
         $result->setExtractedVars($set);
         $result->setDurationMs(0);
         $result->setStatus(StepResult::STATUS_PASSED);
@@ -650,12 +650,12 @@ class FlowRunner
         if ('schema' === $kind) {
             $schema = json_decode((string) ($assertion['schema'] ?? ''), true);
             if (!\is_array($schema)) {
-                return ['label' => 'yanıt JSON şemasına uyuyor', 'ok' => false, 'actual' => 'geçersiz şema tanımı'];
+                return ['label' => 'response matches the JSON schema', 'ok' => false, 'actual' => 'invalid schema definition'];
             }
             $violations = $this->jsonSchema->validate($schema, $decoded);
 
             return [
-                'label' => 'yanıt JSON şemasına uyuyor',
+                'label' => 'response matches the JSON schema',
                 'ok' => [] === $violations,
                 'actual' => [] === $violations ? 'uygun' : implode(' · ', \array_slice($violations, 0, 5)),
             ];
@@ -727,7 +727,7 @@ class FlowRunner
         }
 
         return mb_strlen($body) > self::MAX_BODY_SNAPSHOT
-            ? mb_substr($body, 0, self::MAX_BODY_SNAPSHOT) . "\n… (kısaltıldı)"
+            ? mb_substr($body, 0, self::MAX_BODY_SNAPSHOT) . "\n… (truncated)"
             : $body;
     }
 }

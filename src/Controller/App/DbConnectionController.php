@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/app/workspaces/{workspace}/db-connections')]
 #[IsGranted('ROLE_USER')]
@@ -29,7 +30,7 @@ class DbConnectionController extends AbstractAppController
     }
 
     #[Route('/new', name: 'app_dbconn_new', methods: ['GET', 'POST'])]
-    public function new(Workspace $workspace, Request $httpRequest, DbConnectionRepository $connections, SecretCipher $cipher): Response
+    public function new(Workspace $workspace, Request $httpRequest, DbConnectionRepository $connections, SecretCipher $cipher, TranslatorInterface $translator): Response
     {
         $this->assertWorkspace($workspace, 'edit');
 
@@ -40,9 +41,9 @@ class DbConnectionController extends AbstractAppController
 
             $conn = new DbConnection();
             $conn->setWorkspace($workspace);
-            $this->applyForm($conn, $httpRequest, $cipher);
+            $this->applyForm($conn, $httpRequest, $cipher, $translator);
             $connections->save($conn);
-            $this->addFlash('success', 'Bağlantı oluşturuldu.');
+            $this->addFlash('success', $translator->trans('Connection created.'));
 
             return $this->redirectToRoute('app_dbconn_index', ['workspace' => $workspace->getId()]);
         }
@@ -60,6 +61,7 @@ class DbConnectionController extends AbstractAppController
         Request $httpRequest,
         DbConnectionRepository $connections,
         SecretCipher $cipher,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertConnection($workspace, $connection);
@@ -69,9 +71,9 @@ class DbConnectionController extends AbstractAppController
                 throw $this->createAccessDeniedException();
             }
 
-            $this->applyForm($connection, $httpRequest, $cipher);
+            $this->applyForm($connection, $httpRequest, $cipher, $translator);
             $connections->save($connection);
-            $this->addFlash('success', 'Bağlantı kaydedildi.');
+            $this->addFlash('success', $translator->trans('Connection saved.'));
 
             return $this->redirectToRoute('app_dbconn_index', ['workspace' => $workspace->getId()]);
         }
@@ -88,6 +90,7 @@ class DbConnectionController extends AbstractAppController
         #[MapEntity(mapping: ['connection' => 'id'])] DbConnection $connection,
         Request $httpRequest,
         DbQueryRunner $runner,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertConnection($workspace, $connection);
@@ -98,9 +101,9 @@ class DbConnectionController extends AbstractAppController
 
         $result = $runner->test($connection);
         if ($result->ok) {
-            $this->addFlash('success', sprintf('Bağlantı başarılı (%d ms).', (int) round($result->durationMs)));
+            $this->addFlash('success', $translator->trans('Connection successful (%ms% ms).', ['%ms%' => (int) round($result->durationMs)]));
         } else {
-            $this->addFlash('error', 'Bağlantı hatası: ' . $result->error);
+            $this->addFlash('error', $translator->trans('Connection error: %error%', ['%error%' => $result->error]));
         }
 
         return $this->redirectToRoute('app_dbconn_index', ['workspace' => $workspace->getId()]);
@@ -112,6 +115,7 @@ class DbConnectionController extends AbstractAppController
         #[MapEntity(mapping: ['connection' => 'id'])] DbConnection $connection,
         Request $httpRequest,
         DbConnectionRepository $connections,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertConnection($workspace, $connection);
@@ -121,15 +125,15 @@ class DbConnectionController extends AbstractAppController
         }
 
         $connections->remove($connection);
-        $this->addFlash('success', 'Bağlantı silindi.');
+        $this->addFlash('success', $translator->trans('Connection deleted.'));
 
         return $this->redirectToRoute('app_dbconn_index', ['workspace' => $workspace->getId()]);
     }
 
-    private function applyForm(DbConnection $conn, Request $request, SecretCipher $cipher): void
+    private function applyForm(DbConnection $conn, Request $request, SecretCipher $cipher, TranslatorInterface $translator): void
     {
         $type = (string) $request->request->get('type');
-        $conn->setName(trim((string) $request->request->get('name')) ?: 'Bağlantı');
+        $conn->setName(trim((string) $request->request->get('name')) ?: $translator->trans('Connection'));
         $conn->setType(\in_array($type, DbConnection::TYPES, true) ? $type : DbConnection::TYPE_POSTGRES);
         $conn->setHost(trim((string) $request->request->get('host')));
         $conn->setPort((int) $request->request->get('port') ?: 5432);

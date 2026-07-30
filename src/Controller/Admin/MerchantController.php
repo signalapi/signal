@@ -19,6 +19,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\String\Slugger\SluggerInterface;
 use Symfony\Component\Validator\Constraints as Assert;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/admin/merchants')]
 #[IsGranted('ROLE_SUPER_ADMIN')]
@@ -40,22 +41,23 @@ class MerchantController extends AbstractController
         UserPasswordHasherInterface $hasher,
         SluggerInterface $slugger,
         EntityManagerInterface $em,
+        TranslatorInterface $translator,
     ): Response {
         $form = $this->createFormBuilder()
             ->add('name', TextType::class, [
-                'label' => 'Merchant adı',
+                'label' => 'Merchant name',
                 'constraints' => [new Assert\NotBlank()],
             ])
             ->add('adminName', TextType::class, [
-                'label' => 'Yetkili adı',
+                'label' => 'Admin name',
                 'constraints' => [new Assert\NotBlank()],
             ])
             ->add('adminEmail', EmailType::class, [
-                'label' => 'Yetkili e-posta',
+                'label' => 'Admin e-mail',
                 'constraints' => [new Assert\NotBlank(), new Assert\Email()],
             ])
             ->add('adminPassword', PasswordType::class, [
-                'label' => 'Yetkili şifre',
+                'label' => 'Admin password',
                 'constraints' => [new Assert\NotBlank(), new Assert\Length(min: 6)],
             ])
             ->getForm();
@@ -66,7 +68,7 @@ class MerchantController extends AbstractController
             $data = $form->getData();
 
             if ($users->findOneBy(['email' => $data['adminEmail']])) {
-                $this->addFlash('error', 'Bu e-posta zaten kullanımda.');
+                $this->addFlash('error', $translator->trans('This e-mail is already in use.'));
 
                 return $this->redirectToRoute('admin_merchant_new');
             }
@@ -89,7 +91,7 @@ class MerchantController extends AbstractController
             $em->persist($membership);
             $em->flush();
 
-            $this->addFlash('success', sprintf('Merchant "%s" ve yetkilisi oluşturuldu.', $merchant->getName()));
+            $this->addFlash('success', $translator->trans('Merchant "%name%" and its admin have been created.', ['%name%' => $merchant->getName()]));
 
             return $this->redirectToRoute('admin_merchant_index');
         }
@@ -100,7 +102,7 @@ class MerchantController extends AbstractController
     }
 
     #[Route('/{id}/toggle', name: 'admin_merchant_toggle', methods: ['POST'])]
-    public function toggle(Request $request, Merchant $merchant, MerchantRepository $merchants): Response
+    public function toggle(Request $request, Merchant $merchant, MerchantRepository $merchants, TranslatorInterface $translator): Response
     {
         if (!$this->isCsrfTokenValid('toggle' . $merchant->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -108,20 +110,20 @@ class MerchantController extends AbstractController
 
         $merchant->setActive(!$merchant->isActive());
         $merchants->save($merchant);
-        $this->addFlash('success', 'Merchant durumu güncellendi.');
+        $this->addFlash('success', $translator->trans('Merchant status updated.'));
 
         return $this->redirectToRoute('admin_merchant_index');
     }
 
     #[Route('/{id}', name: 'admin_merchant_delete', methods: ['POST'])]
-    public function delete(Request $request, Merchant $merchant, MerchantRepository $merchants): Response
+    public function delete(Request $request, Merchant $merchant, MerchantRepository $merchants, TranslatorInterface $translator): Response
     {
         if (!$this->isCsrfTokenValid('delete' . $merchant->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
 
         $merchants->remove($merchant);
-        $this->addFlash('success', 'Merchant silindi.');
+        $this->addFlash('success', $translator->trans('Merchant deleted.'));
 
         return $this->redirectToRoute('admin_merchant_index');
     }

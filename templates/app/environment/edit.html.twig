@@ -3,10 +3,10 @@
 {% block title %}{{ environment.name }} · Environment{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">← Environment'lar</a>
+<a class="backlink" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">← {{ 'Environments'|trans }}</a>
 <div class="pagehead">
     <div>
-        <h1>Environment düzenle</h1>
+        <h1>{{ 'Edit environment'|trans }}</h1>
         <p class="subtitle">{{ workspace.name }}</p>
     </div>
 </div>
@@ -14,14 +14,14 @@
 <form method="post">
     <input type="hidden" name="_token" value="{{ csrf_token('edit-environment' ~ environment.id) }}">
     <div class="field" style="max-width:480px;">
-        <label>Environment adı</label>
+        <label>{{ 'Environment name'|trans }}</label>
         <input type="text" name="name" value="{{ environment.name }}">
     </div>
 
     <div class="fgroup">
-        <div class="fgroup-title">Değişkenler</div>
+        <div class="fgroup-title">{{ 'Variables'|trans }}</div>
         <table id="vars">
-            <thead><tr><th style="width:32%;">Ad</th><th>Değer</th><th style="width:70px;text-align:center;">Gizli</th></tr></thead>
+            <thead><tr><th style="width:32%;">{{ 'Name'|trans }}</th><th>{{ 'Value'|trans }}</th><th style="width:70px;text-align:center;">{{ 'Secret'|trans }}</th></tr></thead>
             <tbody>
             {% set idx = 0 %}
             {% for v in environment.variables %}
@@ -42,13 +42,13 @@
             {% endfor %}
             </tbody>
         </table>
-        <p class="fhint">Boş satırlar yok sayılır. Gizli değişkenler arayüzde maskelenir.</p>
-        <button type="button" class="btn ghost small" onclick="addRow()" style="margin-top:10px;">+ Satır ekle</button>
+        <p class="fhint">{{ 'Empty rows are ignored. Secret variables are masked in the UI.'|trans }}</p>
+        <button type="button" class="btn ghost small" onclick="addRow()" style="margin-top:10px;">+ {{ 'Add row'|trans }}</button>
     </div>
 
     <div class="form-actions">
-        <button class="btn" type="submit">Kaydet</button>
-        <a class="btn ghost" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">Vazgeç</a>
+        <button class="btn" type="submit">{{ 'Save'|trans }}</button>
+        <a class="btn ghost" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
     </div>
 </form>
 

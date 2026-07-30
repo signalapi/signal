@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/app/workspaces/{workspace}/flows')]
 #[IsGranted('ROLE_USER')]
@@ -37,6 +38,7 @@ class FlowController extends AbstractAppController
         Request $httpRequest,
         TestFlowRepository $flows,
         EnvironmentRepository $environments,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
 
@@ -47,7 +49,7 @@ class FlowController extends AbstractAppController
 
             $flow = new TestFlow();
             $flow->setWorkspace($workspace);
-            $flow->setName(trim((string) $httpRequest->request->get('name')) ?: 'Yeni akış');
+            $flow->setName(trim((string) $httpRequest->request->get('name')) ?: $translator->trans('New flow'));
             $flow->setDescription($this->nullable((string) $httpRequest->request->get('description')));
             $flow->setStopOnFailure((bool) $httpRequest->request->get('stopOnFailure'));
 
@@ -60,7 +62,7 @@ class FlowController extends AbstractAppController
             }
 
             $flows->save($flow);
-            $this->addFlash('success', 'Test akışı oluşturuldu.');
+            $this->addFlash('success', $translator->trans('Test flow created.'));
 
             return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -99,6 +101,7 @@ class FlowController extends AbstractAppController
         #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
         Request $httpRequest,
         TestFlowRepository $flows,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -111,7 +114,7 @@ class FlowController extends AbstractAppController
         $enabled = (bool) $httpRequest->request->get('scheduleEnabled');
 
         if ($enabled && ('' === $cron || !\Cron\CronExpression::isValidExpression($cron))) {
-            $this->addFlash('error', 'Geçersiz cron ifadesi.');
+            $this->addFlash('error', $translator->trans('Invalid cron expression.'));
 
             return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
@@ -119,7 +122,7 @@ class FlowController extends AbstractAppController
         $flow->setCronExpression('' === $cron ? null : $cron);
         $flow->setScheduleEnabled($enabled);
         $flows->save($flow);
-        $this->addFlash('success', 'Zamanlama güncellendi.');
+        $this->addFlash('success', $translator->trans('Schedule updated.'));
 
         return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
     }
@@ -130,6 +133,7 @@ class FlowController extends AbstractAppController
         #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
         Request $httpRequest,
         TestFlowRepository $flows,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -139,7 +143,7 @@ class FlowController extends AbstractAppController
         }
 
         $flows->remove($flow);
-        $this->addFlash('success', 'Test akışı silindi.');
+        $this->addFlash('success', $translator->trans('Test flow deleted.'));
 
         return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()]);
     }

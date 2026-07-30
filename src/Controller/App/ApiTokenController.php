@@ -11,6 +11,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/app/workspaces/{workspace}/api-tokens')]
 #[IsGranted('ROLE_USER')]
@@ -32,7 +33,7 @@ class ApiTokenController extends AbstractAppController
     }
 
     #[Route('/new', name: 'app_apitoken_new', methods: ['POST'])]
-    public function new(Workspace $workspace, Request $httpRequest, ApiTokenRepository $tokens): Response
+    public function new(Workspace $workspace, Request $httpRequest, ApiTokenRepository $tokens, TranslatorInterface $translator): Response
     {
         $this->assertWorkspace($workspace, 'admin');
 
@@ -55,7 +56,7 @@ class ApiTokenController extends AbstractAppController
 
         // Show the plaintext exactly once.
         $httpRequest->getSession()->getFlashBag()->add('new_token', $plain);
-        $this->addFlash('success', 'Token oluşturuldu. Aşağıdaki değeri şimdi kopyalayın — tekrar gösterilmeyecek.');
+        $this->addFlash('success', $translator->trans('Token created. Copy the value below now — it will not be shown again.'));
 
         return $this->redirectToRoute('app_apitoken_index', ['workspace' => $workspace->getId()]);
     }
@@ -66,6 +67,7 @@ class ApiTokenController extends AbstractAppController
         #[MapEntity(mapping: ['token' => 'id'])] ApiToken $token,
         Request $httpRequest,
         ApiTokenRepository $tokens,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'admin');
         if ($token->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
@@ -78,7 +80,7 @@ class ApiTokenController extends AbstractAppController
 
         $token->setRevoked(true);
         $tokens->save($token);
-        $this->addFlash('success', 'Token iptal edildi.');
+        $this->addFlash('success', $translator->trans('Token revoked.'));
 
         return $this->redirectToRoute('app_apitoken_index', ['workspace' => $workspace->getId()]);
     }

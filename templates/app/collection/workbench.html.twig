@@ -183,18 +183,18 @@
     <div class="wb-tree-head">
         <span class="nm" title="{{ collection.name }}">{{ collection.name }}</span>
         <span style="white-space:nowrap;">
-            <button class="btn ghost small" onclick="WB.newFolder()" title="Klasör ekle">+ Klasör</button>
-            <button class="btn small" onclick="WB.newRequest()">+ İstek</button>
+            <button class="btn ghost small" onclick="WB.newFolder()" title="{{ 'Add folder'|trans }}">+ {{ 'Folder'|trans }}</button>
+            <button class="btn small" onclick="WB.newRequest()">+ {{ 'Request'|trans }}</button>
         </span>
     </div>
     <div class="wb-search">
-        <input id="treeSearch" placeholder="İstek ara…" spellcheck="false" autocomplete="off">
+        <input id="treeSearch" placeholder="{{ 'Search requests…'|trans }}" spellcheck="false" autocomplete="off">
     </div>
     <div class="wb-tree-body" id="tree">
         {% for f in collection.rootFolders %}{{ t.tree_folder(f) }}{% endfor %}
         {% for r in collection.rootRequests %}{{ t.tree_request(r) }}{% endfor %}
         {% if collection.rootFolders is empty and collection.rootRequests is empty %}
-            <p class="muted-sm" style="padding:10px;">Boş collection. "+ İstek" ile başlayın.</p>
+            <p class="muted-sm" style="padding:10px;">{{ 'Empty collection. Start with "+ Request".'|trans }}</p>
         {% endif %}
     </div>
 </aside>
@@ -204,8 +204,8 @@
         <div class="crumb"><span class="ico">📁</span> {{ collection.name }}</div>
         <div class="wb-env">
             <span class="eyebrow">Environment</span>
-            <select id="wbEnv" title="Tüm isteklere uygulanır">
-                <option value="">— yok —</option>
+            <select id="wbEnv" title="{{ 'Applied to all requests'|trans }}">
+                <option value="">{{ '— none —'|trans }}</option>
                 {% for e in environments %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}
             </select>
         </div>
@@ -214,23 +214,23 @@
     <div class="empty-state" id="emptyState">
         <div class="es-card">
             <div class="es-ic">🧪</div>
-            <div class="es-t">Bir istek seç ya da oluştur</div>
-            <div class="es-s">Soldaki ağaçtan bir isteğe tıkla, ya da yeni bir tane ekle.</div>
-            <button class="btn" onclick="WB.newRequest()">+ Yeni istek</button>
+            <div class="es-t">{{ 'Select or create a request'|trans }}</div>
+            <div class="es-s">{{ 'Click a request in the tree on the left, or add a new one.'|trans }}</div>
+            <button class="btn" onclick="WB.newRequest()">+ {{ 'New request'|trans }}</button>
         </div>
     </div>
 
     <div class="builder" id="builder" hidden>
-        <div class="nmbar"><input id="reqName" placeholder="İstek adı"></div>
+        <div class="nmbar"><input id="reqName" placeholder="{{ 'Request name'|trans }}"></div>
         <div class="urlbar">
             <select class="method" id="reqMethod">
                 {% for m in constant('App\\Entity\\ApiRequest::METHODS') %}<option>{{ m }}</option>{% endfor %}
             </select>
             <input class="url" id="reqUrl" placeholder="https://api.example.com/{{ '{{path}}' }}">
-            <button class="btn" onclick="WB.send()" id="sendBtn">Gönder ▸</button>
-            <button class="btn ghost" onclick="WB.save()">Kaydet</button>
-            <button class="btn ghost" onclick="WB.openCode()" title="Kod üret">&lt;/&gt;</button>
-            <button class="btn danger" onclick="WB.del()" title="İsteği sil">🗑</button>
+            <button class="btn" onclick="WB.send()" id="sendBtn">{{ 'Send'|trans }} ▸</button>
+            <button class="btn ghost" onclick="WB.save()">{{ 'Save'|trans }}</button>
+            <button class="btn ghost" onclick="WB.openCode()" title="{{ 'Generate code'|trans }}">&lt;/&gt;</button>
+            <button class="btn danger" onclick="WB.del()" title="{{ 'Delete request'|trans }}">🗑</button>
         </div>
         <div class="tabs">
             <div class="tab active" data-tab="params" onclick="WB.tab('params')">Params<span class="tab-n" id="tabnParams"></span></div>
@@ -242,7 +242,7 @@
         <div class="tabpanel" data-panel="headers" hidden><div id="headersRows"></div></div>
         <div class="tabpanel" data-panel="auth" hidden>
             <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                <label style="font-size:13px;color:var(--muted);">Tür</label>
+                <label style="font-size:13px;color:var(--muted);">{{ 'Type'|trans }}</label>
                 <select id="authType" onchange="WB.renderAuth()" style="background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px;color:var(--text);">
                     <option value="none">No Auth</option>
                     <option value="bearer">Bearer Token</option>
@@ -260,30 +260,30 @@
                 <button type="button" class="btn ghost small" id="formatBtn" onclick="WB.formatBody()" hidden>Format</button>
                 <span id="jsonValidity" class="muted-sm"></span>
                 <div style="flex:1"></div>
-                <span class="muted-sm">{{ '{{API_URL}}' }} · {{ '{{$randomEmail}}' }} · {{ '{{$guid}}' }} desteklenir</span>
+                <span class="muted-sm">{{ '{{API_URL}}' }} · {{ '{{$randomEmail}}' }} · {{ '{{$guid}}' }} {{ 'supported'|trans }}</span>
             </div>
             <div class="hl-wrap">
                 <div class="ln" id="lineNums">1</div>
                 <div class="ed-stack">
                     <div id="bodyBackdrop" class="hl-backdrop"></div>
-                    <textarea id="reqBody" class="code-edit" spellcheck="false" oninput="WB.validateBody()" placeholder="İstek gövdesi"></textarea>
+                    <textarea id="reqBody" class="code-edit" spellcheck="false" oninput="WB.validateBody()" placeholder="{{ 'Request body'|trans }}"></textarea>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="wb-resizer" id="wbResizer" title="Sürükle: boyutlandır · Tıkla: aşağı indir / geri al" hidden></div>
+    <div class="wb-resizer" id="wbResizer" title="{{ 'Drag to resize · Click to collapse / restore'|trans }}" hidden></div>
 
     <div class="response" id="response" hidden>
         <div class="resp-head">
             <span class="resp-status" id="respStatus">—</span>
             <span class="muted-sm" id="respMeta"></span>
-            <button class="btn ghost small" id="saveExampleBtn" onclick="WB.saveExample()" title="Bu yanıtı örnek olarak kaydet" hidden style="margin-left:6px;">★ Örnek kaydet</button>
-            <button class="btn ghost small" id="delExampleBtn" onclick="WB.deleteExample()" title="Bu örneği sil" hidden style="margin-left:6px;">🗑 Örneği sil</button>
+            <button class="btn ghost small" id="saveExampleBtn" onclick="WB.saveExample()" title="{{ 'Save this response as an example'|trans }}" hidden style="margin-left:6px;">★ {{ 'Save example'|trans }}</button>
+            <button class="btn ghost small" id="delExampleBtn" onclick="WB.deleteExample()" title="{{ 'Delete this example'|trans }}" hidden style="margin-left:6px;">🗑 {{ 'Delete example'|trans }}</button>
             <div style="flex:1"></div>
             <div class="tab active" data-rtab="body" onclick="WB.rtab('body')" style="padding:4px 8px;">Body</div>
             <div class="tab" data-rtab="headers" onclick="WB.rtab('headers')" style="padding:4px 8px;">Headers</div>
-            <div class="tab" data-rtab="history" onclick="WB.rtab('history')" style="padding:4px 8px;">Geçmiş</div>
+            <div class="tab" data-rtab="history" onclick="WB.rtab('history')" style="padding:4px 8px;">{{ 'History'|trans }}</div>
         </div>
         <div class="resp-body"><pre id="respBody"></pre><pre id="respHeaders" hidden></pre><div id="respHistory" hidden></div></div>
     </div>
@@ -294,14 +294,14 @@
 <div id="codeModal" class="code-modal" hidden onclick="if(event.target===this)WB.closeCode()">
     <div class="code-card">
         <div class="code-head">
-            <strong>Kod</strong>
+            <strong>{{ 'Code'|trans }}</strong>
             <select id="codeLang" onchange="WB.renderCode()">
                 <option value="curl">cURL</option>
                 <option value="fetch">JavaScript (fetch)</option>
                 <option value="php">PHP (cURL)</option>
             </select>
             <div style="flex:1"></div>
-            <button class="btn small" onclick="WB.copyCode()">Kopyala</button>
+            <button class="btn small" onclick="WB.copyCode()">{{ 'Copy'|trans }}</button>
             <button class="btn ghost small" onclick="WB.closeCode()">✕</button>
         </div>
         <pre id="codeOut"></pre>
@@ -325,7 +325,53 @@
         reorder: path('wb_request_reorder', {workspace: workspace.id, collection: collection.id})
     },
     wsId: workspace.id,
-    envs: environments|map(e => {'id': e.id, 'vars': e.variables|map(v => v.name)})
+    envs: environments|map(e => {'id': e.id, 'vars': e.variables|map(v => v.name)}),
+    i18n: {
+        name: 'name'|trans,
+        value: 'value'|trans,
+        del: 'delete'|trans,
+        pressSend: 'Press Send or check the History tab'|trans,
+        validVars: 'Valid (variables will be resolved)'|trans,
+        validJson: 'Valid JSON'|trans,
+        cantFormat: 'Body containing variables cannot be formatted'|trans,
+        tokenPh: 'Token (can be a variable)'|trans,
+        username: 'Username'|trans,
+        usernamePh: 'username'|trans,
+        password: 'Password'|trans,
+        passwordPh: 'password'|trans,
+        keyLbl: 'Key'|trans,
+        valueLbl: 'Value'|trans,
+        valuePh: 'value (can be a variable)'|trans,
+        addTo: 'Add to'|trans,
+        noAuth: 'No authentication for this request.'|trans,
+        sending: 'Sending…'|trans,
+        send: 'Send'|trans,
+        error: 'Error'|trans,
+        example: 'example'|trans,
+        automatic: 'automatic'|trans,
+        exampleNamePrompt: 'Example name:'|trans,
+        exampleDefault: 'Example'|trans,
+        exampleSaved: 'Example saved'|trans,
+        exampleDeleteConfirm: 'This example will be deleted.'|trans,
+        saved: 'Saved'|trans,
+        requestDeleteConfirm: 'The request will be deleted.'|trans,
+        requestNamePrompt: 'Request name:'|trans,
+        newRequestDefault: 'New request'|trans,
+        secAgo: '%count% sec ago'|trans,
+        minAgo: '%count% min ago'|trans,
+        hrAgo: '%count% hr ago'|trans,
+        daysAgo: '%count% days ago'|trans,
+        noHistory: 'No run history for this request yet.'|trans,
+        history: 'history'|trans,
+        copied: 'Copied'|trans,
+        variables: 'Variables'|trans,
+        undef: 'undefined'|trans,
+        defined: 'defined'|trans,
+        undefinedInEnv: 'undefined (not in the selected environment)'|trans,
+        folderNamePrompt: 'Folder name:'|trans,
+        newFolderDefault: 'New folder'|trans,
+        moved: 'Moved'|trans
+    }
 }|json_encode|raw }}</script>
 {% verbatim %}
 <script>
@@ -333,6 +379,7 @@ const WB = (() => {
     const CFG = JSON.parse(document.getElementById('wb-config').textContent);
     const CSRF = CFG.csrf;
     const U = CFG.urls;
+    const T = CFG.i18n;
     const ENV_VARS = {};
     (CFG.envs || []).forEach(e => ENV_VARS[e.id] = new Set(Object.values(e.vars || {})));
     let currentId = null;
@@ -353,7 +400,7 @@ const WB = (() => {
     }
     function addRow(container, name='', value='') {
         const row = document.createElement('div'); row.className = 'kv-row';
-        row.innerHTML = '<input placeholder="ad" value=""><input placeholder="değer" value=""><button title="sil">✕</button>';
+        row.innerHTML = '<input placeholder="' + T.name + '" value=""><input placeholder="' + T.value + '" value=""><button title="' + T.del + '">✕</button>';
         const [n, v] = row.querySelectorAll('input');
         n.value = name; v.value = value;
         const ensureTrailing = () => {
@@ -403,7 +450,7 @@ const WB = (() => {
             const a = r.auth || {}; $('authType').value = a.type || 'none'; renderAuth(a);
             $('response').hidden = false;
             $('respStatus').textContent = '—'; $('respStatus').style.color = 'var(--muted)';
-            $('respMeta').textContent = 'Gönder\'e basın veya Geçmiş sekmesine bakın';
+            $('respMeta').textContent = T.pressSend;
             $('respBody').textContent = ''; $('respHeaders').textContent = ''; rtab('body');
             validateBody(); refreshVars();
         });
@@ -439,7 +486,7 @@ const WB = (() => {
         const hasVars = /\{\{[^{}]*\}\}/.test(txt);
         try {
             JSON.parse(jsonForValidation(txt));
-            badge.textContent = hasVars ? '✓ Geçerli (değişkenler çözülecek)' : '✓ Geçerli JSON';
+            badge.textContent = '✓ ' + (hasVars ? T.validVars : T.validJson);
             badge.style.color = 'var(--accent-2)';
         } catch (e) {
             badge.textContent = '✗ ' + e.message; badge.style.color = 'var(--danger)';
@@ -448,7 +495,7 @@ const WB = (() => {
     function formatBody() {
         // Only reformat when there are no template variables (formatting would lose them).
         const txt = $('reqBody').value;
-        if (/\{\{[^{}]*\}\}/.test(txt)) { flash('Değişken içeren gövde biçimlendirilemez'); return; }
+        if (/\{\{[^{}]*\}\}/.test(txt)) { flash(T.cantFormat); return; }
         try {
             $('reqBody').value = JSON.stringify(JSON.parse(txt), null, 2);
             refreshVars(); validateBody();
@@ -467,11 +514,11 @@ const WB = (() => {
         const inp = (id,ph,val) => '<input id="'+id+'" placeholder="'+ph+'" value="'+val+'" class="auth-in">';
         const lbl = txt => '<label class="auth-lbl">'+txt+'</label>';
         let h = '';
-        if (type === 'bearer') h = lbl('Token')+inp('authToken','Token (değişken de olabilir)', v('token'));
-        else if (type === 'basic') h = lbl('Kullanıcı')+inp('authUser','kullanıcı', v('username'))+lbl('Şifre')+inp('authPass','şifre', v('password'));
-        else if (type === 'apikey') h = lbl('Anahtar (key)')+inp('authKey','X-Api-Key', v('key'))+lbl('Değer')+inp('authVal','değer (değişken de olabilir)', v('value'))
-            +lbl('Ekleneceği yer')+'<select id="authAddTo" class="auth-in"><option value="header"'+(prefill.addTo!=='query'?' selected':'')+'>Header</option><option value="query"'+(prefill.addTo==='query'?' selected':'')+'>Query param</option></select>';
-        else h = '<p class="muted-sm">Bu istek için kimlik doğrulama yok.</p>';
+        if (type === 'bearer') h = lbl('Token')+inp('authToken', T.tokenPh, v('token'));
+        else if (type === 'basic') h = lbl(T.username)+inp('authUser', T.usernamePh, v('username'))+lbl(T.password)+inp('authPass', T.passwordPh, v('password'));
+        else if (type === 'apikey') h = lbl(T.keyLbl)+inp('authKey','X-Api-Key', v('key'))+lbl(T.valueLbl)+inp('authVal', T.valuePh, v('value'))
+            +lbl(T.addTo)+'<select id="authAddTo" class="auth-in"><option value="header"'+(prefill.addTo!=='query'?' selected':'')+'>Header</option><option value="query"'+(prefill.addTo==='query'?' selected':'')+'>Query param</option></select>';
+        else h = '<p class="muted-sm">' + T.noAuth + '</p>';
         c.innerHTML = h;
     }
     function collectAuth() {
@@ -486,12 +533,12 @@ const WB = (() => {
         const b = payload(); b.environment = $('wbEnv').value;
         // Comments are an editor convenience; strip them so the wire body stays valid JSON.
         if (b.bodyMode === 'json' && b.body) b.body = stripJsonComments(b.body);
-        $('sendBtn').textContent = 'Gönderiliyor…'; $('sendBtn').disabled = true;
+        $('sendBtn').textContent = T.sending; $('sendBtn').disabled = true;
         api(U.send.replace('REQID', currentId), 'POST', b).then(res => {
-            $('sendBtn').textContent = 'Gönder'; $('sendBtn').disabled = false;
+            $('sendBtn').textContent = T.send; $('sendBtn').disabled = false;
             $('response').hidden = false;
             if (!res.ok && res.error) {
-                $('respStatus').textContent = 'Hata'; $('respStatus').style.color = 'var(--danger)';
+                $('respStatus').textContent = T.error; $('respStatus').style.color = 'var(--danger)';
                 $('respMeta').textContent = ''; $('respBody').textContent = res.error; rtab('body');
                 $('respHeaders').textContent = '';
                 lastResp = null; $('saveExampleBtn').hidden = true; $('delExampleBtn').hidden = true;
@@ -540,7 +587,7 @@ const WB = (() => {
             const sc = d.status;
             $('respStatus').textContent = sc == null ? '—' : sc;
             $('respStatus').style.color = sc == null ? 'var(--muted)' : (sc < 300 ? 'var(--accent-2)' : (sc < 400 ? 'var(--warn)' : 'var(--danger)'));
-            $('respMeta').textContent = d.name + ' · örnek' + ({auto:' (otomatik)',imported:' (Postman)',manual:''}[d.source] || '');
+            $('respMeta').textContent = d.name + ' · ' + T.example + ({auto:' (' + T.automatic + ')',imported:' (Postman)',manual:''}[d.source] || '');
             let body = d.body || '';
             try { body = JSON.stringify(JSON.parse(body), null, 2); } catch(e) {}
             $('respBody').textContent = body;
@@ -550,15 +597,15 @@ const WB = (() => {
     }
     function saveExample() {
         if (!currentId || !lastResp) return;
-        const name = prompt('Örnek adı:', lastResp.status ? (lastResp.status + ' Response') : 'Örnek');
+        const name = prompt(T.exampleNamePrompt, lastResp.status ? (lastResp.status + ' Response') : T.exampleDefault);
         if (name === null) return;
         api(U.exampleCreate.replace('REQID', currentId), 'POST', {
             name: name, status: lastResp.status, body: lastResp.body, headers: lastResp.headers,
-        }).then(r => { if (r.ok) { renderExamples(currentId, r.examples); flash('Örnek kaydedildi'); } });
+        }).then(r => { if (r.ok) { renderExamples(currentId, r.examples); flash(T.exampleSaved); } });
     }
     function deleteExample() {
         if (!currentExampleId) return;
-        if (!confirm('Bu örnek silinecek.')) return;
+        if (!confirm(T.exampleDeleteConfirm)) return;
         const rid = currentId;
         api(U.exampleDelete.replace('EXID', currentExampleId), 'POST').then(r => {
             if (r.ok) { renderExamples(rid, r.examples); currentExampleId = null; $('delExampleBtn').hidden = true; }
@@ -569,17 +616,17 @@ const WB = (() => {
         if (!currentId) return;
         api(U.save.replace('REQID', currentId), 'POST', payload()).then(r => {
             if (r.ok) { const el = document.querySelector('.tree-req[data-id="'+currentId+'"] .t-name'); if(el) el.textContent = r.request.name;
-                const m = document.querySelector('.tree-req[data-id="'+currentId+'"] .meth'); if(m) m.textContent = r.request.method; flash('Kaydedildi'); }
+                const m = document.querySelector('.tree-req[data-id="'+currentId+'"] .meth'); if(m) m.textContent = r.request.method; flash(T.saved); }
         });
     }
     function del() {
-        if (!currentId || !confirm('İstek silinecek.')) return;
+        if (!currentId || !confirm(T.requestDeleteConfirm)) return;
         api(U.del.replace('REQID', currentId), 'POST').then(r => {
             if (r.ok) { document.querySelector('.tree-req[data-id="'+currentId+'"]')?.remove(); currentId=null; $('builder').hidden=true; $('response').hidden=true; $('emptyState').hidden=false; }
         });
     }
     function newRequest() {
-        const name = prompt('İstek adı:', 'Yeni istek'); if (name === null) return;
+        const name = prompt(T.requestNamePrompt, T.newRequestDefault); if (name === null) return;
         api(U.create, 'POST', {name}).then(r => {
             if (!r.ok) return;
             const tree = $('tree'); const colors = {GET:'#16a34a',POST:'#d97706',PUT:'#2563eb',PATCH:'#7c3aed',DELETE:'#dc2626'};
@@ -599,16 +646,16 @@ const WB = (() => {
     }
     function timeago(iso) {
         const s = Math.floor((Date.now() - new Date(iso).getTime())/1000);
-        if (s < 60) return s+' sn önce';
-        if (s < 3600) return Math.floor(s/60)+' dk önce';
-        if (s < 86400) return Math.floor(s/3600)+' sa önce';
-        return Math.floor(s/86400)+' gün önce';
+        if (s < 60) return T.secAgo.replace('%count%', s);
+        if (s < 3600) return T.minAgo.replace('%count%', Math.floor(s/60));
+        if (s < 86400) return T.hrAgo.replace('%count%', Math.floor(s/3600));
+        return T.daysAgo.replace('%count%', Math.floor(s/86400));
     }
     function loadHistory() {
         if (!currentId) return;
         api(U.history.replace('REQID', currentId)).then(d => {
             const items = d.items || [];
-            if (!items.length) { $('respHistory').innerHTML = '<p class="muted-sm" style="padding:14px;">Bu istek için henüz koşum geçmişi yok.</p>'; return; }
+            if (!items.length) { $('respHistory').innerHTML = '<p class="muted-sm" style="padding:14px;">' + T.noHistory + '</p>'; return; }
             $('respHistory').innerHTML = items.map(it => {
                 const ok = !it.error && it.status < 400;
                 const color = it.error ? 'var(--danger)' : (it.status < 300 ? 'var(--accent-2)' : (it.status < 400 ? 'var(--warn)' : 'var(--danger)'));
@@ -625,12 +672,12 @@ const WB = (() => {
         api(U.historyDetail.replace('HID', id)).then(d => {
             rtab('body');
             if (d.error) {
-                $('respStatus').textContent = 'Hata'; $('respStatus').style.color = 'var(--danger)';
+                $('respStatus').textContent = T.error; $('respStatus').style.color = 'var(--danger)';
                 $('respMeta').textContent = ''; $('respBody').textContent = d.error; $('respHeaders').textContent = ''; return;
             }
             const sc = d.status;
             $('respStatus').textContent = sc; $('respStatus').style.color = sc < 300 ? 'var(--accent-2)' : (sc < 400 ? 'var(--warn)' : 'var(--danger)');
-            $('respMeta').textContent = d.durationMs + ' ms · ' + d.size + ' B' + (d.env ? ' · ' + d.env : '') + ' (geçmiş)';
+            $('respMeta').textContent = d.durationMs + ' ms · ' + d.size + ' B' + (d.env ? ' · ' + d.env : '') + ' (' + T.history + ')';
             let body = d.body || ''; try { body = JSON.stringify(JSON.parse(body), null, 2); } catch(e) {}
             $('respBody').textContent = body;
             $('respHeaders').textContent = Object.entries(d.headers || {}).map(([k,v]) => k+': '+v).join('\n');
@@ -689,7 +736,7 @@ const WB = (() => {
         s += '$response = curl_exec($ch);\ncurl_close($ch);\necho $response;';
         return s;
     }
-    function copyCode() { navigator.clipboard.writeText($('codeOut').textContent).then(() => flash('Kopyalandı')); }
+    function copyCode() { navigator.clipboard.writeText($('codeOut').textContent).then(() => flash(T.copied)); }
 
     // ---- Undefined-variable highlighting ----
     function currentEnvVars() { return ENV_VARS[$('wbEnv').value] || new Set(); }
@@ -708,8 +755,8 @@ const WB = (() => {
         if (!vars.length) { bar.hidden = true; bar.innerHTML = ''; return; }
         bar.hidden = false;
         const undef = vars.filter(v => !isDefined(v)).length;
-        bar.innerHTML = '<span class="muted-sm" style="margin-right:2px;">Değişkenler' + (undef ? ' · ' + undef + ' tanımsız' : '') + ':</span>'
-            + vars.map(v => '<span class="var-chip ' + (isDefined(v) ? 'ok' : 'bad') + '" title="' + (isDefined(v) ? 'tanımlı' : 'tanımsız (seçili environment\'ta yok)') + '">{{' + esc(v) + '}}</span>').join('');
+        bar.innerHTML = '<span class="muted-sm" style="margin-right:2px;">' + T.variables + (undef ? ' · ' + undef + ' ' + T.undef : '') + ':</span>'
+            + vars.map(v => '<span class="var-chip ' + (isDefined(v) ? 'ok' : 'bad') + '" title="' + (isDefined(v) ? T.defined : T.undefinedInEnv) + '">{{' + esc(v) + '}}</span>').join('');
     }
     function varClass(name) { return name.charAt(0) === '$' ? 'v-dyn' : (currentEnvVars().has(name) ? 'v-ok' : 'v-bad'); }
     function varSpanInner(s) {
@@ -837,7 +884,7 @@ const WB = (() => {
     // ---- Folders + drag & drop ----
     function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
     function newFolder() {
-        const name = prompt('Klasör adı:', 'Yeni klasör'); if (name === null) return;
+        const name = prompt(T.folderNamePrompt, T.newFolderDefault); if (name === null) return;
         api(U.folderCreate, 'POST', {name}).then(r => {
             if (!r.ok) return;
             const div = document.createElement('div'); div.className = 'tree-folder'; div.dataset.folderId = r.folder.id;
@@ -872,7 +919,7 @@ const WB = (() => {
     function reorderContainer(container) {
         const folderId = container.dataset.folderId || '';
         const order = [...container.querySelectorAll(':scope > .tree-req')].map(el => el.dataset.id);
-        api(U.reorder, 'POST', {folderId, order}).then(() => flash('Taşındı'));
+        api(U.reorder, 'POST', {folderId, order}).then(() => flash(T.moved));
     }
     function onDrop(e) {
         e.preventDefault(); clearDragTargets();

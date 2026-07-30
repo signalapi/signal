@@ -10,6 +10,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/app/workspaces/{workspace}/cookies')]
 #[IsGranted('ROLE_USER')]
@@ -29,7 +30,7 @@ class CookieController extends AbstractAppController
 
     /** Clears the user's own jar; scope=shared clears the flow-run jar (editors). */
     #[Route('/clear', name: 'app_cookie_clear', methods: ['POST'])]
-    public function clear(Workspace $workspace, Request $httpRequest, CookieRepository $cookies): Response
+    public function clear(Workspace $workspace, Request $httpRequest, CookieRepository $cookies, TranslatorInterface $translator): Response
     {
         if (!$this->isCsrfTokenValid('cookie-clear', (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
@@ -38,11 +39,11 @@ class CookieController extends AbstractAppController
         if ('shared' === $httpRequest->request->get('scope')) {
             $this->assertWorkspace($workspace, 'edit');
             $cookies->clearWorkspace($workspace, null);
-            $this->addFlash('success', 'Paylaşımlı (flow) cookie\'leri temizlendi.');
+            $this->addFlash('success', $translator->trans('Shared (flow) cookies cleared.'));
         } else {
             $this->assertWorkspace($workspace);
             $cookies->clearWorkspace($workspace, $this->currentUser());
-            $this->addFlash('success', 'Cookie\'leriniz temizlendi.');
+            $this->addFlash('success', $translator->trans('Your cookies have been cleared.'));
         }
 
         return $this->redirectToRoute('app_cookie_index', ['workspace' => $workspace->getId()]);
@@ -54,6 +55,7 @@ class CookieController extends AbstractAppController
         #[MapEntity(mapping: ['cookie' => 'id'])] Cookie $cookie,
         Request $httpRequest,
         CookieRepository $cookies,
+        TranslatorInterface $translator,
     ): Response {
         if ($cookie->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
@@ -70,7 +72,7 @@ class CookieController extends AbstractAppController
         }
 
         $cookies->remove($cookie);
-        $this->addFlash('success', 'Cookie silindi.');
+        $this->addFlash('success', $translator->trans('Cookie deleted.'));
 
         return $this->redirectToRoute('app_cookie_index', ['workspace' => $workspace->getId()]);
     }

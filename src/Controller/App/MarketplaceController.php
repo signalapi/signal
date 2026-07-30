@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * The public API marketplace: one-click import of a curated catalog API into
@@ -43,6 +44,7 @@ class MarketplaceController extends AbstractAppController
         \App\Repository\WorkspaceRepository $workspaces,
         OpenApiImporter $importer,
         EntityManagerInterface $em,
+        TranslatorInterface $translator,
     ): Response {
         $api = $catalog->findOneBy(['slug' => $slug, 'active' => true]);
         $version = $api?->getLatestVersion();
@@ -64,7 +66,7 @@ class MarketplaceController extends AbstractAppController
         try {
             $collection = $importer->importCollection($version->getSpec(), $workspace);
         } catch (\InvalidArgumentException $e) {
-            $this->addFlash('error', 'İçe aktarma hatası: ' . $e->getMessage());
+            $this->addFlash('error', $translator->trans('Import error: %error%', ['%error%' => $e->getMessage()]));
 
             return $this->redirectToRoute('app_marketplace');
         }
@@ -74,13 +76,15 @@ class MarketplaceController extends AbstractAppController
         $env = $importer->importEnvironment($version->getSpec(), $workspace);
         $em->flush();
 
-        $this->addFlash('success', sprintf(
-            '"%s" (%s) "%s" workspace\'ine eklendi.%s',
-            $api->getName(),
-            $version->getLabel(),
-            $workspace->getName(),
-            null !== $env ? sprintf(' "%s" environment\'ındaki secret değerleri doldurmayı unutmayın.', $env->getName()) : '',
-        ));
+        $message = $translator->trans('"%api%" (%version%) was added to the "%workspace%" workspace.', [
+            '%api%' => $api->getName(),
+            '%version%' => $version->getLabel(),
+            '%workspace%' => $workspace->getName(),
+        ]);
+        if (null !== $env) {
+            $message .= ' ' . $translator->trans('Don\'t forget to fill in the secret values in the "%environment%" environment.', ['%environment%' => $env->getName()]);
+        }
+        $this->addFlash('success', $message);
 
         return $this->redirectToRoute('app_collection_index', ['workspace' => $workspace->getId()]);
     }

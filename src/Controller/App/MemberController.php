@@ -17,6 +17,7 @@ use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Uid\Uuid;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
  * Merchant-level member management: list, invite, change role, remove.
@@ -58,6 +59,7 @@ class MemberController extends AbstractAppController
         MerchantMemberRepository $members,
         WorkspaceRepository $workspaces,
         EntityManagerInterface $em,
+        TranslatorInterface $translator,
     ): Response {
         $merchant = $this->currentMerchant();
         $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_MEMBERS, $merchant);
@@ -72,13 +74,13 @@ class MemberController extends AbstractAppController
         $workspaceIds = array_map('strval', (array) $request->request->all('workspace_ids'));
 
         if (!filter_var($email, \FILTER_VALIDATE_EMAIL)) {
-            $this->addFlash('error', 'Geçerli bir e-posta girin.');
+            $this->addFlash('error', $translator->trans('Enter a valid e-mail address.'));
 
             return $this->redirectToRoute('app_member_index');
         }
         foreach ($members->findByMerchant($merchant) as $existing) {
             if ($existing->getUser()->getEmail() === $email) {
-                $this->addFlash('error', 'Bu e-posta zaten üye.');
+                $this->addFlash('error', $translator->trans('This e-mail is already a member.'));
 
                 return $this->redirectToRoute('app_member_index');
             }
@@ -107,13 +109,13 @@ class MemberController extends AbstractAppController
         $em->flush();
 
         $this->addFlash('invite_link', $this->generateUrl('app_invite_show', ['token' => $plaintext], UrlGeneratorInterface::ABSOLUTE_URL));
-        $this->addFlash('success', sprintf('%s için davet oluşturuldu. Linki iletin — yalnızca şimdi gösterilir.', $email));
+        $this->addFlash('success', $translator->trans('Invitation created for %email%. Share the link — it is shown only now.', ['%email%' => $email]));
 
         return $this->redirectToRoute('app_member_index');
     }
 
     #[Route('/invitations/{id}/rotate', name: 'app_invitation_rotate', methods: ['POST'])]
-    public function rotateInvitation(string $id, Request $request, InvitationRepository $invitations, EntityManagerInterface $em): Response
+    public function rotateInvitation(string $id, Request $request, InvitationRepository $invitations, EntityManagerInterface $em, TranslatorInterface $translator): Response
     {
         $merchant = $this->currentMerchant();
         $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_MEMBERS, $merchant);
@@ -129,13 +131,13 @@ class MemberController extends AbstractAppController
         $em->flush();
 
         $this->addFlash('invite_link', $this->generateUrl('app_invite_show', ['token' => $plaintext], UrlGeneratorInterface::ABSOLUTE_URL));
-        $this->addFlash('success', sprintf('%s için yeni davet linki üretildi.', $invitation->getEmail()));
+        $this->addFlash('success', $translator->trans('A new invitation link was generated for %email%.', ['%email%' => $invitation->getEmail()]));
 
         return $this->redirectToRoute('app_member_index');
     }
 
     #[Route('/invitations/{id}/cancel', name: 'app_invitation_cancel', methods: ['POST'])]
-    public function cancelInvitation(string $id, Request $request, InvitationRepository $invitations, EntityManagerInterface $em): Response
+    public function cancelInvitation(string $id, Request $request, InvitationRepository $invitations, EntityManagerInterface $em, TranslatorInterface $translator): Response
     {
         $merchant = $this->currentMerchant();
         $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_MEMBERS, $merchant);
@@ -147,13 +149,13 @@ class MemberController extends AbstractAppController
 
         $em->remove($invitation);
         $em->flush();
-        $this->addFlash('success', 'Davet iptal edildi.');
+        $this->addFlash('success', $translator->trans('Invitation cancelled.'));
 
         return $this->redirectToRoute('app_member_index');
     }
 
     #[Route('/{id}/role', name: 'app_member_role', methods: ['POST'])]
-    public function changeRole(string $id, Request $request, MerchantMemberRepository $members, EntityManagerInterface $em): Response
+    public function changeRole(string $id, Request $request, MerchantMemberRepository $members, EntityManagerInterface $em, TranslatorInterface $translator): Response
     {
         $merchant = $this->currentMerchant();
         $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_MEMBERS, $merchant);
@@ -163,7 +165,7 @@ class MemberController extends AbstractAppController
             throw $this->createAccessDeniedException();
         }
         if ($member->isOwner()) {
-            $this->addFlash('error', 'Owner rolü buradan değiştirilemez.');
+            $this->addFlash('error', $translator->trans('The owner role cannot be changed here.'));
 
             return $this->redirectToRoute('app_member_index');
         }
@@ -174,17 +176,16 @@ class MemberController extends AbstractAppController
         }
         $member->setRole($role);
         $em->flush();
-        $this->addFlash('success', sprintf(
-            '%s artık %s.',
-            $member->getUser()->getName(),
-            MerchantMember::ROLE_ADMIN === $role ? 'genel yönetici' : 'üye'
-        ));
+        $this->addFlash('success', $translator->trans('%name% is now %role%.', [
+            '%name%' => $member->getUser()->getName(),
+            '%role%' => MerchantMember::ROLE_ADMIN === $role ? $translator->trans('Company Admin') : $translator->trans('Member'),
+        ]));
 
         return $this->redirectToRoute('app_member_index');
     }
 
     #[Route('/{id}/remove', name: 'app_member_remove', methods: ['POST'])]
-    public function remove(string $id, Request $request, MerchantMemberRepository $members, EntityManagerInterface $em): Response
+    public function remove(string $id, Request $request, MerchantMemberRepository $members, EntityManagerInterface $em, TranslatorInterface $translator): Response
     {
         $merchant = $this->currentMerchant();
         $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_MEMBERS, $merchant);
@@ -194,7 +195,7 @@ class MemberController extends AbstractAppController
             throw $this->createAccessDeniedException();
         }
         if ($member->isOwner()) {
-            $this->addFlash('error', 'Owner üyelikten çıkarılamaz.');
+            $this->addFlash('error', $translator->trans('The owner cannot be removed from membership.'));
 
             return $this->redirectToRoute('app_member_index');
         }
@@ -212,7 +213,7 @@ class MemberController extends AbstractAppController
 
         $em->remove($member);
         $em->flush();
-        $this->addFlash('success', sprintf('%s üyelikten çıkarıldı.', $member->getUser()->getName()));
+        $this->addFlash('success', $translator->trans('%name% was removed from membership.', ['%name%' => $member->getUser()->getName()]));
 
         return $this->redirectToRoute('app_member_index');
     }

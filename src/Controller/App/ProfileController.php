@@ -30,14 +30,14 @@ class ProfileController extends AbstractAppController
 
         $name = trim((string) $request->request->get('name'));
         if ('' === $name) {
-            $this->addFlash('error', 'Ad soyad boş olamaz.');
+            $this->addFlash('error', $this->translator->trans('Full name cannot be empty.'));
 
             return $this->redirectToRoute('app_profile');
         }
 
         $this->currentUser()->setName($name);
         $em->flush();
-        $this->addFlash('success', 'Adınız güncellendi.');
+        $this->addFlash('success', $this->translator->trans('Your name has been updated.'));
 
         return $this->redirectToRoute('app_profile');
     }
@@ -58,15 +58,15 @@ class ProfileController extends AbstractAppController
         $confirm = (string) $request->request->get('new_password_confirm');
 
         if (!$hasher->isPasswordValid($user, $current)) {
-            $this->addFlash('error', 'Mevcut şifre hatalı.');
+            $this->addFlash('error', $this->translator->trans('Current password is incorrect.'));
         } elseif (mb_strlen($new) < 8) {
-            $this->addFlash('error', 'Yeni şifre en az 8 karakter olmalı.');
+            $this->addFlash('error', $this->translator->trans('The new password must be at least 8 characters.'));
         } elseif ($new !== $confirm) {
-            $this->addFlash('error', 'Yeni şifreler eşleşmiyor.');
+            $this->addFlash('error', $this->translator->trans('The new passwords do not match.'));
         } else {
             $user->setPassword($hasher->hashPassword($user, $new));
             $em->flush();
-            $this->addFlash('success', 'Şifreniz değiştirildi.');
+            $this->addFlash('success', $this->translator->trans('Your password has been changed.'));
         }
 
         return $this->redirectToRoute('app_profile');

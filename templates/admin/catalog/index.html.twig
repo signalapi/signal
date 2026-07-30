@@ -1,46 +1,46 @@
 {% extends 'admin/_layout.html.twig' %}
 
-{% block title %}API Kataloğu · Süper Admin{% endblock %}
+{% block title %}{{ 'API Catalog'|trans }} · {{ 'Super Admin'|trans }}{% endblock %}
 
 {% block panel %}
 <div class="toolbar">
-    <div><h1>API Kataloğu</h1><p class="subtitle" style="margin:0;">Marketplace'te yayınlanan API'ler.</p></div>
+    <div><h1>{{ 'API Catalog'|trans }}</h1><p class="subtitle" style="margin:0;">{{ 'APIs published on the marketplace.'|trans }}</p></div>
 </div>
 
 <form class="card" method="post" action="{{ path('admin_catalog_new') }}" style="margin-bottom:18px;">
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Yeni katalog kaydı</div>
+    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'New catalog entry'|trans }}</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-        <div style="flex:2;min-width:180px;"><label style="display:block;font-size:12px;margin-bottom:4px;">API adı</label><input type="text" name="name" required placeholder="Zotlo Payment API" style="width:100%;"></div>
-        <div style="flex:1;min-width:130px;"><label style="display:block;font-size:12px;margin-bottom:4px;">Yayıncı</label><input type="text" name="publisher" placeholder="Zotlo" style="width:100%;"></div>
-        <div style="flex:1;min-width:120px;"><label style="display:block;font-size:12px;margin-bottom:4px;">Kategori</label><input type="text" name="category" placeholder="Payments" style="width:100%;"></div>
+        <div style="flex:2;min-width:180px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'API name'|trans }}</label><input type="text" name="name" required placeholder="Zotlo Payment API" style="width:100%;"></div>
+        <div style="flex:1;min-width:130px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Publisher'|trans }}</label><input type="text" name="publisher" placeholder="Zotlo" style="width:100%;"></div>
+        <div style="flex:1;min-width:120px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Category'|trans }}</label><input type="text" name="category" placeholder="Payments" style="width:100%;"></div>
         <div style="width:70px;"><label style="display:block;font-size:12px;margin-bottom:4px;">Logo</label><input type="text" name="logo" placeholder="💳" maxlength="8" style="width:100%;"></div>
-        <button class="btn" type="submit">+ Ekle</button>
+        <button class="btn" type="submit">{{ '+ Add'|trans }}</button>
     </div>
-    <div style="margin-top:10px;"><label style="display:block;font-size:12px;margin-bottom:4px;">Açıklama</label><input type="text" name="description" placeholder="Kısa açıklama" style="width:100%;"></div>
+    <div style="margin-top:10px;"><label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Description'|trans }}</label><input type="text" name="description" placeholder="{{ 'Short description'|trans }}" style="width:100%;"></div>
     <input type="hidden" name="_token" value="{{ csrf_token('catalog-new') }}">
 </form>
 
 {% if apis is empty %}
-    <div class="empty">Katalog boş. İlk API'yi ekleyin.</div>
+    <div class="empty">{{ 'The catalog is empty. Add the first API.'|trans }}</div>
 {% else %}
     <table>
-        <thead><tr><th>Ad</th><th>Yayıncı</th><th>Kategori</th><th>Versiyon</th><th>Durum</th><th></th></tr></thead>
+        <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Publisher'|trans }}</th><th>{{ 'Category'|trans }}</th><th>{{ 'Version'|trans }}</th><th>{{ 'Status'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for a in apis %}
             <tr>
                 <td style="font-weight:600;">{{ a.logo }} <a href="{{ path('admin_catalog_show', {id: a.id}) }}">{{ a.name }}</a></td>
                 <td>{{ a.publisher ?? '—' }}</td>
                 <td>{{ a.category ?? '—' }}</td>
-                <td>{{ a.latestVersion ? a.latestVersion.label ~ ' (' ~ a.versions|length ~ ' versiyon)' : 'yayınlanmadı' }}</td>
-                <td>{% if a.active %}<span class="pill on">aktif</span>{% else %}<span class="pill off">pasif</span>{% endif %}</td>
+                <td>{{ a.latestVersion ? '%label% (%count% versions)'|trans({'%label%': a.latestVersion.label, '%count%': a.versions|length}) : 'not published'|trans }}</td>
+                <td>{% if a.active %}<span class="pill on">{{ 'active'|trans }}</span>{% else %}<span class="pill off">{{ 'inactive'|trans }}</span>{% endif %}</td>
                 <td style="text-align:right;white-space:nowrap;">
                     <form class="inline" method="post" action="{{ path('admin_catalog_toggle', {id: a.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('catalog-toggle' ~ a.id) }}">
-                        <button class="btn ghost small" type="submit">{{ a.active ? 'Pasifleştir' : 'Aktifleştir' }}</button>
+                        <button class="btn ghost small" type="submit">{{ a.active ? 'Deactivate'|trans : 'Activate'|trans }}</button>
                     </form>
-                    <form class="inline" method="post" action="{{ path('admin_catalog_delete', {id: a.id}) }}" onsubmit="return confirm('Katalog kaydı ve versiyonları silinecek.');">
+                    <form class="inline" method="post" action="{{ path('admin_catalog_delete', {id: a.id}) }}" onsubmit="return confirm('{{ 'The catalog entry and its versions will be deleted.'|trans|e('js') }}');">
                         <input type="hidden" name="_token" value="{{ csrf_token('catalog-delete' ~ a.id) }}">
-                        <button class="btn danger" type="submit">Sil</button>
+                        <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
                     </form>
                 </td>
             </tr>

@@ -1,6 +1,6 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Geçmiş · {{ workspace.name }}{% endblock %}
+{% block title %}{{ 'History'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
 <style>
@@ -27,14 +27,14 @@
 </style>
 
 <div class="hi-head">
-    <h1>Koşum geçmişi</h1>
-    <p class="subtitle" style="margin:6px 0 0;">Suite koşumları tek satır, tek-flow koşumları ayrı satır · son {{ items|length }} kayıt</p>
+    <h1>{{ 'Run history'|trans }}</h1>
+    <p class="subtitle" style="margin:6px 0 0;">{{ 'Suite runs on a single line, single-flow runs on separate lines'|trans }} · {{ 'last %count% records'|trans({'%count%': items|length}) }}</p>
 </div>
 
 {% if items is empty %}
-    <div class="empty" style="text-align:left;padding:24px;">Henüz koşum yok.</div>
+    <div class="empty" style="text-align:left;padding:24px;">{{ 'No runs yet.'|trans }}</div>
 {% else %}
-    {% set trig = {'manual':'manuel','async':'arka plan','schedule':'zamanlı','api':'API','mcp':'MCP'} %}
+    {% set trig = {'manual': 'manual'|trans, 'async': 'background'|trans, 'schedule': 'scheduled'|trans, 'api': 'API', 'mcp': 'MCP'} %}
     {% for it in items %}
         {% if it.kind == 'suite' %}
             <a class="hi-row" href="{{ it.url }}">
@@ -43,10 +43,10 @@
                     <span class="nm">🧩 {{ it.name }}</span>
                     <span class="tags"><span class="hi-tag suite">suite</span></span>
                 </span>
-                <span class="hi-num">{{ it.passed }}/{{ it.total }} akış</span>
+                <span class="hi-num">{{ '%passed%/%total% flows'|trans({'%passed%': it.passed, '%total%': it.total}) }}</span>
                 <span class="hi-num">—</span>
                 <span class="hi-date">{{ it.createdAt|date('d.m.Y H:i:s') }}</span>
-                <span style="color:var(--muted);">Detay →</span>
+                <span style="color:var(--muted);">{{ 'Details'|trans }} →</span>
             </a>
         {% else %}
             {% set run = it.run %}
@@ -62,12 +62,12 @@
                         {% if run.environmentName %}<span class="hi-tag">{{ run.environmentName }}</span>{% endif %}
                     </span>
                 </span>
-                <span class="hi-num">{{ run.passedSteps }}/{{ run.totalSteps }} adım</span>
+                <span class="hi-num">{{ '%passed%/%total% steps'|trans({'%passed%': run.passedSteps, '%total%': run.totalSteps}) }}</span>
                 <span class="hi-num">{{ run.durationMs is not null ? run.durationMs ~ ' ms' : '—' }}</span>
                 <span class="hi-date">{{ run.createdAt|date('d.m.Y H:i:s') }}</span>
-                <span style="color:var(--muted);">Detay →</span>
+                <span style="color:var(--muted);">{{ 'Details'|trans }} →</span>
                 {% if failed %}
-                    <span class="hi-err">↳ <b>{{ failed.label }}</b>{% if failed.requestMethod %} ({{ failed.requestMethod }}{% if failed.responseStatus %} → {{ failed.responseStatus }}{% endif %}){% endif %} — {{ failed.error ?: 'assertion başarısız' }}</span>
+                    <span class="hi-err">↳ <b>{{ failed.label }}</b>{% if failed.requestMethod %} ({{ failed.requestMethod }}{% if failed.responseStatus %} → {{ failed.responseStatus }}{% endif %}){% endif %} — {{ failed.error ?: 'assertion failed'|trans }}</span>
                 {% endif %}
             </a>
         {% endif %}

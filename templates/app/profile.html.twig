@@ -1,60 +1,60 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Profil · {{ app.user.name }}{% endblock %}
+{% block title %}{{ 'Profile'|trans }} · {{ app.user.name }}{% endblock %}
 
 {% block panel %}
 <div class="pagehead">
     <div>
-        <h1>Profil</h1>
+        <h1>{{ 'Profile'|trans }}</h1>
         <p class="subtitle">{{ app.user.email }}</p>
     </div>
 </div>
 
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;">
     <form class="card" method="post" action="{{ path('app_profile_name') }}">
-        <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Hesap bilgileri</div>
+        <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Account details'|trans }}</div>
         <div style="margin-bottom:10px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">Ad Soyad</label>
+            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Full name'|trans }}</label>
             <input type="text" name="name" value="{{ app.user.name }}" required style="width:100%;">
         </div>
         <div style="margin-bottom:12px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">E-posta</label>
+            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Email'|trans }}</label>
             <input type="email" value="{{ app.user.email }}" disabled style="width:100%;opacity:.6;">
         </div>
         <input type="hidden" name="_token" value="{{ csrf_token('profile-name') }}">
-        <button class="btn small" type="submit">Kaydet</button>
+        <button class="btn small" type="submit">{{ 'Save'|trans }}</button>
     </form>
 
     <form class="card" method="post" action="{{ path('app_profile_password') }}">
-        <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Şifre değiştir</div>
+        <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Change password'|trans }}</div>
         <div style="margin-bottom:10px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">Mevcut şifre</label>
+            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Current password'|trans }}</label>
             <input type="password" name="current_password" required style="width:100%;">
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
             <div>
-                <label style="display:block;font-size:12px;margin-bottom:4px;">Yeni şifre</label>
-                <input type="password" name="new_password" required placeholder="En az 8 karakter" style="width:100%;">
+                <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'New password'|trans }}</label>
+                <input type="password" name="new_password" required placeholder="{{ 'At least 8 characters'|trans }}" style="width:100%;">
             </div>
             <div>
-                <label style="display:block;font-size:12px;margin-bottom:4px;">Yeni şifre (tekrar)</label>
+                <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'New password (again)'|trans }}</label>
                 <input type="password" name="new_password_confirm" required style="width:100%;">
             </div>
         </div>
         <input type="hidden" name="_token" value="{{ csrf_token('profile-password') }}">
-        <button class="btn small" type="submit">Şifreyi değiştir</button>
+        <button class="btn small" type="submit">{{ 'Update password'|trans }}</button>
     </form>
 </div>
 
 <div class="card" style="margin-top:14px;">
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">Üyelikler</div>
+    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Memberships'|trans }}</div>
     <table>
-        <thead><tr><th>Merchant</th><th>Rol</th><th>Katılım</th></tr></thead>
+        <thead><tr><th>Merchant</th><th>{{ 'Role'|trans }}</th><th>{{ 'Joined'|trans }}</th></tr></thead>
         <tbody>
         {% for m in memberships %}
             <tr>
                 <td style="font-weight:600;">{{ m.merchant.name }}</td>
-                <td><span class="pill {{ m.canManage ? 'on' }}">{{ {'owner': 'Owner', 'admin': 'Genel Yönetici', 'member': 'Üye'}[m.role] ?? m.role }}</span></td>
+                <td><span class="pill {{ m.canManage ? 'on' }}">{{ {'owner': 'Owner'|trans, 'admin': 'Company Admin'|trans, 'member': 'Member'|trans}[m.role] ?? m.role }}</span></td>
                 <td>{{ m.createdAt|date('d.m.Y') }}</td>
             </tr>
         {% endfor %}

@@ -12,6 +12,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/app/workspaces/{workspace}/data-factories')]
 #[IsGranted('ROLE_USER')]
@@ -40,7 +41,7 @@ class DataFactoryController extends AbstractAppController
     }
 
     #[Route('/new', name: 'app_factory_new', methods: ['POST'])]
-    public function new(Workspace $workspace, Request $request, DataFactoryRepository $factories): Response
+    public function new(Workspace $workspace, Request $request, DataFactoryRepository $factories, TranslatorInterface $translator): Response
     {
         $this->assertWorkspace($workspace, 'edit');
         if (!$this->isCsrfTokenValid('factory-new', (string) $request->request->get('_token'))) {
@@ -54,7 +55,7 @@ class DataFactoryController extends AbstractAppController
         $factory->setConfig(['values' => ['Yuno', 'Payrails']]);
 
         if ('' === $factory->getName()) {
-            $this->addFlash('error', 'Geçerli bir ad girin (harf, rakam, _ veya .).');
+            $this->addFlash('error', $translator->trans('Enter a valid name (letters, digits, _ or .).'));
 
             return $this->redirectToRoute('app_factory_index', ['workspace' => $workspace->getId()]);
         }
@@ -62,7 +63,7 @@ class DataFactoryController extends AbstractAppController
         try {
             $factories->save($factory);
         } catch (\Throwable) {
-            $this->addFlash('error', 'Bu adla bir fabrika zaten var.');
+            $this->addFlash('error', $translator->trans('A factory with this name already exists.'));
 
             return $this->redirectToRoute('app_factory_index', ['workspace' => $workspace->getId()]);
         }
@@ -77,6 +78,7 @@ class DataFactoryController extends AbstractAppController
         Request $request,
         DataFactoryRepository $factories,
         DynamicVariableGenerator $gen,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFactory($workspace, $factory);
@@ -93,9 +95,9 @@ class DataFactoryController extends AbstractAppController
 
             try {
                 $factories->save($factory);
-                $this->addFlash('success', 'Fabrika kaydedildi.');
+                $this->addFlash('success', $translator->trans('Factory saved.'));
             } catch (\Throwable) {
-                $this->addFlash('error', 'Bu adla bir fabrika zaten var.');
+                $this->addFlash('error', $translator->trans('A factory with this name already exists.'));
             }
 
             return $this->redirectToRoute('app_factory_edit', ['workspace' => $workspace->getId(), 'factory' => $factory->getId()]);
@@ -105,7 +107,7 @@ class DataFactoryController extends AbstractAppController
         $catalog = [];
         foreach ($factories->findByWorkspace($workspace) as $f) {
             if ($f->getId()?->toRfc4122() !== $factory->getId()?->toRfc4122()) {
-                $catalog[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => 'fabrika · ' . $f->getKind(), 'group' => 'gen'];
+                $catalog[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => $translator->trans('factory · %kind%', ['%kind%' => $f->getKind()]), 'group' => 'gen'];
             }
         }
         foreach ($gen->builtins() as $b) {
@@ -148,6 +150,7 @@ class DataFactoryController extends AbstractAppController
         #[MapEntity(mapping: ['factory' => 'id'])] DataFactory $factory,
         Request $request,
         DataFactoryRepository $factories,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFactory($workspace, $factory);
@@ -155,7 +158,7 @@ class DataFactoryController extends AbstractAppController
             throw $this->createAccessDeniedException();
         }
         $factories->remove($factory);
-        $this->addFlash('success', 'Fabrika silindi.');
+        $this->addFlash('success', $translator->trans('Factory deleted.'));
 
         return $this->redirectToRoute('app_factory_index', ['workspace' => $workspace->getId()]);
     }

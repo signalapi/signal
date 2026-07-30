@@ -36,7 +36,7 @@ class DbQueryRunner
                 DbConnection::TYPE_POSTGRES, DbConnection::TYPE_MYSQL => $this->sql->run($connection, $password, $resolvedQuery),
                 DbConnection::TYPE_REDIS => $this->redis->run($connection, $password, $resolvedQuery),
                 DbConnection::TYPE_MONGO => $this->mongo->run($connection, $password, $resolvedQuery),
-                default => throw new \InvalidArgumentException('Bilinmeyen bağlantı tipi: ' . $connection->getType()),
+                default => throw new \InvalidArgumentException('Unknown connection type: ' . $connection->getType()),
             };
 
             return new DbStepResult(

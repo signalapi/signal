@@ -1,6 +1,6 @@
 {% extends 'app/_layout.html.twig' %}
 
-{% block title %}Trendler · {{ workspace.name }}{% endblock %}
+{% block title %}{{ 'Trends'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% set colors = {'passed':'var(--pass)','failed':'var(--fail)','error':'var(--fail)','cancelled':'var(--warn)','running':'var(--accent)'} %}
 
@@ -48,30 +48,30 @@
 </style>
 
 <div class="tr-head">
-    <h1>Trendler</h1>
-    <p class="subtitle">{{ workspace.name }} · akış başına son 30 koşum baz alınır</p>
+    <h1>{{ 'Trends'|trans }}</h1>
+    <p class="subtitle">{{ workspace.name }} · {{ 'based on the last 30 runs per flow'|trans }}</p>
 </div>
 
 <div class="tr-summary">
     <div class="tr-hero">
-        <p class="eyebrow">Genel başarı oranı</p>
+        <p class="eyebrow">{{ 'Overall pass rate'|trans }}</p>
         {% set rateColor = ws_pass_rate is null ? 'var(--muted)' : (ws_pass_rate >= 80 ? 'var(--pass)' : (ws_pass_rate >= 50 ? 'var(--warn)' : 'var(--fail)')) %}
         <div class="big" style="color:{{ rateColor }};">{{ ws_pass_rate is null ? '—' : ws_pass_rate ~ '%' }}</div>
         <div class="barwrap"><span style="width:{{ ws_pass_rate ?? 0 }}%;background:{{ rateColor }};"></span></div>
-        <p class="subtitle" style="margin:12px 0 0;font-size:12.5px;">{{ ws_finished }} tamamlanan koşum üzerinden</p>
+        <p class="subtitle" style="margin:12px 0 0;font-size:12.5px;">{{ 'across %count% completed runs'|trans({'%count%': ws_finished}) }}</p>
     </div>
-    <div class="tr-stat"><div class="n">{{ rows|length }}</div><div class="l">İzlenen akış</div></div>
-    <div class="tr-stat"><div class="n">{{ ws_finished }}</div><div class="l">Tamamlanan koşum</div></div>
+    <div class="tr-stat"><div class="n">{{ rows|length }}</div><div class="l">{{ 'Tracked flows'|trans }}</div></div>
+    <div class="tr-stat"><div class="n">{{ ws_finished }}</div><div class="l">{{ 'Completed runs'|trans }}</div></div>
 </div>
 
 {% if rows is empty %}
-    <div class="empty" style="text-align:left;padding:24px;">Henüz akış yok. Bir test akışı oluşturup çalıştırın; sonuçlar burada birikecek.</div>
+    <div class="empty" style="text-align:left;padding:24px;">{{ 'No flows yet. Create and run a test flow; results will accumulate here.'|trans }}</div>
 {% else %}
     <div class="legend">
-        <span><i style="background:var(--pass);"></i> Geçti</span>
-        <span><i style="background:var(--fail);"></i> Başarısız</span>
-        <span><i style="background:var(--warn);"></i> İptal</span>
-        <span><i style="background:var(--accent);"></i> Çalışıyor</span>
+        <span><i style="background:var(--pass);"></i> {{ 'Passed'|trans }}</span>
+        <span><i style="background:var(--fail);"></i> {{ 'Failed'|trans }}</span>
+        <span><i style="background:var(--warn);"></i> {{ 'Cancelled'|trans }}</span>
+        <span><i style="background:var(--accent);"></i> {{ 'Running'|trans }}</span>
     </div>
 
     {% for row in rows %}
@@ -81,7 +81,7 @@
                 <a class="tr-name" href="{{ path('app_flow_show', {workspace: workspace.id, flow: row.flow.id}) }}">{{ row.flow.name }}</a>
 
                 <div class="tr-rate">
-                    <div class="top"><span>Başarı</span><b style="color:{{ row.passRate is null ? 'var(--muted)' : (row.passRate >= 80 ? 'var(--pass)' : (row.passRate >= 50 ? 'var(--warn)' : 'var(--fail)')) }};">{{ row.passRate is null ? '—' : row.passRate ~ '%' }}</b></div>
+                    <div class="top"><span>{{ 'Success'|trans }}</span><b style="color:{{ row.passRate is null ? 'var(--muted)' : (row.passRate >= 80 ? 'var(--pass)' : (row.passRate >= 50 ? 'var(--warn)' : 'var(--fail)')) }};">{{ row.passRate is null ? '—' : row.passRate ~ '%' }}</b></div>
                     <div class="seg">
                         {% if fin > 0 %}
                             {% if row.counts.passed %}<span style="width:{{ (row.counts.passed / fin * 100) }}%;background:var(--pass);"></span>{% endif %}
@@ -92,18 +92,18 @@
                     </div>
                 </div>
 
-                <div class="tr-kpi"><div class="v">{{ row.total }}</div><div class="k">koşum</div></div>
-                <div class="tr-kpi"><div class="v">{{ row.avgMs is null ? '—' : row.avgMs ~ 'ms' }}</div><div class="k">ort. süre</div></div>
+                <div class="tr-kpi"><div class="v">{{ row.total }}</div><div class="k">{{ 'runs'|trans }}</div></div>
+                <div class="tr-kpi"><div class="v">{{ row.avgMs is null ? '—' : row.avgMs ~ 'ms' }}</div><div class="k">{{ 'avg. duration'|trans }}</div></div>
             </div>
 
             <div class="tr-timeline">
                 {% if row.timeline is empty %}
-                    <span class="none">henüz koşum yok</span>
+                    <span class="none">{{ 'no runs yet'|trans }}</span>
                 {% else %}
-                    <span class="cap">Eski → Yeni</span>
+                    <span class="cap">{{ 'Old → New'|trans }}</span>
                     {% for r in row.timeline %}
                         <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: row.flow.id, run: r.id}) }}"
-                           title="{{ r.status }} · {{ r.passedSteps }}/{{ r.totalSteps }} adım · {{ r.createdAt|date('d.m H:i:s') }}{{ r.batchId ? ' · data #' ~ (r.iteration + 1) }}">
+                           title="{{ r.status }} · {{ '%passed%/%total% steps'|trans({'%passed%': r.passedSteps, '%total%': r.totalSteps}) }} · {{ r.createdAt|date('d.m H:i:s') }}{{ r.batchId ? ' · data #' ~ (r.iteration + 1) }}">
                             <span class="sq" style="background:{{ colors[r.status] ?? 'var(--muted)' }};"></span>
                         </a>
                     {% endfor %}

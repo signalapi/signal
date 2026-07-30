@@ -13,6 +13,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
+use Symfony\Contracts\Translation\TranslatorInterface;
 
 #[Route('/app/workspaces/{workspace}/environments')]
 #[IsGranted('ROLE_USER')]
@@ -30,7 +31,7 @@ class EnvironmentController extends AbstractAppController
     }
 
     #[Route('/import', name: 'app_environment_import', methods: ['POST'])]
-    public function import(Workspace $workspace, Request $request, PostmanImporter $importer): Response
+    public function import(Workspace $workspace, Request $request, PostmanImporter $importer, TranslatorInterface $translator): Response
     {
         $this->assertWorkspace($workspace, 'edit');
 
@@ -41,7 +42,7 @@ class EnvironmentController extends AbstractAppController
         /** @var UploadedFile|null $file */
         $file = $request->files->get('environment');
         if (null === $file) {
-            $this->addFlash('error', 'Bir Postman environment dosyası seçin.');
+            $this->addFlash('error', $translator->trans('Select a Postman environment file.'));
 
             return $this->redirectToRoute('app_environment_index', ['workspace' => $workspace->getId()]);
         }
@@ -49,19 +50,19 @@ class EnvironmentController extends AbstractAppController
         try {
             $data = json_decode((string) file_get_contents($file->getPathname()), true);
             if (\JSON_ERROR_NONE !== json_last_error() || !\is_array($data)) {
-                throw new \InvalidArgumentException('Geçerli bir JSON değil.');
+                throw new \InvalidArgumentException('Not valid JSON.');
             }
             $env = $importer->importEnvironment($data, $workspace);
-            $this->addFlash('success', sprintf('Environment "%s" içe aktarıldı.', $env->getName()));
+            $this->addFlash('success', $translator->trans('Environment "%name%" imported.', ['%name%' => $env->getName()]));
         } catch (\Throwable $e) {
-            $this->addFlash('error', 'İçe aktarma hatası: ' . $e->getMessage());
+            $this->addFlash('error', $translator->trans('Import error: %error%', ['%error%' => $e->getMessage()]));
         }
 
         return $this->redirectToRoute('app_environment_index', ['workspace' => $workspace->getId()]);
     }
 
     #[Route('/new', name: 'app_environment_new', methods: ['POST'])]
-    public function new(Workspace $workspace, Request $request, EnvironmentRepository $environments): Response
+    public function new(Workspace $workspace, Request $request, EnvironmentRepository $environments, TranslatorInterface $translator): Response
     {
         $this->assertWorkspace($workspace, 'edit');
 
@@ -71,9 +72,9 @@ class EnvironmentController extends AbstractAppController
 
         $env = new Environment();
         $env->setWorkspace($workspace);
-        $env->setName(trim((string) $request->request->get('name')) ?: 'Yeni environment');
+        $env->setName(trim((string) $request->request->get('name')) ?: $translator->trans('New environment'));
         $environments->save($env);
-        $this->addFlash('success', 'Environment oluşturuldu.');
+        $this->addFlash('success', $translator->trans('Environment created.'));
 
         return $this->redirectToRoute('app_environment_edit', [
             'workspace' => $workspace->getId(),
@@ -87,6 +88,7 @@ class EnvironmentController extends AbstractAppController
         #[MapEntity(mapping: ['environment' => 'id'])] Environment $environment,
         Request $request,
         EnvironmentRepository $environments,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertEnvironment($workspace, $environment);
@@ -120,7 +122,7 @@ class EnvironmentController extends AbstractAppController
             }
 
             $environments->save($environment);
-            $this->addFlash('success', 'Environment kaydedildi.');
+            $this->addFlash('success', $translator->trans('Environment saved.'));
 
             return $this->redirectToRoute('app_environment_edit', [
                 'workspace' => $workspace->getId(),
@@ -140,6 +142,7 @@ class EnvironmentController extends AbstractAppController
         #[MapEntity(mapping: ['environment' => 'id'])] Environment $environment,
         Request $request,
         EnvironmentRepository $environments,
+        TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertEnvironment($workspace, $environment);
@@ -149,7 +152,7 @@ class EnvironmentController extends AbstractAppController
         }
 
         $environments->remove($environment);
-        $this->addFlash('success', 'Environment silindi.');
+        $this->addFlash('success', $translator->trans('Environment deleted.'));
 
         return $this->redirectToRoute('app_environment_index', ['workspace' => $workspace->getId()]);
     }

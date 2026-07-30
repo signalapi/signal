@@ -33,12 +33,13 @@ class AiDiagnoser
     }
 
     /**
-     * Returns Claude's diagnosis text. Throws if not configured or on API error.
+     * Returns Claude's diagnosis text, written in $locale. Throws if not
+     * configured or on API error.
      */
-    public function diagnose(FlowRun $run): string
+    public function diagnose(FlowRun $run, string $locale = 'en'): string
     {
         if (!$this->isConfigured()) {
-            throw new \RuntimeException('AI teşhis yapılandırılmamış (ANTHROPIC_API_KEY yok).');
+            throw new \RuntimeException('AI diagnosis is not configured (ANTHROPIC_API_KEY missing).');
         }
 
         $evidence = $this->diagnostics->evidence($run);
@@ -52,7 +53,7 @@ class AiDiagnoser
             'json' => [
                 'model' => '' !== $this->model ? $this->model : 'claude-sonnet-4-6',
                 'max_tokens' => 1024,
-                'system' => $this->systemPrompt(),
+                'system' => $this->systemPrompt($locale),
                 'messages' => [
                     ['role' => 'user', 'content' => $this->userPrompt($evidence)],
                 ],
@@ -62,7 +63,7 @@ class AiDiagnoser
 
         $data = $response->toArray(false);
         if (isset($data['error'])) {
-            throw new \RuntimeException('Anthropic API hatası: ' . ($data['error']['message'] ?? 'bilinmiyor'));
+            throw new \RuntimeException('Anthropic API error: ' . ($data['error']['message'] ?? 'unknown'));
         }
 
         $text = '';
@@ -72,15 +73,18 @@ class AiDiagnoser
             }
         }
 
-        return '' !== trim($text) ? $text : 'Model boş yanıt döndü.';
+        return '' !== trim($text) ? $text : 'The model returned an empty response.';
     }
 
-    private function systemPrompt(): string
+    private function systemPrompt(string $locale): string
     {
-        return 'Sen bir API test uzmanısın. Sana başarısız bir test koşumunun kanıtı (istekler, gerçek yanıt gövdeleri, '
-            . 'tutmayan assertion\'lar, hata mesajları) JSON olarak verilecek. Kısa ve net biçimde: (1) tek cümlelik ÖZET, '
-            . '(2) OLASI KÖK SEBEP, (3) ÖNERİLEN DÜZELTME (hangi adım, ne değişmeli — assertion mı yanlış yoksa gerçekten bir '
-            . 'bug/iş mantığı sorunu mu ayır). Türkçe, madde madde, gereksiz uzatma yok.';
+        $language = 'tr' === $locale ? 'Turkish' : 'English';
+
+        return 'You are an API testing expert. You will be given the evidence of a failed test run as JSON '
+            . '(requests, actual response bodies, failing assertions, error messages). Answer concisely with: '
+            . '(1) a one-sentence SUMMARY, (2) the LIKELY ROOT CAUSE, (3) a SUGGESTED FIX (which step, what should '
+            . 'change — distinguish a wrong assertion from a genuine bug or business-logic problem). '
+            . 'Write in ' . $language . ', as short bullet points, without padding.';
     }
 
     /**
@@ -88,6 +92,6 @@ class AiDiagnoser
      */
     private function userPrompt(array $evidence): string
     {
-        return "Başarısız koşum kanıtı:\n\n" . (string) json_encode($evidence, \JSON_PRETTY_PRINT | \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES);
+        return "Failed run evidence:\n\n" . (string) json_encode($evidence, \JSON_PRETTY_PRINT | \JSON_UNESCAPED_UNICODE | \JSON_UNESCAPED_SLASHES);
     }
 }

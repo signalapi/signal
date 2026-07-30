@@ -37,6 +37,10 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column]
     private bool $active = true;
 
+    /** Preferred UI language ('en'|'tr'); null falls back to browser/en. */
+    #[ORM\Column(length: 5, nullable: true)]
+    private ?string $locale = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -123,6 +127,18 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setActive(bool $active): static
     {
         $this->active = $active;
+
+        return $this;
+    }
+
+    public function getLocale(): ?string
+    {
+        return $this->locale;
+    }
+
+    public function setLocale(?string $locale): static
+    {
+        $this->locale = $locale;
 
         return $this;
     }

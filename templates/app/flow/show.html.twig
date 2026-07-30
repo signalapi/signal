@@ -163,17 +163,17 @@
         <div>
             <h1>{{ flow.name }}</h1>
             <div class="fp-meta">
-                <span class="fp-tag">📍 <b>{{ flow.steps|length }}</b> adım</span>
-                <span class="fp-tag">🌐 {{ flow.defaultEnvironment ? 'varsayılan: ' : 'env yok' }}<b>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name }}</b></span>
-                <span class="fp-tag">{{ flow.stopOnFailure ? '⛔ ilk hatada durur' : '↪ tüm adımları çalıştırır' }}</span>
+                <span class="fp-tag">📍 <b>{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>
+                <span class="fp-tag">🌐 {{ flow.defaultEnvironment ? 'default:'|trans ~ ' ' : 'no env'|trans }}<b>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name }}</b></span>
+                <span class="fp-tag">{{ flow.stopOnFailure ? '⛔ ' ~ 'stops at the first error'|trans : '↪ ' ~ 'runs all steps'|trans }}</span>
                 {% if flow.scheduleEnabled %}<span class="fp-tag" style="color:var(--pass);">⏱ <b style="color:var(--pass);">{{ flow.cronExpression }}</b></span>{% endif %}
             </div>
         </div>
         <div style="display:flex;gap:8px;flex-shrink:0;">
-            <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← Akışlar</a>
-            <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('Bu akış kalıcı olarak silinecek.');">
+            <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">← {{ 'Flows'|trans }}</a>
+            <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('{{ 'This flow will be permanently deleted.'|trans|e('js') }}');">
                 <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ flow.id) }}">
-                <button class="btn danger" type="submit">Sil</button>
+                <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
             </form>
         </div>
     </div>
@@ -183,10 +183,10 @@
     <div class="fp-grid">
         {# ============ LEFT: the vertical runline ============ #}
         <div>
-            <div class="section-title">Akış adımları <span class="count">{{ flow.steps|length }}</span></div>
+            <div class="section-title">{{ 'Flow steps'|trans }} <span class="count">{{ flow.steps|length }}</span></div>
 
             {% if flow.steps is empty %}
-                <div class="empty" style="text-align:left;padding:24px;">Henüz adım yok. Aşağıdaki <b>+ Adım ekle</b> ile ilk adımı ekleyin.</div>
+                <div class="empty" style="text-align:left;padding:24px;">{{ 'No steps yet. Add the first one with <b>+ Add step</b> below.'|trans|raw }}</div>
             {% else %}
             <div class="runtrack" id="runtrack">
                 {% for step in flow.steps %}
@@ -202,32 +202,32 @@
                                     <form method="post" action="{{ path('app_flow_step_move', {workspace: workspace.id, flow: flow.id, step: step.id}) }}">
                                         <input type="hidden" name="_token" value="{{ csrf_token('move-step' ~ step.id) }}">
                                         <input type="hidden" name="direction" value="up">
-                                        <button class="ib" type="submit" title="Yukarı" {{ loop.first ? 'disabled' }}>↑</button>
+                                        <button class="ib" type="submit" title="{{ 'Move up'|trans }}" {{ loop.first ? 'disabled' }}>↑</button>
                                     </form>
                                     <form method="post" action="{{ path('app_flow_step_move', {workspace: workspace.id, flow: flow.id, step: step.id}) }}">
                                         <input type="hidden" name="_token" value="{{ csrf_token('move-step' ~ step.id) }}">
                                         <input type="hidden" name="direction" value="down">
-                                        <button class="ib" type="submit" title="Aşağı" {{ loop.last ? 'disabled' }}>↓</button>
+                                        <button class="ib" type="submit" title="{{ 'Move down'|trans }}" {{ loop.last ? 'disabled' }}>↓</button>
                                     </form>
-                                    <a class="ib" href="{{ path('app_flow_step_edit', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" title="Düzenle">✎</a>
-                                    <form method="post" action="{{ path('app_flow_step_delete', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" onsubmit="return confirm('Adım silinecek.');">
+                                    <a class="ib" href="{{ path('app_flow_step_edit', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" title="{{ 'Edit'|trans }}">✎</a>
+                                    <form method="post" action="{{ path('app_flow_step_delete', {workspace: workspace.id, flow: flow.id, step: step.id}) }}" onsubmit="return confirm('{{ 'The step will be deleted.'|trans|e('js') }}');">
                                         <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ step.id) }}">
-                                        <button class="ib danger" type="submit" title="Sil">🗑</button>
+                                        <button class="ib danger" type="submit" title="{{ 'Delete'|trans }}">🗑</button>
                                     </form>
                                 </div>
                             </div>
                             <div class="rt-detail">
-                                {% if step.isCall %}{% if step.calledFlow %}↳ {{ step.calledFlow.name }} ({{ step.calledFlow.steps|length }} adım){% else %}<span style="color:var(--danger);">alt-akış silinmiş</span>{% endif %}
-                                {% elseif step.isDelay %}{{ step.query ?: 0 }} ms bekle
-                                {% elseif step.isSetvar %}{{ (step.query ?: '(atama yok)')|slice(0, 90) }}
-                                {% elseif step.isDb %}{% if step.dbConnection %}{{ step.dbConnection.type }} · {{ (step.query ?: '(sorgu yok)')|slice(0, 80) }}{% else %}<span style="color:var(--danger);">bağlantı silinmiş</span>{% endif %}
-                                {% else %}{{ step.reqMethod }} {{ step.reqUrl ?: '(URL boş)' }}{% endif %}
+                                {% if step.isCall %}{% if step.calledFlow %}↳ {{ step.calledFlow.name }} ({{ '%count% steps'|trans({'%count%': step.calledFlow.steps|length}) }}){% else %}<span style="color:var(--danger);">{{ 'sub-flow deleted'|trans }}</span>{% endif %}
+                                {% elseif step.isDelay %}{{ 'wait %ms% ms'|trans({'%ms%': step.query ?: 0}) }}
+                                {% elseif step.isSetvar %}{{ (step.query ?: '(no assignment)'|trans)|slice(0, 90) }}
+                                {% elseif step.isDb %}{% if step.dbConnection %}{{ step.dbConnection.type }} · {{ (step.query ?: '(no query)'|trans)|slice(0, 80) }}{% else %}<span style="color:var(--danger);">{{ 'connection deleted'|trans }}</span>{% endif %}
+                                {% else %}{{ step.reqMethod }} {{ step.reqUrl ?: '(URL empty)'|trans }}{% endif %}
                             </div>
                             {% if step.hasCondition %}
-                            <div class="rt-sub" style="color:var(--accent);">⤷ yalnızca: <code>{{ step.condition.left }} {{ step.condition.op }} {{ step.condition.right }}</code></div>
+                            <div class="rt-sub" style="color:var(--accent);">⤷ {{ 'only if:'|trans }} <code>{{ step.condition.left }} {{ step.condition.op }} {{ step.condition.right }}</code></div>
                             {% endif %}
                             {% if step.hasLoop %}
-                            <div class="rt-sub" style="color:var(--accent);">↻ her <code>{{ step.loop.as }}</code> ∈ <code>{{ step.loop.over }}</code></div>
+                            <div class="rt-sub" style="color:var(--accent);">↻ {{ 'each'|trans }} <code>{{ step.loop.as }}</code> ∈ <code>{{ step.loop.over }}</code></div>
                             {% endif %}
                             {% if not step.isDelay and not step.isSetvar and not step.isCall %}
                             <div class="rt-sub">
@@ -247,7 +247,7 @@
             <div class="rt-add" id="addControl">
                 <div class="rt-rail"><div class="plus">+</div></div>
                 <div class="rt-add-body">
-                    <a class="btn addstep-btn" href="{{ path('app_flow_step_new', {workspace: workspace.id, flow: flow.id}) }}">+ Adım ekle</a>
+                    <a class="btn addstep-btn" href="{{ path('app_flow_step_new', {workspace: workspace.id, flow: flow.id}) }}">+ {{ 'Add step'|trans }}</a>
                 </div>
             </div>
         </div>
@@ -255,39 +255,39 @@
         {# ============ RIGHT: run console + live status ============ #}
         <div>
             <div class="console">
-                <div class="section-title" style="margin-bottom:14px;">Çalıştır</div>
+                <div class="section-title" style="margin-bottom:14px;">{{ 'Run'|trans }}</div>
                 <div class="field">
-                    <label class="lbl" for="runEnv">Environment</label>
+                    <label class="lbl" for="runEnv">{{ 'Environment'|trans }}</label>
                     <select id="runEnv">
-                        <option value="">{{ flow.defaultEnvironment ? '(varsayılan: ' ~ flow.defaultEnvironment.name ~ ')' : '— yok —' }}</option>
+                        <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
                         {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
                     </select>
                 </div>
                 <div class="field">
-                    <label class="lbl">Değişkenler</label>
+                    <label class="lbl">{{ 'Variables'|trans }}</label>
                     {% if flow_variables is empty %}
-                        <p class="vhint">Bu akış ek değişken istemiyor. İstersen aşağıdan elle ekleyebilirsin.</p>
+                        <p class="vhint">{{ 'This flow needs no extra variables. You can add some manually below if you want.'|trans }}</p>
                     {% endif %}
                     <div class="var-list" id="varList">
                         {% for v in flow_variables %}
                             <div class="var-row">
                                 <span class="var-name" title="{{ v.name }}">{{ v.name }}</span>
                                 <input type="text" class="var-in" data-var="{{ v.name }}"
-                                       placeholder="{{ v.fromEnv ? (v.envValue|length > 22 ? v.envValue|slice(0,22) ~ '…' : v.envValue) : 'değer gir' }}">
-                                {% if v.fromEnv %}<span class="var-src" title="Environment sağlıyor — boş bırakırsan bu kullanılır">env</span>{% endif %}
+                                       placeholder="{{ v.fromEnv ? (v.envValue|length > 22 ? v.envValue|slice(0,22) ~ '…' : v.envValue) : 'enter value'|trans }}">
+                                {% if v.fromEnv %}<span class="var-src" title="{{ 'Provided by the environment — used if you leave this empty'|trans }}">env</span>{% endif %}
                             </div>
                         {% endfor %}
                     </div>
-                    <a class="vhint adv" id="addVarBtn" style="margin-top:8px;">+ değişken ekle</a>
+                    <a class="vhint adv" id="addVarBtn" style="margin-top:8px;">+ {{ 'add variable'|trans }}</a>
                 </div>
 
-                <button class="btn run-go" id="runLive" {{ flow.steps is empty ? 'disabled' }}>▶ Canlı çalıştır</button>
+                <button class="btn run-go" id="runLive" {{ flow.steps is empty ? 'disabled' }}>▶ {{ 'Run live'|trans }}</button>
                 <div class="run-alt">
                     <form method="post" action="{{ path('app_flow_run', {workspace: workspace.id, flow: flow.id}) }}" style="flex:1;" id="syncForm">
                         <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
                         <input type="hidden" name="environment" id="syncEnv">
                         <input type="hidden" name="variables" id="syncVars">
-                        <button class="btn ghost" type="submit" style="width:100%;justify-content:center;" {{ flow.steps is empty ? 'disabled' }} title="Senkron çalıştır, bitince sonucu aç">Bekleyerek çalıştır</button>
+                        <button class="btn ghost" type="submit" style="width:100%;justify-content:center;" {{ flow.steps is empty ? 'disabled' }} title="{{ 'Run synchronously, open the result when done'|trans }}">{{ 'Run and wait'|trans }}</button>
                     </form>
                 </div>
             </div>
@@ -296,51 +296,51 @@
             <div class="livebox" id="livebox" hidden>
                 <div class="lb-head">
                     <span class="lb-dot run" id="lbDot"></span>
-                    <span class="lb-title" id="lbTitle">Çalışıyor…</span>
+                    <span class="lb-title" id="lbTitle">{{ 'Running…'|trans }}</span>
                     <div style="flex:1"></div>
-                    <button class="btn danger" id="lbCancel" hidden>İptal</button>
+                    <button class="btn danger" id="lbCancel" hidden>{{ 'Cancel run'|trans }}</button>
                 </div>
                 <div class="lb-bar"><div class="lb-fill" id="lbFill"></div></div>
                 <div class="lb-meta">
-                    <span id="lbCount">0/{{ flow.steps|length }} adım</span>
-                    <a href="#" id="lbDetail" hidden>Detayı gör →</a>
+                    <span id="lbCount">{{ '%done%/%total% steps'|trans({'%done%': 0, '%total%': flow.steps|length}) }}</span>
+                    <a href="#" id="lbDetail" hidden>{{ 'View details'|trans }} →</a>
                 </div>
             </div>
 
             {# data-driven #}
             <details class="foldcard">
-                <summary>📊 Data-driven çalıştır <span class="chev">▶</span></summary>
+                <summary>📊 {{ 'Run data-driven'|trans }} <span class="chev">▶</span></summary>
                 <div class="fold-body">
                     <form method="post" action="{{ path('app_flow_run_data', {workspace: workspace.id, flow: flow.id}) }}"
                           id="ddForm" data-cols="{{ flow_variables|map(v => v.name)|json_encode|e('html_attr') }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
-                        <label class="lbl" style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">Environment</label>
+                        <label class="lbl" style="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:6px;">{{ 'Environment'|trans }}</label>
                         <select name="environment" style="width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);font-size:13px;margin-bottom:10px;box-sizing:border-box;">
-                            <option value="">{{ flow.defaultEnvironment ? '(varsayılan: ' ~ flow.defaultEnvironment.name ~ ')' : '— yok —' }}</option>
+                            <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
                             {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
                         </select>
                         <div class="dd-scroll"><table class="dd" id="ddTable"></table></div>
                         <div class="dd-actions">
-                            <button class="btn ghost small" type="button" id="ddAddRow">+ Satır</button>
-                            <button class="btn ghost small" type="button" id="ddAddCol">+ Kolon</button>
+                            <button class="btn ghost small" type="button" id="ddAddRow">+ {{ 'Row'|trans }}</button>
+                            <button class="btn ghost small" type="button" id="ddAddCol">+ {{ 'Column'|trans }}</button>
                         </div>
                         <input type="hidden" name="dataset" id="ddDataset">
-                        <p class="subtitle" style="font-size:11px;margin:0 0 10px;">Her satır bir koşum. Kolonlar akıştaki <code>{{ '{{değişken}}' }}</code>'lere karşılık gelir.</p>
-                        <button class="btn small" type="submit" {{ flow.steps is empty ? 'disabled' }}>▶ Veri kümesiyle çalıştır</button>
+                        <p class="subtitle" style="font-size:11px;margin:0 0 10px;">{{ 'Each row is one run. Columns map to the <code>{{variable}}</code>s in the flow.'|trans|raw }}</p>
+                        <button class="btn small" type="submit" {{ flow.steps is empty ? 'disabled' }}>▶ {{ 'Run with dataset'|trans }}</button>
                     </form>
                 </div>
             </details>
 
             {# schedule #}
             <details class="foldcard" {{ flow.scheduleEnabled ? 'open' }}>
-                <summary>⏱ Zamanlama {% if flow.scheduleEnabled %}<span class="pill on" style="margin-left:4px;">açık</span>{% endif %}<span class="chev">▶</span></summary>
+                <summary>⏱ {{ 'Schedule'|trans }} {% if flow.scheduleEnabled %}<span class="pill on" style="margin-left:4px;">{{ 'on'|trans }}</span>{% endif %}<span class="chev">▶</span></summary>
                 <div class="fold-body">
                     <form method="post" action="{{ path('app_flow_schedule', {workspace: workspace.id, flow: flow.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('schedule' ~ flow.id) }}">
-                        <label style="font-size:13px;display:block;margin-bottom:10px;"><input type="checkbox" name="scheduleEnabled" value="1" {{ flow.scheduleEnabled ? 'checked' }}> Aktif</label>
+                        <label style="font-size:13px;display:block;margin-bottom:10px;"><input type="checkbox" name="scheduleEnabled" value="1" {{ flow.scheduleEnabled ? 'checked' }}> {{ 'Active'|trans }}</label>
                         <input type="text" name="cronExpression" value="{{ flow.cronExpression }}" placeholder="*/5 * * * *" style="width:100%;font-family:var(--font-mono);background:var(--panel-2);border:1px solid var(--border);border-radius:9px;padding:9px 11px;color:var(--text);box-sizing:border-box;margin-bottom:10px;">
-                        <p class="subtitle" style="font-size:11px;margin:0 0 10px;">5 alanlı cron · <code>app:run-due-flows</code> dakikada bir.</p>
-                        <button class="btn small" type="submit">Kaydet</button>
+                        <p class="subtitle" style="font-size:11px;margin:0 0 10px;">{{ '5-field cron · <code>app:run-due-flows</code> runs every minute.'|trans|raw }}</p>
+                        <button class="btn small" type="submit">{{ 'Save'|trans }}</button>
                     </form>
                 </div>
             </details>
@@ -349,9 +349,9 @@
 
     {# ============ run history ============ #}
     <div class="hist">
-        <div class="section-title">Koşum geçmişi</div>
+        <div class="section-title">{{ 'Run history'|trans }}</div>
         {% if flow.runs is empty %}
-            <div class="empty" style="text-align:left;padding:22px;">Henüz koşum yok. Yukarıdan akışı çalıştırın.</div>
+            <div class="empty" style="text-align:left;padding:22px;">{{ 'No runs yet. Run the flow from above.'|trans }}</div>
         {% else %}
             <div class="card" style="padding:4px 14px;">
             {% for run in flow.runs %}
@@ -359,8 +359,8 @@
                 <a class="hist-row" href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: flow.id, run: run.id}) }}">
                     <span class="hist-dot" style="background:{{ dotc }};"></span>
                     <span class="hist-main">
-                        <span class="t">{{ run.passedSteps }}/{{ run.totalSteps }} adım{% if run.batchId %} <span class="pill" style="background:var(--panel-2);color:var(--muted);">data #{{ run.iteration + 1 }}</span>{% endif %}</span>
-                        <span class="s">{{ run.environmentName ?: 'env yok' }} · {{ run.durationMs is not null ? run.durationMs ~ ' ms' : '—' }} · {{ run.createdAt|date('d.m.Y H:i:s') }}</span>
+                        <span class="t">{{ '%done%/%total% steps'|trans({'%done%': run.passedSteps, '%total%': run.totalSteps}) }}{% if run.batchId %} <span class="pill" style="background:var(--panel-2);color:var(--muted);">data #{{ run.iteration + 1 }}</span>{% endif %}</span>
+                        <span class="s">{{ run.environmentName ?: 'no env'|trans }} · {{ run.durationMs is not null ? run.durationMs ~ ' ms' : '—' }} · {{ run.createdAt|date('d.m.Y H:i:s') }}</span>
                     </span>
                     {{ rl.line(run) }}
                     {% if run.batchId %}<span class="pill" style="background:var(--accent-soft);color:var(--accent);">batch</span>{% endif %}
@@ -371,11 +371,30 @@
     </div>
 </div>
 
+<script type="application/json" id="fp-i18n">{{ {
+    error: 'error'|trans,
+    runningLive: '● ' ~ 'running'|trans,
+    skipped: 'skipped'|trans,
+    steps: '%done%/%total% steps'|trans,
+    cancelRequested: ' · cancel requested…'|trans,
+    donePassed: 'Completed — all steps passed'|trans,
+    cancelled: 'Cancelled'|trans,
+    failed: 'Failed'|trans,
+    starting: 'Starting…'|trans,
+    runningTitle: 'Running…'|trans,
+    runLive: '▶ ' ~ 'Run live'|trans,
+    notStarted: 'Could not start'|trans,
+    notStartedWorker: 'Could not start — is the worker running?'|trans,
+    varName: 'variable'|trans,
+    varValue: 'value'|trans
+}|json_encode|raw }}</script>
+
 {% verbatim %}
 <script>
 (function () {
     var page = document.getElementById('flowPage');
     if (!page) return;
+    var T = JSON.parse(document.getElementById('fp-i18n').textContent);
     var asyncUrl = page.dataset.asyncUrl, token = page.dataset.token;
     var runBtn = document.getElementById('runLive');
     var box = document.getElementById('livebox'), dot = document.getElementById('lbDot');
@@ -387,6 +406,10 @@
     var liveTrack = document.getElementById('liveTrack');
     var addControl = document.getElementById('addControl');
     var total = staticTrack ? staticTrack.querySelectorAll('.rt-node').length : 0;
+
+    function stepsLabel(done, all, cancelRequested) {
+        return T.steps.replace('%done%', done).replace('%total%', all) + (cancelRequested ? T.cancelRequested : '');
+    }
 
     // Switch the left column from the authored (static) list to a live trace,
     // which is rebuilt each poll from the run's step results — so sub-flow and
@@ -424,9 +447,9 @@
             var name = document.createElement('span'); name.className = 'rt-name'; name.textContent = s.label || '';
             var live = document.createElement('span'); live.className = 'rt-live';
             if (st === 'passed' && s.responseStatus) { live.textContent = s.responseStatus + ' · ' + (s.durationMs || 0) + 'ms'; live.style.color = 'var(--pass)'; }
-            else if (st === 'failed' || st === 'error') { live.textContent = (s.responseStatus || 'hata'); live.style.color = 'var(--fail)'; }
-            else if (st === 'running') { live.textContent = '● çalışıyor'; live.style.color = 'var(--accent)'; }
-            else if (st === 'skipped') { live.textContent = 'atlandı'; live.style.color = 'var(--muted)'; }
+            else if (st === 'failed' || st === 'error') { live.textContent = (s.responseStatus || T.error); live.style.color = 'var(--fail)'; }
+            else if (st === 'running') { live.textContent = T.runningLive; live.style.color = 'var(--accent)'; }
+            else if (st === 'skipped') { live.textContent = T.skipped; live.style.color = 'var(--muted)'; }
             head.appendChild(badge); head.appendChild(name); head.appendChild(live);
             card.appendChild(head);
 
@@ -448,12 +471,12 @@
                 var done = d.passedSteps || 0;
                 total = d.totalSteps || total;
                 fill.style.width = (total ? Math.min(100, Math.round((done / total) * 100)) : 0) + '%';
-                count.textContent = done + '/' + (d.totalSteps || total) + ' adım' + (d.cancelRequested ? ' · iptal isteniyor…' : '');
+                count.textContent = stepsLabel(done, d.totalSteps || total, d.cancelRequested);
                 if (d.finished) {
                     cancelBtn.hidden = true;
-                    if (d.status === 'passed') { setHead('passed', 'Tamamlandı — tüm adımlar geçti'); fill.className = 'lb-fill passed'; fill.style.width = '100%'; }
-                    else if (d.status === 'cancelled') { setHead('cancelled', 'İptal edildi'); }
-                    else { setHead('failed', 'Başarısız'); fill.className = 'lb-fill failed'; }
+                    if (d.status === 'passed') { setHead('passed', T.donePassed); fill.className = 'lb-fill passed'; fill.style.width = '100%'; }
+                    else if (d.status === 'cancelled') { setHead('cancelled', T.cancelled); }
+                    else { setHead('failed', T.failed); fill.className = 'lb-fill failed'; }
                     detail.hidden = false; detail.href = detailUrl;
                     return;
                 }
@@ -470,11 +493,11 @@
         body.set('environment', env);
         if (vars) body.set('variables', vars);
 
-        runBtn.disabled = true; runBtn.textContent = 'Başlatılıyor…';
+        runBtn.disabled = true; runBtn.textContent = T.starting;
         enterLiveMode();
         box.hidden = false; fill.className = 'lb-fill'; fill.style.width = '0';
-        setHead('running', 'Çalışıyor…'); detail.hidden = true; cancelBtn.hidden = true;
-        count.textContent = '0/' + total + ' adım';
+        setHead('running', T.runningTitle); detail.hidden = true; cancelBtn.hidden = true;
+        count.textContent = stepsLabel(0, total, false);
 
         fetch(asyncUrl, {
             method: 'POST',
@@ -483,14 +506,14 @@
         })
             .then(function (r) { return r.json(); })
             .then(function (d) {
-                runBtn.disabled = false; runBtn.textContent = '▶ Canlı çalıştır';
-                if (!d.statusUrl) { setHead('failed', 'Başlatılamadı'); return; }
+                runBtn.disabled = false; runBtn.textContent = T.runLive;
+                if (!d.statusUrl) { setHead('failed', T.notStarted); return; }
                 total = d.totalSteps || total;
                 poll(d.statusUrl, d.detailUrl);
             })
             .catch(function () {
-                runBtn.disabled = false; runBtn.textContent = '▶ Canlı çalıştır';
-                setHead('failed', 'Başlatılamadı — worker çalışıyor mu?');
+                runBtn.disabled = false; runBtn.textContent = T.runLive;
+                setHead('failed', T.notStartedWorker);
             });
     });
 
@@ -521,7 +544,7 @@
     var addVarBtn = document.getElementById('addVarBtn');
     if (addVarBtn) addVarBtn.addEventListener('click', function () {
         var row = document.createElement('div'); row.className = 'var-row';
-        row.innerHTML = '<input class="var-key" placeholder="değişken"><input class="var-val var-in-c" placeholder="değer" style="flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-family:var(--font-mono);font-size:12px;"><button type="button" class="var-rm">×</button>';
+        row.innerHTML = '<input class="var-key" placeholder="' + T.varName + '"><input class="var-val var-in-c" placeholder="' + T.varValue + '" style="flex:1;min-width:0;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:7px 9px;color:var(--text);font-family:var(--font-mono);font-size:12px;"><button type="button" class="var-rm">×</button>';
         row.querySelector('.var-rm').addEventListener('click', function () { row.remove(); });
         document.getElementById('varList').appendChild(row);
         row.querySelector('.var-key').focus();
@@ -533,7 +556,7 @@
         var ddTable = document.getElementById('ddTable');
         var cols = [];
         try { cols = JSON.parse(ddForm.dataset.cols || '[]'); } catch (e) { cols = []; }
-        if (!cols.length) cols = ['deger'];
+        if (!cols.length) cols = ['value'];
         var rows = [ cols.map(function () { return ''; }), cols.map(function () { return ''; }) ];
 
         function renderDd() {
@@ -558,7 +581,7 @@
         });
         document.getElementById('ddAddRow').addEventListener('click', function () { rows.push(cols.map(function () { return ''; })); renderDd(); });
         document.getElementById('ddAddCol').addEventListener('click', function () {
-            cols.push('kolon' + (cols.length + 1)); rows.forEach(function (r) { r.push(''); }); renderDd();
+            cols.push('column' + (cols.length + 1)); rows.forEach(function (r) { r.push(''); }); renderDd();
         });
         ddForm.addEventListener('submit', function () {
             var data = [];
