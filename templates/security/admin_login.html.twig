@@ -1,15 +1,17 @@
 {% extends 'security/_auth_base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Super Admin Sign-in'|trans }} · Signal: Test Platform{% endblock %}
 {% block brand_title %}{{ 'Platform administration.'|trans }}{% endblock %}
 
 {% block auth_card %}
-    <p class="eyebrow">🛡️ {{ 'Super Admin'|trans }}</p>
+    <div class="eyebrow" style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
+        {{ ic.i('shield', 12) }}{{ 'Super Admin'|trans }}</div>
     <h1>{{ 'Administrator sign-in'|trans }}</h1>
-    <p class="sub">{{ 'Access the platform administration panel.'|trans }}</p>
+    <p class="subtitle" style="margin-bottom:20px">{{ 'Access the platform administration panel.'|trans }}</p>
 
     {% if error %}
-        <div class="flash error">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        <div class="flash error">{{ ic.i('x', 14, 2.6) }}{{ error.messageKey|trans(error.messageData, 'security') }}</div>
     {% endif %}
 
     <form method="post" action="{{ path('admin_login') }}">
@@ -22,8 +24,10 @@
             <input type="password" id="password" name="_password" required placeholder="••••••••">
         </div>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-        <button class="btn-primary" type="submit">{{ 'Admin sign-in'|trans }}</button>
+        <button class="btn block" type="submit" style="margin-top:4px">{{ 'Admin sign-in'|trans }}</button>
     </form>
 
-    <p class="alt"><a href="{{ path('app_login') }}">← {{ 'Merchant sign-in'|trans }}</a></p>
+    <p style="text-align:center;margin:16px 0 0">
+        <a class="backlink" href="{{ path('app_login') }}"><span style="display:inline-flex;transform:rotate(180deg)">{{ ic.i('chevron-r', 12) }}</span>{{ 'Merchant sign-in'|trans }}</a>
+    </p>
 {% endblock %}

@@ -1,14 +1,15 @@
 {% extends 'security/_auth_base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Sign in'|trans }} · Signal: Test Platform{% endblock %}
 
 {% block auth_card %}
-    <p class="eyebrow">Merchant</p>
+    <div class="eyebrow" style="margin-bottom:7px">{{ 'Sign in'|trans }}</div>
     <h1>{{ 'Welcome back'|trans }}</h1>
-    <p class="sub">{{ 'Sign in to your account.'|trans }}</p>
+    <p class="subtitle" style="margin-bottom:20px">{{ 'Sign in to your account.'|trans }}</p>
 
     {% if error %}
-        <div class="flash error">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        <div class="flash error">{{ ic.i('x', 14, 2.6) }}{{ error.messageKey|trans(error.messageData, 'security') }}</div>
     {% endif %}
 
     <form method="post" action="{{ path('app_login') }}">
@@ -21,8 +22,8 @@
             <input type="password" id="password" name="_password" required placeholder="••••••••">
         </div>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
-        <button class="btn-primary" type="submit">{{ 'Sign in'|trans }}</button>
+        <button class="btn block" type="submit" style="margin-top:4px">{{ 'Sign in'|trans }}</button>
     </form>
 
-    <p class="alt">{{ 'No account yet?'|trans }} <a href="{{ path('app_register') }}">{{ 'Sign up'|trans }}</a></p>
+    <p class="fhint" style="text-align:center;margin-top:16px">{{ 'No account yet?'|trans }} <a href="{{ path('app_register') }}">{{ 'Sign up'|trans }}</a></p>
 {% endblock %}

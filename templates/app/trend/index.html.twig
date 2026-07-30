@@ -2,112 +2,90 @@
 
 {% block title %}{{ 'Trends'|trans }} · {{ workspace.name }}{% endblock %}
 
-{% set colors = {'passed':'var(--pass)','failed':'var(--fail)','error':'var(--fail)','cancelled':'var(--warn)','running':'var(--accent)'} %}
-
 {% block panel %}
-<style>
-    .tr-head { margin-bottom: 22px; }
-    .tr-head h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; }
-    .tr-head .subtitle { margin: 6px 0 0; }
-
-    .tr-summary { display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 16px; margin-bottom: 26px; }
-    @media (max-width: 780px) { .tr-summary { grid-template-columns: 1fr; } }
-    .tr-hero { position: relative; overflow: hidden; background: var(--panel); border: 1px solid var(--border);
-        border-radius: 16px; padding: 22px 24px; box-shadow: var(--shadow); }
-    .tr-hero .eyebrow { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
-    .tr-hero .big { font-size: 52px; font-weight: 700; line-height: 1; letter-spacing: -.03em; }
-    .tr-hero .barwrap { height: 8px; border-radius: 999px; background: var(--panel-2); overflow: hidden; margin-top: 16px; }
-    .tr-hero .barwrap > span { display: block; height: 100%; }
-    .tr-stat { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; box-shadow: var(--shadow); }
-    .tr-stat .n { font-size: 34px; font-weight: 700; letter-spacing: -.02em; }
-    .tr-stat .l { color: var(--muted); font-size: 13px; margin-top: 4px; }
-
-    .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 0 0 14px; font-size: 12px; color: var(--muted); }
-    .legend span { display: inline-flex; align-items: center; gap: 6px; }
-    .legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
-
-    .tr-row { background: var(--panel); border: 1px solid var(--border); border-radius: 14px; padding: 16px 18px;
-        margin-bottom: 12px; box-shadow: var(--shadow); transition: border-color .18s; }
-    .tr-row:hover { border-color: #d3d3ca; }
-    .tr-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-    .tr-name { font-weight: 600; font-size: 15px; color: var(--ink); text-decoration: none; min-width: 170px; }
-    .tr-name:hover { color: var(--accent); }
-    .tr-rate { flex: 1; min-width: 180px; }
-    .tr-rate .top { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
-    .tr-rate .top b { color: var(--ink); }
-    .seg { display: flex; height: 9px; border-radius: 999px; overflow: hidden; background: var(--panel-2); }
-    .seg > span { display: block; height: 100%; }
-    .tr-kpi { text-align: center; min-width: 64px; }
-    .tr-kpi .v { font-weight: 700; font-size: 15px; } .tr-kpi .k { color: var(--muted); font-size: 11px; }
-
-    .tr-timeline { margin-top: 13px; display: flex; gap: 3px; align-items: center; flex-wrap: wrap; }
-    .tr-timeline .sq { width: 14px; height: 14px; border-radius: 3px; display: inline-block; transition: transform .12s; }
-    .tr-timeline a:hover .sq { transform: scale(1.25); }
-    .tr-timeline .none { font-size: 12px; color: var(--muted); }
-    .tr-timeline .cap { font-size: 10px; letter-spacing: .05em; text-transform: uppercase; color: var(--muted); margin-right: 4px; }
-</style>
-
-<div class="tr-head">
-    <h1>{{ 'Trends'|trans }}</h1>
-    <p class="subtitle">{{ workspace.name }} · {{ 'based on the last 30 runs per flow'|trans }}</p>
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Trends'|trans }}</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ 'based on the last 30 runs per flow'|trans }}</p>
+    </div>
 </div>
 
-<div class="tr-summary">
-    <div class="tr-hero">
-        <p class="eyebrow">{{ 'Overall pass rate'|trans }}</p>
-        {% set rateColor = ws_pass_rate is null ? 'var(--muted)' : (ws_pass_rate >= 80 ? 'var(--pass)' : (ws_pass_rate >= 50 ? 'var(--warn)' : 'var(--fail)')) %}
-        <div class="big" style="color:{{ rateColor }};">{{ ws_pass_rate is null ? '—' : ws_pass_rate ~ '%' }}</div>
-        <div class="barwrap"><span style="width:{{ ws_pass_rate ?? 0 }}%;background:{{ rateColor }};"></span></div>
-        <p class="subtitle" style="margin:12px 0 0;font-size:12.5px;">{{ 'across %count% completed runs'|trans({'%count%': ws_finished}) }}</p>
+{% set rateColor = ws_pass_rate is null ? 'var(--muted)' : (ws_pass_rate >= 80 ? 'var(--pass)' : (ws_pass_rate >= 50 ? 'var(--warn)' : 'var(--fail)')) %}
+<div class="metric-grid" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);margin-bottom:22px;">
+    <div class="metric">
+        <div class="cap"><span class="l">{{ 'Overall pass rate'|trans }}</span></div>
+        <div class="row"><span class="num" style="color:{{ rateColor }};">{{ ws_pass_rate is null ? '—' : ws_pass_rate ~ '%' }}</span></div>
+        <div class="progress" style="height:7px;"><i style="width:{{ ws_pass_rate ?? 0 }}%;background:{{ rateColor }};"></i></div>
+        <p class="subtitle" style="margin:9px 0 0;font-size:11.5px;">{{ 'across %count% completed runs'|trans({'%count%': ws_finished}) }}</p>
     </div>
-    <div class="tr-stat"><div class="n">{{ rows|length }}</div><div class="l">{{ 'Tracked flows'|trans }}</div></div>
-    <div class="tr-stat"><div class="n">{{ ws_finished }}</div><div class="l">{{ 'Completed runs'|trans }}</div></div>
+    <div class="metric">
+        <div class="cap"><span class="l">{{ 'Tracked flows'|trans }}</span></div>
+        <div class="row"><span class="num">{{ rows|length }}</span></div>
+    </div>
+    <div class="metric">
+        <div class="cap"><span class="l">{{ 'Completed runs'|trans }}</span></div>
+        <div class="row"><span class="num">{{ ws_finished }}</span></div>
+    </div>
 </div>
 
 {% if rows is empty %}
-    <div class="empty" style="text-align:left;padding:24px;">{{ 'No flows yet. Create and run a test flow; results will accumulate here.'|trans }}</div>
+    <div class="empty">{{ 'No flows yet. Create and run a test flow; results will accumulate here.'|trans }}</div>
 {% else %}
-    <div class="legend">
-        <span><i style="background:var(--pass);"></i> {{ 'Passed'|trans }}</span>
-        <span><i style="background:var(--fail);"></i> {{ 'Failed'|trans }}</span>
-        <span><i style="background:var(--warn);"></i> {{ 'Cancelled'|trans }}</span>
-        <span><i style="background:var(--accent);"></i> {{ 'Running'|trans }}</span>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin:0 0 14px;color:var(--muted);font-size:11.5px;">
+        <span style="display:inline-flex;align-items:center;gap:6px;"><span class="strip"><i class="passed"></i></span>{{ 'Passed'|trans }}</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;"><span class="strip"><i class="failed"></i></span>{{ 'Failed'|trans }}</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;"><span class="strip"><i class="cancelled"></i></span>{{ 'Cancelled'|trans }}</span>
+        <span style="display:inline-flex;align-items:center;gap:6px;"><span class="strip"><i class="running"></i></span>{{ 'Running'|trans }}</span>
     </div>
 
     {% for row in rows %}
         {% set fin = row.counts.passed + row.counts.failed + row.counts.error + row.counts.cancelled %}
-        <div class="tr-row">
-            <div class="tr-top">
-                <a class="tr-name" href="{{ path('app_flow_show', {workspace: workspace.id, flow: row.flow.id}) }}">{{ row.flow.name }}</a>
+        <div class="card card-hover" style="margin-bottom:12px;">
+            <div class="card-body">
+                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+                    <a href="{{ path('app_flow_show', {workspace: workspace.id, flow: row.flow.id}) }}"
+                       style="min-width:170px;font-size:13.5px;font-weight:700;color:var(--ink);">{{ row.flow.name }}</a>
 
-                <div class="tr-rate">
-                    <div class="top"><span>{{ 'Success'|trans }}</span><b style="color:{{ row.passRate is null ? 'var(--muted)' : (row.passRate >= 80 ? 'var(--pass)' : (row.passRate >= 50 ? 'var(--warn)' : 'var(--fail)')) }};">{{ row.passRate is null ? '—' : row.passRate ~ '%' }}</b></div>
-                    <div class="seg">
-                        {% if fin > 0 %}
-                            {% if row.counts.passed %}<span style="width:{{ (row.counts.passed / fin * 100) }}%;background:var(--pass);"></span>{% endif %}
-                            {% set bad = row.counts.failed + row.counts.error %}
-                            {% if bad %}<span style="width:{{ (bad / fin * 100) }}%;background:var(--fail);"></span>{% endif %}
-                            {% if row.counts.cancelled %}<span style="width:{{ (row.counts.cancelled / fin * 100) }}%;background:var(--warn);"></span>{% endif %}
-                        {% endif %}
+                    <div class="grow" style="min-width:180px;">
+                        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:5px;color:var(--muted);font-size:11.5px;">
+                            <span>{{ 'Success'|trans }}</span>
+                            <b class="mono" style="color:{{ row.passRate is null ? 'var(--muted)' : (row.passRate >= 80 ? 'var(--pass)' : (row.passRate >= 50 ? 'var(--warn)' : 'var(--fail)')) }};">{{ row.passRate is null ? '—' : row.passRate ~ '%' }}</b>
+                        </div>
+                        <div style="display:flex;height:9px;border-radius:999px;overflow:hidden;background:var(--panel2);">
+                            {% if fin > 0 %}
+                                {% if row.counts.passed %}<span style="width:{{ (row.counts.passed / fin * 100) }}%;background:var(--pass);"></span>{% endif %}
+                                {% set bad = row.counts.failed + row.counts.error %}
+                                {% if bad %}<span style="width:{{ (bad / fin * 100) }}%;background:var(--fail);"></span>{% endif %}
+                                {% if row.counts.cancelled %}<span style="width:{{ (row.counts.cancelled / fin * 100) }}%;background:var(--warn);"></span>{% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div style="text-align:center;min-width:64px;">
+                        <div class="mono" style="font-size:14px;font-weight:700;color:var(--ink);">{{ row.total }}</div>
+                        <div class="subtitle" style="font-size:10.5px;">{{ 'runs'|trans }}</div>
+                    </div>
+                    <div style="text-align:center;min-width:64px;">
+                        <div class="mono" style="font-size:14px;font-weight:700;color:var(--ink);">{{ row.avgMs is null ? '—' : row.avgMs ~ 'ms' }}</div>
+                        <div class="subtitle" style="font-size:10.5px;">{{ 'avg. duration'|trans }}</div>
                     </div>
                 </div>
 
-                <div class="tr-kpi"><div class="v">{{ row.total }}</div><div class="k">{{ 'runs'|trans }}</div></div>
-                <div class="tr-kpi"><div class="v">{{ row.avgMs is null ? '—' : row.avgMs ~ 'ms' }}</div><div class="k">{{ 'avg. duration'|trans }}</div></div>
-            </div>
-
-            <div class="tr-timeline">
-                {% if row.timeline is empty %}
-                    <span class="none">{{ 'no runs yet'|trans }}</span>
-                {% else %}
-                    <span class="cap">{{ 'Old → New'|trans }}</span>
-                    {% for r in row.timeline %}
-                        <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: row.flow.id, run: r.id}) }}"
-                           title="{{ r.status }} · {{ '%passed%/%total% steps'|trans({'%passed%': r.passedSteps, '%total%': r.totalSteps}) }} · {{ r.createdAt|date('d.m H:i:s') }}{{ r.batchId ? ' · data #' ~ (r.iteration + 1) }}">
-                            <span class="sq" style="background:{{ colors[r.status] ?? 'var(--muted)' }};"></span>
-                        </a>
-                    {% endfor %}
-                {% endif %}
+                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:13px;">
+                    {% if row.timeline is empty %}
+                        <span class="subtitle">{{ 'no runs yet'|trans }}</span>
+                    {% else %}
+                        <span class="eyebrow">{{ 'Old → New'|trans }}</span>
+                        <span class="strip" style="gap:3px;flex-wrap:wrap;">
+                            {% for r in row.timeline %}
+                                <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: row.flow.id, run: r.id}) }}"
+                                   title="{{ r.status }} · {{ '%passed%/%total% steps'|trans({'%passed%': r.passedSteps, '%total%': r.totalSteps}) }} · {{ r.createdAt|date('d.m H:i:s') }}{{ r.batchId ? ' · data #' ~ (r.iteration + 1) }}">
+                                    <i class="{{ r.status }}" style="width:13px;height:13px;border-radius:3px;"></i>
+                                </a>
+                            {% endfor %}
+                        </span>
+                    {% endif %}
+                </div>
             </div>
         </div>
     {% endfor %}

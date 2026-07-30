@@ -793,3 +793,50 @@ table.data tbody tr:hover { background:var(--panel2); }
 .wb-rail .icon-btn { width:38px; height:38px; }
 .wb-rail .icon-btn.on { background:var(--pri-soft); color:var(--pri); }
 .wb-main { flex:1; min-width:0; display:flex; flex-direction:column; }
+
+/* ---------- gaps the migration surfaced ---------- */
+
+/* forms sitting side by side inside a table cell */
+.inline { display:inline-flex; align-items:center; gap:6px; vertical-align:middle; }
+/* short helper note (same voice as .fhint, used inline) */
+.hint { color:var(--muted); font-size:11.5px; }
+
+/* neutral pill — carries "Owner", "all workspaces" etc. without borrowing a status colour */
+.pill.info { background:var(--pri-soft); color:var(--pri-ink); }
+.pill.neutral { background:var(--panel2); color:var(--muted); }
+
+/* dense table for editable grids (environment variables) */
+table.data.tight th, table.data.tight td { padding:6px 8px; }
+
+/* multi-segment meter: pass/fail/cancelled in one bar */
+.meter { display:flex; height:7px; border-radius:999px; overflow:hidden; background:var(--panel2); }
+.meter i { display:block; height:100%; }
+.meter i.passed { background:var(--pass); } .meter i.failed, .meter i.error { background:var(--fail); }
+.meter i.cancelled, .meter i.skipped { background:var(--warn); } .meter i.running { background:var(--pri); }
+/* legend row for a meter or chart */
+.legend { display:flex; align-items:center; gap:14px; flex-wrap:wrap; font-size:11px; color:var(--muted); }
+.legend span { display:inline-flex; align-items:center; gap:5px; }
+.legend i { width:9px; height:9px; border-radius:3px; display:inline-block; }
+
+.metric-grid.cols-3 { grid-template-columns:repeat(3, minmax(0,1fr)); }
+@media (max-width:860px) { .metric-grid.cols-3 { grid-template-columns:repeat(2, minmax(0,1fr)); } }
+
+.status-ic.error { background:var(--fail-soft); color:var(--fail); }
+
+/* login-less pages have no sidebar: keep the column readable */
+.content.narrow { max-width:880px; margin:0 auto; }
+
+/* the mono micro-label is always followed by content */
+.eyebrow { margin-bottom:6px; }
+
+/* inverted brand panel on the auth screens — flips with the theme */
+.auth-side.ink { background:var(--ink); color:var(--bg); border-left-color:transparent; }
+.auth-side.ink h2 { font-size:24px; line-height:1.25; letter-spacing:-.02em; margin:0 0 10px; color:inherit; }
+.auth-side.ink .lead { color:var(--faint); font-size:13.5px; margin:0 0 20px; max-width:44ch; }
+.auth-side.ink ul { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:11px; }
+.auth-side.ink li { display:flex; align-items:center; gap:10px; font-size:13px; }
+.auth-side.ink .foot { margin-top:auto; padding-top:22px; font-size:11.5px; color:var(--faint); }
+
+/* Brand names must never be uppercased: Turkish maps i→İ, so "Signal" would
+   render as "SİGNAL". Opt out wherever a brand string sits in a mono label. */
+.brand-txt .t, .brand, .no-caps { text-transform:none; }

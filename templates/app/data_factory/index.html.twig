@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Data Factories'|trans }} · {{ workspace.name }}{% endblock %}
 
@@ -11,7 +12,7 @@
     </div>
 </div>
 
-<p class="subtitle" style="font-size:12.5px;margin:0 0 14px;max-width:720px;">
+<p class="subtitle" style="margin:0 0 14px;max-width:720px;">
     {{ 'Managed generators. Define a factory and use it anywhere in the flow as %token% — it produces a fresh value on every use.'|trans({'%token%': '<code>' ~ ('{{$name}}')|e ~ '</code>'})|raw }}
     {{ 'Works in addition to the built-ins (%tokens% …).'|trans({'%tokens%': '<code>' ~ ('{{$guid}}')|e ~ '</code>, <code>' ~ ('{{$randomEmail}}')|e ~ '</code>'})|raw }}
 </p>
@@ -19,31 +20,31 @@
 <form class="addbar" method="post" action="{{ path('app_factory_new', {workspace: workspace.id}) }}">
     <input type="text" name="name" placeholder="{{ 'New factory name (e.g. testCard, provider)'|trans }}">
     <input type="hidden" name="_token" value="{{ csrf_token('factory-new') }}">
-    <button class="btn small" type="submit">+ {{ 'Create'|trans }}</button>
+    <button class="btn small" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Create'|trans }}</button>
 </form>
 
 {% if factories is empty %}
-    <div class="empty" style="text-align:left;padding:24px;margin-top:14px;">{{ 'No factories yet. Create one above — e.g. a “oneOf” that picks Yuno/Payrails for %name%.'|trans({'%name%': '<code>provider</code>'})|raw }}</div>
+    <div class="empty" style="margin-top:14px;">{{ 'No factories yet. Create one above — e.g. a “oneOf” that picks Yuno/Payrails for %name%.'|trans({'%name%': '<code>provider</code>'})|raw }}</div>
 {% else %}
 <div class="res-grid stagger" style="margin-top:14px;">
     {% for f in factories %}
         {% set kindLabel = {'oneOf': 'one of a list'|trans, 'template': 'template'|trans, 'intRange': 'number range'|trans, 'pattern': 'pattern'|trans} %}
         <div class="res-card">
             <div class="rc-top">
-                <div class="ic">🎲</div>
+                <div class="ic">{{ ic.i('factory', 17) }}</div>
                 <div class="rc-name">
                     <a href="{{ path('app_factory_edit', {workspace: workspace.id, factory: f.id}) }}"><code>{{ '{{$' ~ f.name ~ '}}' }}</code></a>
                     <div class="s">{{ kindLabel[f.kind] ?? f.kind }}{% if f.description %} · {{ f.description }}{% endif %}</div>
                 </div>
             </div>
-            <div style="font-family:var(--font-mono);font-size:12px;color:var(--accent);background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;margin:4px 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+            <div class="mono" style="font-size:11.5px;color:var(--pri);background:var(--panel2);border:1px solid var(--line);border-radius:var(--r-sm);padding:8px 10px;margin:4px 0 10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
                 {{ 'sample:'|trans }} {{ samples[f.id] ?? '—' }}
             </div>
             <div class="rc-foot">
-                <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_factory_edit', {workspace: workspace.id, factory: f.id}) }}">{{ 'Edit'|trans }}</a>
+                <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_factory_edit', {workspace: workspace.id, factory: f.id}) }}">{{ ic.i('pencil', 12) }}{{ 'Edit'|trans }}</a>
                 <form method="post" action="{{ path('app_factory_delete', {workspace: workspace.id, factory: f.id}) }}" onsubmit="return confirm('{{ 'The factory will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('factory-delete' ~ f.id) }}">
-                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
+                    <button class="btn danger" type="submit" title="{{ 'Delete'|trans }}" aria-label="{{ 'Delete'|trans }}">{{ ic.i('trash', 13) }}</button>
                 </form>
             </div>
         </div>
@@ -52,36 +53,28 @@
 {% endif %}
 
 {# ---- built-in generators (read-only reference) ---- #}
-<div class="section-title" style="font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin:34px 0 4px;">{{ 'Built-in generators'|trans }}</div>
-<p class="subtitle" style="font-size:12px;margin:0 0 14px;">{{ 'Available out of the box, nothing to define. Click a token → it is copied.'|trans }}</p>
-<div class="bi-grid">
+<div class="eyebrow" style="margin:34px 0 6px;">{{ 'Built-in generators'|trans }}</div>
+<p class="subtitle" style="margin:0 0 14px;">{{ 'Available out of the box, nothing to define. Click a token → it is copied.'|trans }}</p>
+<div class="quick-grid">
     {% for b in builtins %}
-        <button type="button" class="bi-card" data-copy="{{ b.token }}" title="{{ 'Copy'|trans }}">
-            <code class="bi-tok">{{ b.token }}</code>
-            <span class="bi-desc">{{ b.description }}</span>
-            <span class="bi-sample">{{ b.sample }}</span>
+        <button type="button" class="typebtn bi-card" data-copy="{{ b.token }}" title="{{ 'Copy'|trans }}"
+                style="flex-direction:column;align-items:stretch;gap:3px;">
+            <code class="mono" style="font-size:12px;font-weight:700;color:var(--pri);">{{ b.token }}</code>
+            <span class="s">{{ b.description }}</span>
+            <span class="mono" style="font-size:10.5px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ b.sample }}</span>
         </button>
     {% endfor %}
 </div>
 
-<style>
-    .bi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
-    .bi-card { text-align: left; cursor: pointer; background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
-        padding: 10px 12px; display: flex; flex-direction: column; gap: 3px; font: inherit; transition: border-color .12s, background .12s; }
-    .bi-card:hover { border-color: var(--accent); background: var(--accent-soft); }
-    .bi-tok { font-family: var(--font-mono); font-size: 12.5px; color: var(--accent); font-weight: 600; }
-    .bi-desc { font-size: 11.5px; color: var(--muted); }
-    .bi-sample { font-family: var(--font-mono); font-size: 11px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .bi-card.copied { border-color: var(--pass); }
-</style>
 <script>
     document.querySelectorAll('.bi-card').forEach(function (c) {
         c.addEventListener('click', function () {
             var t = c.dataset.copy;
             (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () {
-                c.classList.add('copied'); setTimeout(function () { c.classList.remove('copied'); }, 700);
+                c.classList.add('on'); setTimeout(function () { c.classList.remove('on'); }, 700);
             }).catch(function () {});
         });
     });
 </script>
 {% endblock %}
+

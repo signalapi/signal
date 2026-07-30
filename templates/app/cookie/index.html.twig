@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Cookies'|trans }} · {{ workspace.name }}{% endblock %}
 
@@ -13,24 +14,30 @@
         {% if cookies is not empty %}
             <form method="post" action="{{ path('app_cookie_clear', {workspace: workspace.id}) }}" onsubmit="return confirm('{{ 'Your cookies will be deleted.'|trans|e('js') }}');">
                 <input type="hidden" name="_token" value="{{ csrf_token('cookie-clear') }}">
-                <button class="btn danger" type="submit">{{ 'Clear mine'|trans }}</button>
+                <button class="btn danger" type="submit">{{ ic.i('trash', 13) }}{{ 'Clear mine'|trans }}</button>
             </form>
         {% endif %}
     </div>
 </div>
 
 {% macro cookieRows(list, workspace) %}
+    {% import '_icons.html.twig' as ic %}
     {% for c in list %}
         <tr>
-            <td style="font-family:var(--font-mono);">{{ c.domain }}</td>
-            <td style="font-family:var(--font-mono);font-weight:600;color:var(--ink);">{{ c.name }}</td>
-            <td style="font-family:var(--font-mono);max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);" title="{{ c.value }}">{{ c.value }}</td>
+            <td class="mono">{{ c.domain }}</td>
+            <td class="mono" style="font-weight:600;color:var(--ink);">{{ c.name }}</td>
+            <td class="mono" style="max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);" title="{{ c.value }}">{{ c.value }}</td>
             <td><code>{{ c.path }}</code></td>
-            <td>{{ c.expiresAt ? c.expiresAt|date('d.m.Y H:i') : 'session'|trans }}{{ c.secure ? ' · 🔒' }}</td>
+            <td>
+                <span style="display:inline-flex;align-items:center;gap:5px;">
+                    {{ c.expiresAt ? c.expiresAt|date('d.m.Y H:i') : 'session'|trans }}
+                    {%- if c.secure %} · {{ ic.i('shield', 12) }}{% endif -%}
+                </span>
+            </td>
             <td style="text-align:right;">
-                <form class="inline" method="post" action="{{ path('app_cookie_delete', {workspace: workspace.id, cookie: c.id}) }}">
+                <form method="post" action="{{ path('app_cookie_delete', {workspace: workspace.id, cookie: c.id}) }}">
                     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ c.id) }}">
-                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
+                    <button class="btn danger small" type="submit" title="{{ 'Delete'|trans }}" aria-label="{{ 'Delete'|trans }}">{{ ic.i('trash', 12) }}</button>
                 </form>
             </td>
         </tr>
@@ -38,7 +45,7 @@
 {% endmacro %}
 
 {% if cookies is empty %}
-    <div class="empty" style="text-align:left;padding:24px;margin-bottom:18px;">{{ 'No cookies yet. When you send a request, the %header% headers in the response are saved here and attached to your subsequent requests automatically.'|trans({'%header%': '<code>Set-Cookie</code>'})|raw }}</div>
+    <div class="empty" style="margin-bottom:18px;">{{ 'No cookies yet. When you send a request, the %header% headers in the response are saved here and attached to your subsequent requests automatically.'|trans({'%header%': '<code>Set-Cookie</code>'})|raw }}</div>
 {% else %}
     <table class="data" style="margin-bottom:22px;">
         <thead><tr><th>Domain</th><th>{{ 'Name'|trans }}</th><th>{{ 'Value'|trans }}</th><th>Path</th><th>{{ 'Expiry'|trans }}</th><th></th></tr></thead>
@@ -49,15 +56,15 @@
 {% if shared_cookies is not empty %}
     <div class="pagehead" style="margin-top:8px;">
         <div>
-            <div class="subtitle" style="margin:0 0 4px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Shared jar (flow runs)'|trans }}</div>
-            <p class="subtitle" style="font-size:13px;">{{ 'Shared cookies used by scheduled/automated flow runs.'|trans }}</p>
+            <div class="eyebrow" style="margin-bottom:5px;">{{ 'Shared jar (flow runs)'|trans }}</div>
+            <p class="subtitle">{{ 'Shared cookies used by scheduled/automated flow runs.'|trans }}</p>
         </div>
         <div class="actions">
             {% if is_granted('WORKSPACE_EDIT', workspace) %}
                 <form method="post" action="{{ path('app_cookie_clear', {workspace: workspace.id}) }}" onsubmit="return confirm('{{ 'Shared cookies will be deleted.'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('cookie-clear') }}">
                     <input type="hidden" name="scope" value="shared">
-                    <button class="btn danger" type="submit">{{ 'Clear shared'|trans }}</button>
+                    <button class="btn danger" type="submit">{{ ic.i('trash', 13) }}{{ 'Clear shared'|trans }}</button>
                 </form>
             {% endif %}
         </div>

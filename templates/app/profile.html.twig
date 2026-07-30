@@ -10,55 +10,61 @@
     </div>
 </div>
 
-<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;">
-    <form class="card" method="post" action="{{ path('app_profile_name') }}">
-        <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Account details'|trans }}</div>
-        <div style="margin-bottom:10px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Full name'|trans }}</label>
-            <input type="text" name="name" value="{{ app.user.name }}" required style="width:100%;">
-        </div>
-        <div style="margin-bottom:12px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Email'|trans }}</label>
-            <input type="email" value="{{ app.user.email }}" disabled style="width:100%;opacity:.6;">
+<div class="grid2" style="align-items:start;">
+    <form class="formcard" method="post" action="{{ path('app_profile_name') }}">
+        <div class="fgroup">
+            <div class="fgroup-title">{{ 'Account details'|trans }}</div>
+            <div class="field">
+                <label>{{ 'Full name'|trans }}</label>
+                <input type="text" name="name" value="{{ app.user.name }}" required>
+            </div>
+            <div class="field">
+                <label>{{ 'Email'|trans }}</label>
+                <input type="email" value="{{ app.user.email }}" disabled style="opacity:.6;">
+            </div>
         </div>
         <input type="hidden" name="_token" value="{{ csrf_token('profile-name') }}">
-        <button class="btn small" type="submit">{{ 'Save'|trans }}</button>
+        <div class="form-actions">
+            <button class="btn small" type="submit">{{ 'Save'|trans }}</button>
+        </div>
     </form>
 
-    <form class="card" method="post" action="{{ path('app_profile_password') }}">
-        <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Change password'|trans }}</div>
-        <div style="margin-bottom:10px;">
-            <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'Current password'|trans }}</label>
-            <input type="password" name="current_password" required style="width:100%;">
-        </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
-            <div>
-                <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'New password'|trans }}</label>
-                <input type="password" name="new_password" required placeholder="{{ 'At least 8 characters'|trans }}" style="width:100%;">
+    <form class="formcard" method="post" action="{{ path('app_profile_password') }}">
+        <div class="fgroup">
+            <div class="fgroup-title">{{ 'Change password'|trans }}</div>
+            <div class="field">
+                <label>{{ 'Current password'|trans }}</label>
+                <input type="password" name="current_password" required>
             </div>
-            <div>
-                <label style="display:block;font-size:12px;margin-bottom:4px;">{{ 'New password (again)'|trans }}</label>
-                <input type="password" name="new_password_confirm" required style="width:100%;">
+            <div class="grid2">
+                <div class="field">
+                    <label>{{ 'New password'|trans }}</label>
+                    <input type="password" name="new_password" required placeholder="{{ 'At least 8 characters'|trans }}">
+                </div>
+                <div class="field">
+                    <label>{{ 'New password (again)'|trans }}</label>
+                    <input type="password" name="new_password_confirm" required>
+                </div>
             </div>
         </div>
         <input type="hidden" name="_token" value="{{ csrf_token('profile-password') }}">
-        <button class="btn small" type="submit">{{ 'Update password'|trans }}</button>
+        <div class="form-actions">
+            <button class="btn small" type="submit">{{ 'Update password'|trans }}</button>
+        </div>
     </form>
 </div>
 
-<div class="card" style="margin-top:14px;">
-    <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Memberships'|trans }}</div>
-    <table class="data">
-        <thead><tr><th>Merchant</th><th>{{ 'Role'|trans }}</th><th>{{ 'Joined'|trans }}</th></tr></thead>
-        <tbody>
-        {% for m in memberships %}
-            <tr>
-                <td style="font-weight:600;">{{ m.merchant.name }}</td>
-                <td><span class="pill {{ m.canManage ? 'on' }}">{{ {'owner': 'Owner'|trans, 'admin': 'Company Admin'|trans, 'member': 'Member'|trans}[m.role] ?? m.role }}</span></td>
-                <td>{{ m.createdAt|date('d.m.Y') }}</td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
-</div>
+<div class="eyebrow" style="margin:24px 0 10px;">{{ 'Memberships'|trans }}</div>
+<table class="data">
+    <thead><tr><th>Merchant</th><th>{{ 'Role'|trans }}</th><th>{{ 'Joined'|trans }}</th></tr></thead>
+    <tbody>
+    {% for m in memberships %}
+        <tr>
+            <td style="font-weight:600;">{{ m.merchant.name }}</td>
+            <td><span class="pill {{ m.canManage ? 'running' }}">{{ {'owner': 'Owner'|trans, 'admin': 'Company Admin'|trans, 'member': 'Member'|trans}[m.role] ?? m.role }}</span></td>
+            <td class="mono" style="color:var(--muted);">{{ m.createdAt|date('d.m.Y') }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
 {% endblock %}

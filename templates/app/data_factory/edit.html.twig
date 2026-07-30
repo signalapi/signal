@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ '{{$' ~ factory.name ~ '}}' }} · {{ 'Data Factory'|trans }}{% endblock %}
 
@@ -18,12 +19,12 @@
     <div class="grid2" style="max-width:640px;">
         <div class="field">
             <label>{{ 'Name (token)'|trans }}</label>
-            <input type="text" name="name" value="{{ factory.name }}" style="font-family:var(--font-mono);">
+            <input type="text" name="name" value="{{ factory.name }}" class="input-mono">
             <p class="fhint">{{ 'Letters, digits,'|trans }} <code>_</code>, <code>.</code></p>
         </div>
         <div class="field">
             <label>{{ 'Kind'|trans }}</label>
-            <select name="kind" id="kind" style="width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:8px;padding:9px;color:var(--text);">
+            <select name="kind" id="kind">
                 <option value="oneOf"    {{ factory.kind == 'oneOf' ? 'selected' }}>{{ 'One of a list (oneOf)'|trans }}</option>
                 <option value="template" {{ factory.kind == 'template' ? 'selected' }}>{{ 'Template (template)'|trans }}</option>
                 <option value="intRange" {{ factory.kind == 'intRange' ? 'selected' }}>{{ 'Number range (intRange)'|trans }}</option>
@@ -39,31 +40,37 @@
     {# ---- kind-specific config ---- #}
     <div class="fgroup kcfg" data-kind="oneOf" style="max-width:640px;">
         <div class="fgroup-title">{{ 'Values — one option per line'|trans }}</div>
-        <textarea name="values" rows="6" style="font-family:var(--font-mono);" placeholder="Yuno&#10;Payrails">{{ (cfg.values ?? [])|join('\n') }}</textarea>
+        <textarea name="values" rows="6" class="input-mono" placeholder="Yuno&#10;Payrails">{{ (cfg.values ?? [])|join('\n') }}</textarea>
         <p class="fhint">{{ 'A random line is picked.'|trans }}</p>
     </div>
     <div class="fgroup kcfg" data-kind="template" style="max-width:640px;">
         <div class="fgroup-title">{{ 'Template'|trans }}</div>
-        <input type="text" name="template" value="{{ cfg.template ?? '' }}" style="font-family:var(--font-mono);" placeholder="test+{{ '{{$guid}}' }}@zotlo.com">
+        <input type="text" name="template" value="{{ cfg.template ?? '' }}" class="input-mono" placeholder="test+{{ '{{$guid}}' }}@zotlo.com">
         <p class="fhint">{{ 'The %token% generators inside it (built-in or another factory) are resolved.'|trans({'%token%': '<code>' ~ ('{{$...}}')|e ~ '</code>'})|raw }}</p>
     </div>
     <div class="fgroup kcfg" data-kind="intRange" style="max-width:640px;">
         <div class="fgroup-title">{{ 'Number range'|trans }}</div>
-        <div style="display:flex;gap:10px;align-items:center;">
-            <label style="font-size:13px;color:var(--muted);">min <input type="number" name="min" value="{{ cfg.min ?? 1 }}" style="width:110px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);margin-left:6px;"></label>
-            <label style="font-size:13px;color:var(--muted);">max <input type="number" name="max" value="{{ cfg.max ?? 100 }}" style="width:110px;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:7px;color:var(--text);margin-left:6px;"></label>
+        <div style="display:flex;gap:12px;">
+            <div class="field" style="margin:0;">
+                <label>min</label>
+                <input type="number" name="min" value="{{ cfg.min ?? 1 }}" style="width:110px;">
+            </div>
+            <div class="field" style="margin:0;">
+                <label>max</label>
+                <input type="number" name="max" value="{{ cfg.max ?? 100 }}" style="width:110px;">
+            </div>
         </div>
     </div>
     <div class="fgroup kcfg" data-kind="pattern" style="max-width:640px;">
         <div class="fgroup-title">{{ 'Pattern'|trans }}</div>
-        <input type="text" name="pattern" value="{{ cfg.pattern ?? '' }}" style="font-family:var(--font-mono);" placeholder="#### #### #### ####">
+        <input type="text" name="pattern" value="{{ cfg.pattern ?? '' }}" class="input-mono" placeholder="#### #### #### ####">
         <p class="fhint"><code>#</code> {{ 'digit'|trans }} · <code>A</code> A-Z · <code>a</code> a-z · <code>*</code> {{ 'letter+digit'|trans }} · {{ 'others as-is.'|trans }}</p>
     </div>
 
     <div class="fgroup" style="max-width:640px;">
         <div style="display:flex;align-items:center;gap:10px;">
-            <button type="button" class="btn ghost small" id="previewBtn">🎲 {{ 'Preview'|trans }}</button>
-            <span id="previewOut" style="font-family:var(--font-mono);font-size:12.5px;color:var(--accent);"></span>
+            <button type="button" class="btn ghost small" id="previewBtn">{{ ic.i('factory', 12) }}{{ 'Preview'|trans }}</button>
+            <span id="previewOut" class="mono" style="font-size:11.5px;color:var(--pri);"></span>
         </div>
     </div>
 

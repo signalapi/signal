@@ -1,49 +1,52 @@
 {% extends 'security/_auth_base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Invite'|trans }} · Signal: Test Platform{% endblock %}
 {% block brand_title %}{{ 'Join your team.'|trans }}{% endblock %}
 
 {% block auth_card %}
     {% if state == 'invalid' %}
-        <p class="eyebrow">{{ 'Invite'|trans }}</p>
+        <div class="eyebrow" style="margin-bottom:7px">{{ 'Invite'|trans }}</div>
         <h1>{{ 'Invalid invite'|trans }}</h1>
-        <p class="sub">{{ 'This invite link is not valid.'|trans }} {{ 'Ask the person who invited you for a new link.'|trans }}</p>
-        <p class="alt"><a href="{{ path('app_login') }}">{{ 'Back to the sign-in page'|trans }}</a></p>
+        <p class="subtitle">{{ 'This invite link is not valid.'|trans }} {{ 'Ask the person who invited you for a new link.'|trans }}</p>
+        <p class="fhint" style="margin-top:18px"><a href="{{ path('app_login') }}">{{ 'Back to the sign-in page'|trans }}</a></p>
 
     {% elseif state == 'accepted' %}
-        <p class="eyebrow">{{ 'Invite'|trans }}</p>
+        <div class="eyebrow" style="margin-bottom:7px">{{ 'Invite'|trans }}</div>
         <h1>{{ 'Invite already used'|trans }}</h1>
-        <p class="sub">{{ 'This invite was already accepted.'|trans }}</p>
-        <p class="alt"><a href="{{ path('app_login') }}">{{ 'Sign In'|trans }}</a></p>
+        <p class="subtitle">{{ 'This invite was already accepted.'|trans }}</p>
+        <p class="fhint" style="margin-top:18px"><a href="{{ path('app_login') }}">{{ 'Sign In'|trans }}</a></p>
 
     {% elseif state == 'expired' %}
-        <p class="eyebrow">{{ 'Invite'|trans }}</p>
+        <div class="eyebrow" style="margin-bottom:7px">{{ 'Invite'|trans }}</div>
         <h1>{{ 'Invite expired'|trans }}</h1>
-        <p class="sub">{{ 'Ask the person who invited you for a new link.'|trans }}</p>
-        <p class="alt"><a href="{{ path('app_login') }}">{{ 'Back to the sign-in page'|trans }}</a></p>
+        <p class="subtitle">{{ 'Ask the person who invited you for a new link.'|trans }}</p>
+        <p class="fhint" style="margin-top:18px"><a href="{{ path('app_login') }}">{{ 'Back to the sign-in page'|trans }}</a></p>
 
     {% elseif state == 'login' %}
-        <p class="eyebrow">{{ 'Invite'|trans }} · {{ invitation.merchant.name }}</p>
+        <div class="eyebrow" style="margin-bottom:7px">{{ 'Invite'|trans }} · {{ invitation.merchant.name }}</div>
         <h1>{{ 'Sign in with your account'|trans }}</h1>
-        <p class="sub">{{ 'There is already an account for %email%. To accept the invite, sign in with that account and open this link again.'|trans({'%email%': '<strong>' ~ invitation.email|e ~ '</strong>'})|raw }}</p>
-        <p class="alt"><a href="{{ path('app_login') }}">{{ 'Sign in'|trans }}</a></p>
+        <p class="subtitle">{{ 'There is already an account for %email%. To accept the invite, sign in with that account and open this link again.'|trans({'%email%': '<strong>' ~ invitation.email|e ~ '</strong>'})|raw }}</p>
+        <p class="fhint" style="margin-top:18px"><a href="{{ path('app_login') }}">{{ 'Sign in'|trans }}</a></p>
 
     {% elseif state == 'accept' %}
-        <p class="eyebrow">{{ 'Invite'|trans }} · {{ invitation.merchant.name }}</p>
+        <div class="eyebrow" style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
+            {{ ic.i('members', 12) }}{{ 'Invite'|trans }} · {{ invitation.merchant.name }}</div>
         <h1>{{ 'Accept the invitation'|trans }}</h1>
-        <p class="sub">{{ '%merchant% invites you as %role%.'|trans({'%merchant%': '<strong>' ~ invitation.merchant.name|e ~ '</strong>', '%role%': invitation.merchantRole == 'admin' ? ('company admin'|trans) : ('member'|trans)})|raw }}</p>
+        <p class="subtitle" style="margin-bottom:20px">{{ '%merchant% invites you as %role%.'|trans({'%merchant%': '<strong>' ~ invitation.merchant.name|e ~ '</strong>', '%role%': invitation.merchantRole == 'admin' ? ('company admin'|trans) : ('member'|trans)})|raw }}</p>
         <form method="post" action="{{ path('app_invite_accept', {token: token}) }}">
             <input type="hidden" name="_token" value="{{ csrf_token('invite-accept') }}">
-            <button class="btn-primary" type="submit">{{ 'Accept the invite'|trans }}</button>
+            <button class="btn block" type="submit">{{ ic.i('check', 14, 2.6) }}{{ 'Accept the invite'|trans }}</button>
         </form>
 
     {% else %}
-        <p class="eyebrow">{{ 'Invite'|trans }} · {{ invitation.merchant.name }}</p>
+        <div class="eyebrow" style="display:flex;align-items:center;gap:6px;margin-bottom:7px">
+            {{ ic.i('members', 12) }}{{ 'Invite'|trans }} · {{ invitation.merchant.name }}</div>
         <h1>{{ 'Create your account'|trans }}</h1>
-        <p class="sub">{{ '%merchant% invites you as %role%.'|trans({'%merchant%': '<strong>' ~ invitation.merchant.name|e ~ '</strong>', '%role%': invitation.merchantRole == 'admin' ? ('company admin'|trans) : ('member'|trans)})|raw }} {{ 'Set a password for %email%.'|trans({'%email%': '<strong>' ~ invitation.email|e ~ '</strong>'})|raw }}</p>
+        <p class="subtitle" style="margin-bottom:20px">{{ '%merchant% invites you as %role%.'|trans({'%merchant%': '<strong>' ~ invitation.merchant.name|e ~ '</strong>', '%role%': invitation.merchantRole == 'admin' ? ('company admin'|trans) : ('member'|trans)})|raw }} {{ 'Set a password for %email%.'|trans({'%email%': '<strong>' ~ invitation.email|e ~ '</strong>'})|raw }}</p>
 
         {% for error in errors %}
-            <div class="flash error">{{ error }}</div>
+            <div class="flash error">{{ ic.i('x', 14, 2.6) }}{{ error }}</div>
         {% endfor %}
 
         <form method="post" action="{{ path('app_invite_register', {token: token}) }}">
@@ -51,7 +54,7 @@
                 <label for="name">{{ 'Full name'|trans }}</label>
                 <input type="text" id="name" name="name" value="{{ old.name }}" required autofocus placeholder="Ada Lovelace">
             </div>
-            <div class="row2">
+            <div class="grid2" style="gap:11px">
                 <div class="field">
                     <label for="password">{{ 'Password'|trans }}</label>
                     <input type="password" id="password" name="password" required placeholder="{{ 'At least 8 characters'|trans }}">
@@ -62,7 +65,7 @@
                 </div>
             </div>
             <input type="hidden" name="_token" value="{{ csrf_token('invite-register') }}">
-            <button class="btn-primary" type="submit">{{ 'Create account and join'|trans }}</button>
+            <button class="btn block" type="submit" style="margin-top:4px">{{ 'Create account and join'|trans }}</button>
         </form>
     {% endif %}
 {% endblock %}

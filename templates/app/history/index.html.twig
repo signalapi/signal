@@ -1,38 +1,18 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'History'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
-<style>
-    .hi-head { margin-bottom: 18px; }
-    .hi-head h1 { margin: 0; font-size: 26px; letter-spacing: -.02em; }
-    .hi-row { display: grid; grid-template-columns: 12px 1.6fr 0.7fr 0.7fr 1fr auto; gap: 14px; align-items: center;
-        padding: 12px 14px; border: 1px solid var(--border); border-radius: 11px; background: var(--panel); box-shadow: var(--shadow); margin-bottom: 8px;
-        text-decoration: none; color: inherit; }
-    .hi-row:hover { border-color: #d3d3ca; }
-    .hi-dot { width: 9px; height: 9px; border-radius: 50%; }
-    .hi-dot.passed { background: var(--pass); } .hi-dot.failed, .hi-dot.error { background: var(--fail); }
-    .hi-dot.running { background: var(--accent); animation: pulse 1s infinite; } .hi-dot.cancelled { background: var(--warn); }
-    .hi-flow { min-width: 0; }
-    .hi-flow .nm { font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hi-flow .tags { display: flex; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
-    .hi-tag { font-size: 10px; font-family: var(--font-mono); color: var(--muted); background: var(--panel-2); border: 1px solid var(--border); border-radius: 5px; padding: 1px 6px; }
-    .hi-tag.suite { color: var(--accent); background: var(--accent-soft); border-color: rgba(69,52,214,.2); }
-    .hi-num { font-family: var(--font-mono); font-size: 13px; }
-    .hi-date { font-family: var(--font-mono); font-size: 12px; color: var(--muted); }
-    .hi-err { grid-column: 2 / -1; font-size: 12px; color: var(--fail); font-family: var(--font-mono); margin-top: 4px;
-        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .hi-err b { color: var(--ink); }
-    @media (max-width: 820px) { .hi-row { grid-template-columns: 12px 1fr auto; } .hi-num, .hi-date { display: none; } }
-</style>
-
-<div class="hi-head">
-    <h1>{{ 'Run history'|trans }}</h1>
-    <p class="subtitle" style="margin:6px 0 0;">{{ 'Suite runs on a single line, single-flow runs on separate lines'|trans }} · {{ 'last %count% records'|trans({'%count%': items|length}) }}</p>
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Run history'|trans }}</h1>
+        <p class="subtitle">{{ 'Suite runs on a single line, single-flow runs on separate lines'|trans }} · {{ 'last %count% records'|trans({'%count%': items|length}) }}</p>
+    </div>
 </div>
 
 {% if items is empty %}
-    <div class="empty" style="text-align:left;padding:24px;">{{ 'No runs yet.'|trans }}</div>
+    <div class="empty">{{ 'No runs yet.'|trans }}</div>
 {% else %}
     {% set trig = {'manual': 'manual'|trans, 'async': 'background'|trans, 'schedule': 'scheduled'|trans, 'api': 'API', 'mcp': 'MCP'} %}
     {% for it in items %}
@@ -40,13 +20,13 @@
             <a class="hi-row" href="{{ it.url }}">
                 <span class="hi-dot {{ it.status }}"></span>
                 <span class="hi-flow">
-                    <span class="nm">🧩 {{ it.name }}</span>
+                    <span class="nm" style="display:inline-flex;align-items:center;gap:6px;">{{ ic.i('suites', 13) }}{{ it.name }}</span>
                     <span class="tags"><span class="hi-tag suite">suite</span></span>
                 </span>
                 <span class="hi-num">{{ '%passed%/%total% flows'|trans({'%passed%': it.passed, '%total%': it.total}) }}</span>
                 <span class="hi-num">—</span>
                 <span class="hi-date">{{ it.createdAt|date('d.m.Y H:i:s') }}</span>
-                <span style="color:var(--muted);">{{ 'Details'|trans }} →</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;color:var(--muted);">{{ 'Details'|trans }}{{ ic.i('chevron-r', 12) }}</span>
             </a>
         {% else %}
             {% set run = it.run %}
@@ -58,15 +38,15 @@
                     <span class="nm">{{ run.flow.name }}</span>
                     <span class="tags">
                         <span class="hi-tag">{{ trig[run.trigger] ?? run.trigger }}</span>
-                        {% if run.triggeredBy %}<span class="hi-tag">👤 {{ run.triggeredBy.name }}</span>{% endif %}
-                        {% for g in run.flow.groups %}<span class="hi-tag suite">🧩 {{ g.name }}</span>{% endfor %}
+                        {% if run.triggeredBy %}<span class="hi-tag" style="display:inline-flex;align-items:center;gap:4px;">{{ ic.i('members', 11) }}{{ run.triggeredBy.name }}</span>{% endif %}
+                        {% for g in run.flow.groups %}<span class="hi-tag suite" style="display:inline-flex;align-items:center;gap:4px;">{{ ic.i('suites', 11) }}{{ g.name }}</span>{% endfor %}
                         {% if run.environmentName %}<span class="hi-tag">{{ run.environmentName }}</span>{% endif %}
                     </span>
                 </span>
                 <span class="hi-num">{{ '%passed%/%total% steps'|trans({'%passed%': run.passedSteps, '%total%': run.totalSteps}) }}</span>
                 <span class="hi-num">{{ run.durationMs is not null ? run.durationMs ~ ' ms' : '—' }}</span>
                 <span class="hi-date">{{ run.createdAt|date('d.m.Y H:i:s') }}</span>
-                <span style="color:var(--muted);">{{ 'Details'|trans }} →</span>
+                <span style="display:inline-flex;align-items:center;gap:4px;color:var(--muted);">{{ 'Details'|trans }}{{ ic.i('chevron-r', 12) }}</span>
                 {% if failed %}
                     <span class="hi-err">↳ <b>{{ failed.label }}</b>{% if failed.requestMethod %} ({{ failed.requestMethod }}{% if failed.responseStatus %} → {{ failed.responseStatus }}{% endif %}){% endif %} — {{ failed.error ?: 'assertion failed'|trans }}</span>
                 {% endif %}

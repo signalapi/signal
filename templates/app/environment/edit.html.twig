@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ environment.name }} · Environment{% endblock %}
 
@@ -28,10 +29,10 @@
                 <tbody>
                 {% for v in environment.variables %}
                     <tr>
-                        <td style="font-family:var(--font-mono);font-size:13px;">
-                            {{ v.name }}{% if v.secret %} <span class="pill">{{ 'secret'|trans }}</span>{% endif %}
+                        <td class="mono">
+                            {{ v.name }}{% if v.secret %} <span class="pill">{{ ic.i('shield', 11) }}{{ 'secret'|trans }}</span>{% endif %}
                         </td>
-                        <td style="font-family:var(--font-mono);font-size:12px;color:var(--muted);">
+                        <td class="mono" style="color:var(--muted);">
                             {%- if v.secret -%}
                                 {{ v.value ? '••••••••' : '—' }}
                             {%- else -%}
@@ -40,7 +41,7 @@
                         </td>
                         <td>
                             <input type="{{ v.secret ? 'password' : 'text' }}" name="my[{{ v.name }}]"
-                                   value="{{ my_values[v.name]|default('') }}" class="var-in"
+                                   value="{{ my_values[v.name]|default('') }}" class="input-mono"
                                    placeholder="{{ 'empty = use the shared value'|trans }}"
                                    autocomplete="off">
                         </td>
@@ -72,16 +73,16 @@
             {% set idx = 0 %}
             {% for v in environment.variables %}
                 <tr>
-                    <td><input type="text" name="var_name[{{ idx }}]" value="{{ v.name }}" class="var-in"></td>
-                    <td><input type="text" name="var_value[{{ idx }}]" value="{{ v.value }}" class="var-in"></td>
+                    <td><input type="text" name="var_name[{{ idx }}]" value="{{ v.name }}" class="input-mono"></td>
+                    <td><input type="text" name="var_value[{{ idx }}]" value="{{ v.value }}" class="input-mono"></td>
                     <td style="text-align:center;"><input type="checkbox" name="var_secret[{{ idx }}]" value="1" {{ v.secret ? 'checked' }}></td>
                 </tr>
                 {% set idx = idx + 1 %}
             {% endfor %}
             {% for i in 1..3 %}
                 <tr>
-                    <td><input type="text" name="var_name[{{ idx }}]" value="" class="var-in"></td>
-                    <td><input type="text" name="var_value[{{ idx }}]" value="" class="var-in"></td>
+                    <td><input type="text" name="var_name[{{ idx }}]" value="" class="input-mono"></td>
+                    <td><input type="text" name="var_value[{{ idx }}]" value="" class="input-mono"></td>
                     <td style="text-align:center;"><input type="checkbox" name="var_secret[{{ idx }}]" value="1"></td>
                 </tr>
                 {% set idx = idx + 1 %}
@@ -89,7 +90,7 @@
             </tbody>
         </table>
         <p class="fhint">{{ 'Empty rows are ignored. Secret variables are masked in the UI.'|trans }}</p>
-        <button type="button" class="btn ghost small" onclick="addRow()" style="margin-top:10px;">+ {{ 'Add row'|trans }}</button>
+        <button type="button" class="btn ghost small" onclick="addRow()" style="margin-top:10px;">{{ ic.i('plus', 13, 2.2) }}{{ 'Add row'|trans }}</button>
     </div>
 
     <div class="form-actions">
@@ -99,15 +100,14 @@
 </form>
 {% endif %}
 
-<style>.var-in{width:100%;background:var(--panel-2);border:1px solid var(--border);border-radius:7px;padding:8px;color:var(--text);font-family:var(--font-mono);font-size:13px;}.var-in:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);}#vars td,#myvars td{padding:6px 8px;}</style>
 <script>
 function addRow() {
     var tb = document.querySelector('#vars tbody');
     var i = tb.rows.length;
     var tr = document.createElement('tr');
     tr.innerHTML =
-        '<td><input type="text" name="var_name[' + i + ']" class="var-in"></td>' +
-        '<td><input type="text" name="var_value[' + i + ']" class="var-in"></td>' +
+        '<td><input type="text" name="var_name[' + i + ']" class="input-mono"></td>' +
+        '<td><input type="text" name="var_value[' + i + ']" class="input-mono"></td>' +
         '<td style="text-align:center;"><input type="checkbox" name="var_secret[' + i + ']" value="1"></td>';
     tb.appendChild(tr);
 }

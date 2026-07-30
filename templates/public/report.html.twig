@@ -1,107 +1,118 @@
-<!doctype html>
-<html lang="{{ app.request.locale }}">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>{{ 'Run Report'|trans }} · {{ run.flow.name }} · Signal</title>
-<style>
-    :root {
-        --bg:#f4f1ea; --panel:#fff; --panel-2:#f7f5ef; --ink:#211f1a; --muted:#8a857a;
-        --border:#e4e0d6; --accent:#b4531f; --accent-soft:#f6e9df;
-        --pass:#1f9d55; --fail:#e5484d; --fail-soft:#fcebec; --warn:#b8860b; --warn-soft:#faf3df;
-        --mono:'SF Mono',ui-monospace,Menlo,monospace;
-    }
-    * { box-sizing:border-box; }
-    body { margin:0; background:var(--bg); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; line-height:1.5; }
-    .wrap { max-width:820px; margin:0 auto; padding:32px 20px 60px; }
-    .brand { font-weight:800; letter-spacing:-.02em; font-size:15px; color:var(--accent); }
-    .brand span { color:var(--muted); font-weight:600; }
-    h1 { font-size:24px; letter-spacing:-.02em; margin:14px 0 6px; }
-    .meta { display:flex; flex-wrap:wrap; gap:8px; margin:12px 0 0; }
-    .tag { font-size:12px; color:var(--muted); background:var(--panel); border:1px solid var(--border); border-radius:999px; padding:4px 11px; }
-    .tag b { color:var(--ink); font-weight:600; }
-    .sbig { display:inline-block; font-weight:700; font-size:13px; padding:5px 12px; border-radius:999px; }
-    .s-passed { background:#e6f4ec; color:var(--pass); } .s-failed,.s-error { background:var(--fail-soft); color:var(--fail); }
-    .s-cancelled { background:var(--warn-soft); color:var(--warn); } .s-running { background:var(--accent-soft); color:var(--accent); }
+{# ==========================================================================
+   templates/public/report.html.twig  —  the login-less shared run report.
+   Now extends base.html.twig, so it inherits signal.css (tokens, dark mode,
+   primitives) instead of carrying its own palette in an inline stylesheet.
+   The robots meta rides in the stylesheets block — the only head hook base has.
+   ========================================================================== #}
+{% extends 'base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
-    .track { margin-top:26px; }
-    .row { display:flex; gap:13px; align-items:flex-start; }
-    .rail { width:30px; flex-shrink:0; display:flex; justify-content:center; position:relative; }
-    .rail::before { content:""; position:absolute; left:50%; top:22px; bottom:-14px; width:2px; transform:translateX(-50%); background:var(--border); }
-    .row:last-child .rail::before { display:none; }
-    .node { width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700;
-        color:#fff; flex-shrink:0; position:relative; z-index:1; background:var(--muted); }
-    .node.st-passed { background:var(--pass); } .node.st-failed,.node.st-error { background:var(--fail); }
-    .node.st-skipped { background:var(--warn); }
-    .card { flex:1; min-width:0; border:1px solid var(--border); background:var(--panel); border-radius:11px; padding:11px 14px; margin-bottom:14px; }
-    .card.st-failed,.card.st-error { border-left:3px solid var(--fail); }
-    .card.st-passed { border-left:3px solid var(--pass); }
-    .chead { display:flex; align-items:center; gap:9px; }
-    .badge { font-family:var(--mono); font-size:9.5px; font-weight:700; padding:2px 6px; border-radius:5px; background:var(--accent-soft); color:var(--accent); }
-    .nm { font-weight:600; font-size:14px; flex:1; min-width:0; }
-    .req { font-family:var(--mono); font-size:11.5px; color:var(--muted); margin-top:6px; word-break:break-all; }
-    .blk { margin-top:9px; font-size:12.5px; }
-    .blk .cap { font-size:10.5px; font-weight:700; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin-bottom:4px; }
-    .a-ok { color:var(--pass); } .a-no { color:var(--fail); }
-    .aline { font-family:var(--mono); font-size:12px; }
-    .drift { background:var(--warn-soft); border:1px solid var(--warn); border-radius:8px; padding:8px 10px; }
-    .drift .cap { color:#8a6d00; }
-    .errbox { background:var(--fail-soft); color:var(--fail); border-radius:8px; padding:8px 10px; font-family:var(--mono); font-size:12px; margin-top:8px; }
-    .foot { margin-top:34px; padding-top:16px; border-top:1px solid var(--border); font-size:12px; color:var(--muted); }
-</style>
-</head>
-<body>
-<div class="wrap">
-    {% set sc = run.status %}
-    <div class="brand">Signal <span>· {{ 'Run Report'|trans }}</span></div>
-    <h1>{{ run.flow.name }}</h1>
-    <div><span class="sbig s-{{ sc }}">{{ {'passed': '✓ ' ~ 'Passed'|trans, 'failed': '✗ ' ~ 'Failed'|trans, 'error': '✗ ' ~ 'Error'|trans, 'cancelled': 'Cancelled'|trans, 'running': 'Running'|trans}[sc] ?? sc }}</span></div>
-    <div class="meta">
-        <span class="tag"><b>{{ run.passedSteps }}/{{ run.totalSteps }}</b> {{ 'steps passed'|trans }}</span>
-        <span class="tag">{{ 'duration'|trans }} <b>{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</b></span>
-        <span class="tag">env <b>{{ run.environmentName ?: '—' }}</b></span>
-        <span class="tag">{{ run.createdAt|date('d.m.Y H:i') }}</span>
+{% block title %}{{ 'Run Report'|trans }} · {{ run.flow.name }} · Signal{% endblock %}
+
+{% block stylesheets %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block body %}
+{% set sc = run.status %}
+{% set slabel = {
+    'passed':    'Passed'|trans,
+    'failed':    'Failed'|trans,
+    'error':     'Error'|trans,
+    'cancelled': 'Cancelled'|trans,
+    'running':   'Running'|trans
+} %}
+
+<main class="content" style="max-width:860px;margin:0 auto">
+    <div class="pagehead">
+        <div>
+            <div class="eyebrow" style="display:flex;align-items:center;gap:7px;margin-bottom:9px">
+                {{ ic.i('terminal', 12, 2.4) }}Signal · {{ 'Run Report'|trans }}</div>
+            <h1>{{ run.flow.name }}</h1>
+            <p class="subtitle">{{ run.createdAt|date('d.m.Y H:i') }}</p>
+        </div>
+        <div class="actions" style="align-items:center">
+            <span class="pill {{ sc }}" style="font-size:12px;padding:4.5px 12px">
+                {%- if sc == 'passed' %}{{ ic.i('check', 13, 2.8) }}{% elseif sc in ['failed', 'error'] %}{{ ic.i('x', 13, 2.8) }}{% endif -%}
+                {{ slabel[sc] ?? sc }}</span>
+            <button class="icon-btn" data-theme-toggle title="{{ 'Theme'|trans }}" aria-label="{{ 'Theme'|trans }}">{{ ic.i('moon', 14) }}</button>
+        </div>
     </div>
 
-    <div class="track">
+    <div class="ru-sum">
+        <div class="ru-stat">
+            <div class="n">{{ run.passedSteps }}/{{ run.totalSteps }}</div>
+            <div class="l">{{ 'steps passed'|trans }}</div>
+        </div>
+        <div class="ru-stat">
+            <div class="n">{{ run.durationMs ?? '—' }}{{ run.durationMs ? ' ms' }}</div>
+            <div class="l">{{ 'duration'|trans }}</div>
+        </div>
+        <div class="ru-stat">
+            <div class="n" style="font-size:15px">{{ run.environmentName ?: '—' }}</div>
+            <div class="l">env</div>
+        </div>
+    </div>
+
     {% for r in run.stepResults %}
-        <div class="row">
-            <div class="rail"><div class="node st-{{ r.status }}">{% if r.status == 'passed' %}✓{% elseif r.status in ['failed','error'] %}✗{% elseif r.status == 'skipped' %}–{% else %}{{ r.position + 1 }}{% endif %}</div></div>
-            <div class="card st-{{ r.status }}">
-                <div class="chead">
-                    {% if r.requestMethod %}<span class="badge">{{ r.requestMethod }}</span>{% endif %}
-                    <span class="nm">{{ r.label }}</span>
-                    {% if r.responseStatus %}<span class="req" style="margin:0;">{{ r.responseStatus }} · {{ r.durationMs }}ms</span>{% endif %}
-                </div>
-                {% if r.requestUrl and r.status != 'skipped' %}<div class="req">{{ r.requestUrl }}</div>{% endif %}
-                {% if r.status == 'skipped' %}<div class="req">{{ r.error ?: 'Skipped.'|trans }}</div>{% endif %}
+        {% set st = r.status == 'error' ? 'failed' : r.status %}
+        {% set edge = r.status == 'passed' ? 'var(--pass)'
+            : (r.status in ['failed', 'error'] ? 'var(--fail)'
+            : (r.status == 'skipped' ? 'var(--warn)' : 'var(--line)')) %}
+        <div class="card" style="margin-bottom:10px;border-left:3px solid {{ edge }}">
+            <div class="card-head">
+                <span class="status-ic {{ st }}">
+                    {%- if r.status == 'passed' %}{{ ic.i('check', 12, 2.8) }}
+                    {%- elseif r.status in ['failed', 'error'] %}{{ ic.i('x', 12, 2.8) }}
+                    {%- elseif r.status == 'skipped' %}{{ ic.i('minus', 12, 2.8) }}
+                    {%- else %}<span class="mono" style="font-size:10px;font-weight:700">{{ r.position + 1 }}</span>{% endif -%}
+                </span>
+                {% if r.requestMethod %}<span class="kind m-{{ r.requestMethod|lower }}">{{ r.requestMethod }}</span>{% endif %}
+                <span class="t grow" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ r.label }}</span>
+                {% if r.responseStatus %}
+                    <span class="mono" style="font-size:11px;color:var(--muted);flex-shrink:0">{{ r.responseStatus }} · {{ r.durationMs }}ms</span>
+                {% endif %}
+            </div>
+            {% set hasBody = r.status == 'skipped' or r.requestUrl or r.assertionResults is not empty
+                or r.shapeDrift is not empty or r.error %}
+            {% if hasBody %}
+            <div class="card-body">
+                {% if r.requestUrl and r.status != 'skipped' %}
+                    <div class="mono" style="font-size:11.5px;color:var(--muted);word-break:break-all">{{ r.requestUrl }}</div>
+                {% endif %}
+                {% if r.status == 'skipped' %}
+                    <div class="mono" style="font-size:11.5px;color:var(--muted)">{{ r.error ?: 'Skipped.'|trans }}</div>
+                {% endif %}
 
                 {% if r.assertionResults is not empty %}
-                    <div class="blk">
-                        <div class="cap">{{ 'Assertions'|trans }}</div>
+                    <div style="margin-top:11px">
+                        <div class="eyebrow" style="margin-bottom:5px">{{ 'Assertions'|trans }}</div>
                         {% for a in r.assertionResults %}
-                            <div class="aline">{% if a.ok %}<span class="a-ok">✓</span>{% else %}<span class="a-no">✗</span>{% endif %} {{ a.label }}{% if not a.ok %} <span style="color:var(--muted);">— {{ 'got:'|trans }} {{ a.actual }}</span>{% endif %}</div>
+                            <div class="mono" style="display:flex;align-items:flex-start;gap:7px;font-size:11.5px;line-height:1.7">
+                                <span style="color:{{ a.ok ? 'var(--pass)' : 'var(--fail)' }};padding-top:3px">{{ ic.i(a.ok ? 'check' : 'x', 12, 2.8) }}</span>
+                                <span>{{ a.label }}{% if not a.ok %} <span style="color:var(--muted)">— {{ 'got:'|trans }} {{ a.actual }}</span>{% endif %}</span>
+                            </div>
                         {% endfor %}
                     </div>
                 {% endif %}
 
                 {% if r.shapeDrift is not empty %}
-                    <div class="blk drift">
-                        <div class="cap">⚠ {{ 'Contract changed'|trans }}</div>
-                        {% for c in r.shapeDrift %}<div class="aline">{{ c }}</div>{% endfor %}
+                    <div style="margin-top:11px;padding:9px 11px;border-radius:var(--r);background:var(--warn-soft);border:1px solid var(--warn)">
+                        <div class="eyebrow" style="color:var(--warn);margin-bottom:4px">{{ 'Contract changed'|trans }}</div>
+                        {% for c in r.shapeDrift %}
+                            <div class="mono" style="font-size:11.5px;line-height:1.7">{{ c }}</div>
+                        {% endfor %}
                     </div>
                 {% endif %}
 
-                {% if r.error and r.status != 'skipped' %}<div class="errbox">{{ r.error }}</div>{% endif %}
+                {% if r.error and r.status != 'skipped' %}
+                    <div class="flash error" style="margin:11px 0 0;font-family:var(--mono);font-size:11.5px;font-weight:400">{{ r.error }}</div>
+                {% endif %}
             </div>
+            {% endif %}
         </div>
     {% endfor %}
-    </div>
 
-    <div class="foot">
+    <p class="fhint" style="margin-top:24px;padding-top:14px;border-top:1px solid var(--line)">
         {{ 'Generated with Signal'|trans }} · {% if run.shareExpiresAt %}{{ 'This report link is valid until %date%.'|trans({'%date%': run.shareExpiresAt|date('d.m.Y H:i')}) }}{% else %}{{ 'This report link does not expire.'|trans }}{% endif %}
-    </div>
-</div>
-</body>
-</html>
+    </p>
+</main>
+{% endblock %}

@@ -1,4 +1,5 @@
 {% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ 'Environments'|trans }} · {{ workspace.name }}{% endblock %}
 
@@ -14,24 +15,26 @@
 <form class="addbar" method="post" action="{{ path('app_environment_new', {workspace: workspace.id}) }}">
     <input type="text" name="name" placeholder="{{ 'New environment name (e.g. staging)'|trans }}">
     <input type="hidden" name="_token" value="{{ csrf_token('new-environment') }}">
-    <button class="btn small" type="submit">+ {{ 'Create empty'|trans }}</button>
+    <button class="btn small" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Create empty'|trans }}</button>
 </form>
 <form class="addbar" method="post" action="{{ path('app_environment_import', {workspace: workspace.id}) }}" enctype="multipart/form-data">
-    <span class="hint">⬆ {{ 'Upload a Postman environment'|trans }}</span>
+    <span class="subtitle" style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0;">
+        {{ ic.i('import', 13) }}{{ 'Upload a Postman environment'|trans }}
+    </span>
     <input type="file" name="environment" accept="application/json,.json">
     <input type="hidden" name="_token" value="{{ csrf_token('env-import') }}">
     <button class="btn small ghost" type="submit">{{ 'Import'|trans }}</button>
 </form>
-<p class="subtitle" style="font-size:12px;margin:0 0 18px;">{{ 'In Postman:'|trans }} Environments → ⋯ → <em>Export</em>. {{ 'You can add the environment here even if the collection came first.'|trans }}</p>
+<p class="subtitle" style="margin:0 0 18px;">{{ 'In Postman:'|trans }} Environments → ⋯ → <em>Export</em>. {{ 'You can add the environment here even if the collection came first.'|trans }}</p>
 
 {% if environments is empty %}
-    <div class="empty" style="text-align:left;padding:24px;">{{ 'No environments yet. Create one above or import from Postman.'|trans }}</div>
+    <div class="empty">{{ 'No environments yet. Create one above or import from Postman.'|trans }}</div>
 {% else %}
 <div class="res-grid stagger">
     {% for env in environments %}
         <div class="res-card">
             <div class="rc-top">
-                <div class="ic">🌐</div>
+                <div class="ic">{{ ic.i('environments', 17) }}</div>
                 <div class="rc-name">
                     <a href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ env.name }}</a>
                     <div class="s">{{ '%count% variables'|trans({'%count%': env.variables|length}) }}</div>
@@ -41,7 +44,7 @@
                 <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ 'Edit'|trans }}</a>
                 <form method="post" action="{{ path('app_environment_delete', {workspace: workspace.id, environment: env.id}) }}" onsubmit="return confirm('{{ 'The environment will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ env.id) }}">
-                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
+                    <button class="btn danger" type="submit">{{ ic.i('trash', 13) }}{{ 'Delete'|trans }}</button>
                 </form>
             </div>
         </div>

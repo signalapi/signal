@@ -1,23 +1,18 @@
-<!doctype html>
-<html lang="{{ app.request.locale }}">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="robots" content="noindex, nofollow">
-<title>{{ 'Report not found'|trans }} · Signal</title>
-<style>
-    body { margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
-        background:#f4f1ea; color:#211f1a; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
-    .box { text-align:center; }
-    .b { font-weight:800; color:#b4531f; letter-spacing:-.02em; }
-    p { color:#8a857a; }
-</style>
-</head>
-<body>
-<div class="box">
-    <div class="b">Signal</div>
-    <h1>{{ 'Report not found'|trans }}</h1>
-    <p>{{ 'This share link may have expired or been revoked.'|trans }}</p>
+{# The dead-share-link page. Extends base.html.twig for signal.css + dark mode. #}
+{% extends 'base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Report not found'|trans }} · Signal{% endblock %}
+
+{% block stylesheets %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block body %}
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+    <div class="empty" style="max-width:430px;padding:34px 30px">
+        <div class="eyebrow" style="display:flex;align-items:center;justify-content:center;gap:7px;margin-bottom:12px">
+            {{ ic.i('terminal', 12, 2.4) }}Signal</div>
+        <h1>{{ 'Report not found'|trans }}</h1>
+        <p class="subtitle" style="margin-top:7px">{{ 'This share link may have expired or been revoked.'|trans }}</p>
+    </div>
 </div>
-</body>
-</html>
+{% endblock %}
