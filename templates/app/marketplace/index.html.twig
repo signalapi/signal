@@ -80,7 +80,19 @@
                 <td>{{ _self.visibility_pill(a) }}</td>
                 <td>{{ a.ownerWorkspace ? a.ownerWorkspace.name : '—' }}</td>
                 <td>{{ a.latestVersion ? a.latestVersion.label : 'not published'|trans }}</td>
-                <td style="text-align:right;">
+                <td style="text-align:right;white-space:nowrap;">
+                    {% if publishable is not empty %}
+                        <form class="inline" method="post" action="{{ path('app_marketplace_new_version', {slug: a.slug}) }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('marketplace-version' ~ a.id) }}">
+                            <input type="hidden" name="source" value="collection">
+                            <select name="collection_id" title="{{ 'Publish a new version from…'|trans }}">
+                                {% for c in publishable %}
+                                    <option value="{{ c.id }}">{{ c.workspace.name }} · {{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="btn ghost small" type="submit">{{ 'New version'|trans }}</button>
+                        </form>
+                    {% endif %}
                     <form class="inline" method="post" action="{{ path('app_marketplace_unpublish', {slug: a.slug}) }}" onsubmit="return confirm('{{ 'The entry and all its versions will be removed from the marketplace.'|trans|e('js') }}');">
                         <input type="hidden" name="_token" value="{{ csrf_token('marketplace-unpublish' ~ a.id) }}">
                         <button class="btn danger" type="submit">{{ 'Remove'|trans }}</button>

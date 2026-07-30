@@ -44,9 +44,37 @@
             <input type="text" name="description" placeholder="{{ 'Short description'|trans }}">
         </div>
 
-        <div class="field">
-            <label>{{ 'OpenAPI spec (.json / .yaml)'|trans }}</label>
-            <input type="file" name="spec" required accept="application/json,.json,.yaml,.yml">
+        <div class="fgroup">
+            <div class="fgroup-title">{{ 'What to publish'|trans }}</div>
+
+            <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;">
+                <input type="radio" name="source" value="collection" checked
+                       onchange="document.getElementById('srcCollection').style.display='';document.getElementById('srcFile').style.display='none';">
+                <span>
+                    <strong>{{ 'One of your collections'|trans }}</strong><br>
+                    <span class="subtitle" style="font-size:12.5px;">{{ 'Signal turns it into an OpenAPI spec — endpoints, saved examples and folders become tags.'|trans }}</span>
+                </span>
+            </label>
+            <label style="display:flex;gap:9px;align-items:flex-start;padding:8px 0;">
+                <input type="radio" name="source" value="file"
+                       onchange="document.getElementById('srcCollection').style.display='none';document.getElementById('srcFile').style.display='';">
+                <span><strong>{{ 'An OpenAPI spec file'|trans }}</strong></span>
+            </label>
+
+            <div id="srcCollection" style="margin-top:10px;">
+                {% if collections is empty %}
+                    <p class="fhint">{{ 'You have no collections yet.'|trans }}</p>
+                {% else %}
+                    <select name="collection_id" style="width:100%;">
+                        {% for c in collections %}
+                            <option value="{{ c.id }}">{{ c.workspace.name }} · {{ c.name }} ({{ '%count% requests'|trans({'%count%': c.requests|length}) }})</option>
+                        {% endfor %}
+                    </select>
+                {% endif %}
+            </div>
+            <div id="srcFile" style="margin-top:10px;display:none;">
+                <input type="file" name="spec" accept="application/json,.json,.yaml,.yml">
+            </div>
         </div>
 
         <div class="fgroup" style="margin-top:6px;">

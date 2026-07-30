@@ -9,6 +9,7 @@ use App\Repository\CatalogApiRepository;
 use App\Repository\WorkspaceRepository;
 use App\Security\MerchantVoter;
 use App\Service\CatalogVisibility;
+use App\Service\OpenApiExporter;
 use App\Service\OpenApiImporter;
 use App\Service\WorkspaceContext;
 use Doctrine\ORM\EntityManagerInterface;
@@ -41,6 +42,7 @@ class MarketplaceController extends AbstractAppController
         CatalogApiRepository $catalog,
         WorkspaceContext $context,
         CatalogVisibility $visibility,
+        \App\Repository\ApiCollectionRepository $collections,
     ): Response {
         $visibleWorkspaces = $context->list();
         $merchants = $visibility->merchantsOf($this->currentUser());
@@ -58,6 +60,8 @@ class MarketplaceController extends AbstractAppController
             'my_published' => null !== $merchant && $this->isGranted(MerchantVoter::MANAGE_WORKSPACES, $merchant)
                 ? $catalog->findByOwnerMerchant($merchant)
                 : [],
+            // Sources for a new version of an entry the company owns.
+            'publishable' => $this->readableCollections($context, $collections),
         ]);
     }
 
@@ -75,6 +79,8 @@ class MarketplaceController extends AbstractAppController
         SluggerInterface $slugger,
         EntityManagerInterface $em,
         TranslatorInterface $translator,
+        \App\Repository\ApiCollectionRepository $collections,
+        OpenApiExporter $exporter,
     ): Response {
         $merchant = $this->currentMerchant();
 
@@ -104,23 +110,10 @@ class MarketplaceController extends AbstractAppController
                 $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_WORKSPACES, $merchant);
             }
 
-            /** @var UploadedFile|null $file */
-            $file = $request->files->get('spec');
-            if (null === $file) {
-                $this->addFlash('error', $translator->trans('Select a spec file.'));
-
-                return $this->redirectToRoute('app_marketplace_publish');
-            }
-
             try {
-                $data = $this->decodeSpec($file);
+                $data = $this->readSpec($request, $collections, $exporter, $translator);
             } catch (\InvalidArgumentException $e) {
                 $this->addFlash('error', $e->getMessage());
-
-                return $this->redirectToRoute('app_marketplace_publish');
-            }
-            if (!OpenApiImporter::supports($data) || !isset($data['paths'])) {
-                $this->addFlash('error', $translator->trans('The file is not an OpenAPI/Swagger spec.'));
 
                 return $this->redirectToRoute('app_marketplace_publish');
             }
@@ -159,6 +152,8 @@ class MarketplaceController extends AbstractAppController
 
         return $this->render('app/marketplace/publish.html.twig', [
             'merchant' => $merchant,
+            // Collections the user may publish from: anything they can read.
+            'collections' => $this->readableCollections($context, $collections),
             // Workspace-scoped publishing needs admin on that workspace.
             'admin_workspaces' => array_values(array_filter(
                 $context->list(),
@@ -166,6 +161,57 @@ class MarketplaceController extends AbstractAppController
             )),
             'can_publish_wide' => $this->isGranted(MerchantVoter::MANAGE_WORKSPACES, $merchant),
         ]);
+    }
+
+    /**
+     * Publishes a new version of an entry the company already owns — the way a
+     * collection's later changes reach everyone who added it.
+     */
+    #[Route('/{slug}/versions', name: 'app_marketplace_new_version', methods: ['POST'])]
+    public function newVersion(
+        string $slug,
+        Request $request,
+        CatalogApiRepository $catalog,
+        \App\Repository\ApiCollectionRepository $collections,
+        OpenApiExporter $exporter,
+        EntityManagerInterface $em,
+        TranslatorInterface $translator,
+    ): Response {
+        $api = $catalog->findOneBy(['slug' => $slug]);
+        if (null === $api || null === $api->getOwnerMerchant()) {
+            throw $this->createNotFoundException();
+        }
+        $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_WORKSPACES, $api->getOwnerMerchant());
+        if (!$this->isCsrfTokenValid('marketplace-version' . $api->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        try {
+            $data = $this->readSpec($request, $collections, $exporter, $translator);
+        } catch (\InvalidArgumentException $e) {
+            $this->addFlash('error', $e->getMessage());
+
+            return $this->redirectToRoute('app_marketplace');
+        }
+
+        $version = new CatalogApiVersion();
+        $version->setCatalogApi($api);
+        $version->setSpec($data);
+        $version->setLabel(trim((string) $request->request->get('label')) ?: date('Y-m-d'));
+        $version->setChangelog(trim((string) $request->request->get('changelog')) ?: null);
+
+        $latest = $api->getLatestVersion();
+        if (null !== $latest && $latest->getSpecHash() === $version->getSpecHash()) {
+            $this->addFlash('error', $translator->trans('The spec is identical to the latest version ("%label%") — no new version was created.', ['%label%' => $latest->getLabel()]));
+
+            return $this->redirectToRoute('app_marketplace');
+        }
+
+        $em->persist($version);
+        $em->flush();
+        $this->addFlash('success', $translator->trans('Version "%label%" has been published.', ['%label%' => $version->getLabel()]));
+
+        return $this->redirectToRoute('app_marketplace');
     }
 
     #[Route('/{slug}/unpublish', name: 'app_marketplace_unpublish', methods: ['POST'])]
@@ -240,6 +286,59 @@ class MarketplaceController extends AbstractAppController
         $this->addFlash('success', $message);
 
         return $this->redirectToRoute('app_collection_index', ['workspace' => $workspace->getId()]);
+    }
+
+    /**
+     * The spec being published: either an uploaded file or one generated from a
+     * collection the user can read.
+     *
+     * @return array<string, mixed>
+     */
+    private function readSpec(
+        Request $request,
+        \App\Repository\ApiCollectionRepository $collections,
+        OpenApiExporter $exporter,
+        TranslatorInterface $translator,
+    ): array {
+        if ('collection' === $request->request->get('source')) {
+            $id = (string) $request->request->get('collection_id');
+            $collection = Uuid::isValid($id) ? $collections->find(Uuid::fromString($id)) : null;
+            if (null === $collection) {
+                throw new \InvalidArgumentException($translator->trans('Pick a collection to publish.'));
+            }
+            // Publishing exposes its contents, so require read access at least.
+            $this->assertWorkspace($collection->getWorkspace());
+
+            return $exporter->export($collection);
+        }
+
+        /** @var UploadedFile|null $file */
+        $file = $request->files->get('spec');
+        if (null === $file) {
+            throw new \InvalidArgumentException($translator->trans('Select a spec file.'));
+        }
+
+        $data = $this->decodeSpec($file);
+        if (!OpenApiImporter::supports($data) || !isset($data['paths'])) {
+            throw new \InvalidArgumentException($translator->trans('The file is not an OpenAPI/Swagger spec.'));
+        }
+
+        return $data;
+    }
+
+    /**
+     * @return \App\Entity\ApiCollection[]
+     */
+    private function readableCollections(WorkspaceContext $context, \App\Repository\ApiCollectionRepository $collections): array
+    {
+        $out = [];
+        foreach ($context->list() as $workspace) {
+            foreach ($collections->findByWorkspace($workspace) as $collection) {
+                $out[] = $collection;
+            }
+        }
+
+        return $out;
     }
 
     /** @return array<string, mixed> */
