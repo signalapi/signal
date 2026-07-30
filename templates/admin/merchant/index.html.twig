@@ -11,7 +11,7 @@
 {% if merchants is empty %}
     <div class="empty">{{ 'No merchants yet. Create the first one.'|trans }}</div>
 {% else %}
-    <table>
+    <table class="data">
         <thead><tr><th>{{ 'Name'|trans }}</th><th>Slug</th><th>{{ 'Admins'|trans }}</th><th>Workspace</th><th>{{ 'Status'|trans }}</th><th>{{ 'Created'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for m in merchants %}

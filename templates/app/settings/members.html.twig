@@ -77,7 +77,7 @@
     <input type="hidden" name="_token" value="{{ csrf_token('member-invite') }}">
 </form>
 
-<table style="margin-bottom:22px;">
+<table class="data" style="margin-bottom:22px;">
     <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Email'|trans }}</th><th>{{ 'Company role'|trans }}</th><th>{{ 'Workspace access'|trans }}</th><th>{{ 'Joined'|trans }}</th><th></th></tr></thead>
     <tbody>
     {% for m in members %}
@@ -124,7 +124,7 @@
 
 {% if invitations is not empty %}
     <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Pending invitations'|trans }}</div>
-    <table>
+    <table class="data">
         <thead><tr><th>{{ 'Email'|trans }}</th><th>{{ 'Role'|trans }}</th><th>{{ 'Expires'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for inv in invitations %}

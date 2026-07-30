@@ -19,7 +19,7 @@
         {% if environment.variables is empty %}
             <p class="fhint">{{ 'This environment has no variables yet.'|trans }}</p>
         {% else %}
-            <table id="myvars">
+            <table class="data" id="myvars">
                 <thead><tr>
                     <th style="width:30%;">{{ 'Name'|trans }}</th>
                     <th style="width:35%;">{{ 'Shared value'|trans }}</th>
@@ -66,7 +66,7 @@
 
     <div class="fgroup">
         <div class="fgroup-title">{{ 'Shared variables'|trans }}</div>
-        <table id="vars">
+        <table class="data" id="vars">
             <thead><tr><th style="width:32%;">{{ 'Name'|trans }}</th><th>{{ 'Value'|trans }}</th><th style="width:70px;text-align:center;">{{ 'Secret'|trans }}</th></tr></thead>
             <tbody>
             {% set idx = 0 %}

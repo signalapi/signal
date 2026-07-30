@@ -40,7 +40,7 @@
 {% if cookies is empty %}
     <div class="empty" style="text-align:left;padding:24px;margin-bottom:18px;">{{ 'No cookies yet. When you send a request, the %header% headers in the response are saved here and attached to your subsequent requests automatically.'|trans({'%header%': '<code>Set-Cookie</code>'})|raw }}</div>
 {% else %}
-    <table style="margin-bottom:22px;">
+    <table class="data" style="margin-bottom:22px;">
         <thead><tr><th>Domain</th><th>{{ 'Name'|trans }}</th><th>{{ 'Value'|trans }}</th><th>Path</th><th>{{ 'Expiry'|trans }}</th><th></th></tr></thead>
         <tbody>{{ _self.cookieRows(cookies, workspace) }}</tbody>
     </table>
@@ -62,7 +62,7 @@
             {% endif %}
         </div>
     </div>
-    <table>
+    <table class="data">
         <thead><tr><th>Domain</th><th>{{ 'Name'|trans }}</th><th>{{ 'Value'|trans }}</th><th>Path</th><th>{{ 'Expiry'|trans }}</th><th></th></tr></thead>
         <tbody>{{ _self.cookieRows(shared_cookies, workspace) }}</tbody>
     </table>

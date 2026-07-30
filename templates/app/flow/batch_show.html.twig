@@ -21,7 +21,7 @@
 {% if runs is empty %}
     <div class="empty" style="text-align:left;padding:24px;">{{ 'No iterations found.'|trans }}</div>
 {% else %}
-    <table>
+    <table class="data">
         <thead><tr><th style="width:50px;">#</th><th>{{ 'Status'|trans }}</th><th>{{ 'Steps'|trans }}</th><th>{{ 'Data'|trans }}</th><th>{{ 'Duration'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for run in runs %}

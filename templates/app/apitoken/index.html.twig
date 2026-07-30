@@ -27,7 +27,7 @@
 {% if tokens is empty %}
     <div class="empty" style="text-align:left;padding:24px;margin-bottom:18px;">{{ 'No tokens yet. Create a token for CI, webhook or MCP integration.'|trans }}</div>
 {% else %}
-    <table style="margin-bottom:22px;">
+    <table class="data" style="margin-bottom:22px;">
         <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Prefix'|trans }}</th><th>{{ 'Last used'|trans }}</th><th>{{ 'Status'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for t in tokens %}

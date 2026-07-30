@@ -1,20 +1,32 @@
+{# ==========================================================================
+   templates/app/_layout.html.twig  —  rewritten shell.
+   Every route condition is carried over 1:1 from the old file; only the markup,
+   classes and icons changed. Suites no longer get their own nav item: they are
+   part of the Tests page (app_flow_index).
+   ========================================================================== #}
 {% extends 'base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block body %}
 {% set ws = workspace is defined and workspace ? workspace : current_workspace() %}
 {% set route = app.request.attributes.get('_route') %}
-{% set glyph %}<svg class="glyph" viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="27" fill="none" stroke="var(--accent)" stroke-width="6"/><circle cx="32" cy="32" r="10" fill="var(--accent)"/></svg>{% endset %}
+{% set cm = current_merchant() %}
+{% set memberships = merchant_memberships() %}
+{% set multiMerchant = memberships|length > 1 %}
+
 <div class="layout">
     <aside class="sidebar" id="sidebar">
         <div class="brand">
-            {{ glyph }}<span>Signal</span>
-            <button class="collapse-btn" id="collapseBtn" title="{{ 'Collapse/expand'|trans }}" aria-label="{{ 'Collapse menu'|trans }}">«</button>
+            <span class="brand-mark">{{ ic.i('terminal', 15, 2.4) }}</span>
+            <span class="brand-txt">
+                <span class="t">{{ cm ? cm.name : 'Signal' }}</span>
+                {% if ws %}<span class="s">{{ ws.name }}</span>{% endif %}
+            </span>
+            <button class="icon-btn" id="collapseBtn" style="margin-left:auto;width:26px;height:26px"
+                    title="{{ 'Collapse menu'|trans }}" aria-label="{{ 'Collapse menu'|trans }}">{{ ic.i('chevron-r', 13) }}</button>
         </div>
 
-        {% set memberships = merchant_memberships() %}
-        {% set multiMerchant = memberships|length > 1 %}
         {% if multiMerchant %}
-            {% set cm = current_merchant() %}
             <div class="ws-switch">
                 <div class="switch-cap">{{ 'Company'|trans }}</div>
                 <form method="post" action="" id="merchantSwitchForm">
@@ -30,14 +42,14 @@
         {% endif %}
 
         <div class="ws-switch">
-            {% if multiMerchant %}<div class="switch-cap">Workspace</div>{% endif %}
-            <select onchange="if(this.value)location.href=this.value;" aria-label="{{ 'Select workspace'|trans }}" {% if not multiMerchant %}style="margin-top:12px;"{% endif %}>
+            <div class="switch-cap">Workspace</div>
+            <select onchange="if(this.value)location.href=this.value;" aria-label="{{ 'Select workspace'|trans }}">
                 {% for w in merchant_workspaces() %}
                     <option value="{{ path('app_workspace_show', {id: w.id}) }}" {{ ws and ws.id == w.id ? 'selected' }}>{{ w.name }}</option>
                 {% else %}
                     <option value="">{{ '— no workspaces —'|trans }}</option>
                 {% endfor %}
-                {% if current_merchant() and is_granted('MERCHANT_MANAGE_WORKSPACES', current_merchant()) %}
+                {% if cm and is_granted('MERCHANT_MANAGE_WORKSPACES', cm) %}
                     <option value="{{ path('app_workspace_new') }}">{{ '+ New workspace…'|trans }}</option>
                 {% endif %}
             </select>
@@ -45,65 +57,79 @@
 
         <nav class="nav">
             {% if ws %}
-                <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="{{ route == 'app_workspace_show' ? 'active' }}"><span class="ico">◇</span><span class="label">{{ 'Overview'|trans }}</span></a>
-            {% endif %}
-
-            {# Platform-wide, above any single company or workspace — so it stays
-               visible even before the user has a workspace. #}
-            <div class="nav-group">{{ 'Discover'|trans }}</div>
-            <a href="{{ path('app_marketplace') }}" class="{{ route starts with 'app_marketplace' ? 'active' }}"><span class="ico">🛒</span><span class="label">API Marketplace</span></a>
-
-            {% if ws %}
                 <div class="nav-group">{{ 'Work'|trans }}</div>
-                <a href="{{ path('app_collection_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_collection' or route starts with 'app_request' or route starts with 'wb_' ? 'active' }}"><span class="ico">🧪</span><span class="label">{{ 'Collections'|trans }}</span></a>
-                <a href="{{ path('app_environment_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_environment' ? 'active' }}"><span class="ico">🌐</span><span class="label">{{ 'Environments'|trans }}</span></a>
+                <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="{{ route == 'app_workspace_show' ? 'active' }}">
+                    {{ ic.i('overview') }}<span class="label">{{ 'Overview'|trans }}</span></a>
+                <a href="{{ path('app_collection_index', {workspace: ws.id}) }}"
+                   class="{{ route starts with 'app_collection' or route starts with 'app_request' or route starts with 'wb_' ? 'active' }}">
+                    {{ ic.i('collections') }}<span class="label">{{ 'Collections'|trans }}</span>
+                    {% if collection_count is defined %}<span class="nav-badge">{{ collection_count }}</span>{% endif %}</a>
+                <a href="{{ path('app_environment_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_environment' ? 'active' }}">
+                    {{ ic.i('environments') }}<span class="label">{{ 'Environments'|trans }}</span></a>
 
                 <div class="nav-group">Test</div>
-                <a href="{{ path('app_flow_index', {workspace: ws.id}) }}" class="{{ (route starts with 'app_flow' and not route starts with 'app_flow_group') ? 'active' }}"><span class="ico">▶</span><span class="label">{{ 'Flows'|trans }}</span></a>
-                <a href="{{ path('app_flow_suite_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_flow_group' ? 'active' }}"><span class="ico">🧩</span><span class="label">{{ 'Suites'|trans }}</span></a>
-                <a href="{{ path('app_history_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_history' ? 'active' }}"><span class="ico">🕘</span><span class="label">{{ 'History'|trans }}</span></a>
-                <a href="{{ path('app_trends', {workspace: ws.id}) }}" class="{{ route starts with 'app_trends' ? 'active' }}"><span class="ico">📈</span><span class="label">{{ 'Trends'|trans }}</span></a>
+                {# Suites live inside this page now — both routes light the same item. #}
+                <a href="{{ path('app_flow_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_flow' ? 'active' }}">
+                    {{ ic.i('flows') }}<span class="label">{{ 'Tests'|trans }}</span></a>
+                <a href="{{ path('app_history_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_history' ? 'active' }}">
+                    {{ ic.i('history') }}<span class="label">{{ 'History'|trans }}</span></a>
+                <a href="{{ path('app_trends', {workspace: ws.id}) }}" class="{{ route starts with 'app_trends' ? 'active' }}">
+                    {{ ic.i('trends') }}<span class="label">{{ 'Trends'|trans }}</span></a>
 
                 <div class="nav-group">{{ 'Infrastructure'|trans }}</div>
-                <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_dbconn' ? 'active' }}"><span class="ico">🗄</span><span class="label">{{ 'DB Connections'|trans }}</span></a>
-                <a href="{{ path('app_factory_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_factory' ? 'active' }}"><span class="ico">🎲</span><span class="label">{{ 'Data Factories'|trans }}</span></a>
-                <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_cookie' ? 'active' }}"><span class="ico">🍪</span><span class="label">{{ 'Cookies'|trans }}</span></a>
+                <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_dbconn' ? 'active' }}">
+                    {{ ic.i('db') }}<span class="label">{{ 'DB connections'|trans }}</span></a>
+                <a href="{{ path('app_factory_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_factory' ? 'active' }}">
+                    {{ ic.i('factory') }}<span class="label">{{ 'Data factories'|trans }}</span></a>
+                <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_cookie' ? 'active' }}">
+                    {{ ic.i('cookie') }}<span class="label">{{ 'Cookies'|trans }}</span></a>
 
                 <div class="nav-group">{{ 'Management'|trans }}</div>
-                <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_apitoken' ? 'active' }}"><span class="ico">🔑</span><span class="label">API & MCP</span></a>
+                <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_apitoken' ? 'active' }}">
+                    {{ ic.i('token') }}<span class="label">API &amp; MCP</span></a>
                 {% if is_granted('WORKSPACE_ADMIN', ws) %}
-                    <a href="{{ path('app_ws_member_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_ws_member' ? 'active' }}"><span class="ico">👥</span><span class="label">{{ 'Members'|trans }}</span></a>
+                    <a href="{{ path('app_ws_member_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_ws_member' ? 'active' }}">
+                        {{ ic.i('members') }}<span class="label">{{ 'Members'|trans }}</span></a>
                 {% endif %}
             {% endif %}
-            <div style="flex:1"></div>
-            {% set cm = current_merchant() %}
-            {# A personal account keeps the company vocabulary out of sight. #}
+
+            <div class="nav-group">{{ 'Discover'|trans }}</div>
+            <a href="{{ path('app_marketplace') }}" class="{{ route starts with 'app_marketplace' ? 'active' }}">
+                {{ ic.i('marketplace') }}<span class="label">API Marketplace</span></a>
+
+            <div class="grow"></div>
+
             <div class="nav-group">{{ cm and cm.personal ? 'Account'|trans : 'Company'|trans }}</div>
             {% if cm and is_granted('MERCHANT_MANAGE_MEMBERS', cm) %}
                 <a href="{{ path('app_member_index') }}" class="{{ route starts with 'app_member' or route starts with 'app_invitation' ? 'active' }}">
-                    <span class="ico">{{ cm.personal ? '➕' : '🏢' }}</span>
-                    <span class="label nav-foot-label">{{ cm.personal ? 'Invite your team'|trans : 'Users'|trans }}</span>
-                </a>
+                    {{ ic.i(cm.personal ? 'plus' : 'company') }}
+                    <span class="label">{{ cm.personal ? 'Invite your team'|trans : 'Users'|trans }}</span></a>
             {% endif %}
-            <a href="{{ path('app_workspace_index') }}" class="{{ route == 'app_workspace_index' ? 'active' }}"><span class="ico">⚙</span><span class="label nav-foot-label">{{ 'Workspaces'|trans }}</span></a>
+            <a href="{{ path('app_workspace_index') }}" class="{{ route == 'app_workspace_index' ? 'active' }}">
+                {{ ic.i('settings') }}<span class="label">{{ 'Workspaces'|trans }}</span></a>
         </nav>
 
         <div class="userbox">
-            <div class="name"><a href="{{ path('app_profile') }}" style="color:inherit;text-decoration:none;">{{ app.user.name }}</a></div>
-            <div class="email">{{ app.user.email }}</div>
-            <div style="margin-top:8px;"><a href="{{ path('app_profile') }}" class="label">{{ 'Profile'|trans }}</a> · <a href="{{ path('app_logout') }}" class="label">{{ 'Sign out'|trans }}</a></div>
-            <div style="margin-top:6px;" class="label">
-                <a href="{{ path('app_locale_switch', {locale: 'en'}) }}" {% if app.request.locale == 'en' %}style="font-weight:700;color:var(--accent);"{% endif %}>EN</a>
-                ·
-                <a href="{{ path('app_locale_switch', {locale: 'tr'}) }}" {% if app.request.locale == 'tr' %}style="font-weight:700;color:var(--accent);"{% endif %}>TR</a>
-            </div>
+            <span class="avatar">{{ app.user.name|slice(0,1)|upper }}</span>
+            <span class="userbox-txt">
+                <span class="name"><a href="{{ path('app_profile') }}" style="color:inherit">{{ app.user.name }}</a></span>
+                <span class="email">{{ app.user.email }}</span>
+            </span>
+            <button class="icon-btn" data-theme-toggle title="{{ 'Theme'|trans }}" aria-label="{{ 'Theme'|trans }}">{{ ic.i('moon', 14) }}</button>
+        </div>
+        <div class="userbox-foot">
+            <a href="{{ path('app_logout') }}">{{ 'Sign out'|trans }}</a>
+            <span class="lang">
+                <a href="{{ path('app_locale_switch', {locale: 'en'}) }}" class="{{ app.request.locale == 'en' ? 'on' }}">EN</a>
+                <a href="{{ path('app_locale_switch', {locale: 'tr'}) }}" class="{{ app.request.locale == 'tr' ? 'on' }}">TR</a>
+            </span>
         </div>
     </aside>
 
     <main class="content">
         {% for label, messages in app.flashes %}
             {% for message in messages %}
-                <div class="flash {{ label }}">{{ message }}</div>
+                <div class="flash {{ label }}">{{ ic.i(label == 'success' ? 'check' : 'x', 14, 2.6) }}{{ message }}</div>
             {% endfor %}
         {% endfor %}
         {% block panel %}{% endblock %}

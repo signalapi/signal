@@ -32,7 +32,7 @@
 {% if recent_merchants is empty %}
     <div class="empty">{{ 'No merchants yet.'|trans }}</div>
 {% else %}
-    <table>
+    <table class="data">
         <thead><tr><th>{{ 'Name'|trans }}</th><th>Slug</th><th>{{ 'Status'|trans }}</th><th>Workspace</th><th>{{ 'Created'|trans }}</th></tr></thead>
         <tbody>
         {% for m in recent_merchants %}

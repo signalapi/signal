@@ -23,7 +23,7 @@
 {% if apis is empty %}
     <div class="empty">{{ 'The catalog is empty. Add the first API.'|trans }}</div>
 {% else %}
-    <table>
+    <table class="data">
         <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Owner'|trans }}</th><th>{{ 'Reach'|trans }}</th><th>{{ 'Version'|trans }}</th><th>{{ 'Status'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for a in apis %}

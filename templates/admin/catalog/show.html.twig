@@ -43,7 +43,7 @@
 {% if api.versions is empty %}
     <div class="empty">{{ 'No version published yet — it is not visible on the marketplace.'|trans }}</div>
 {% else %}
-    <table>
+    <table class="data">
         <thead><tr><th>{{ 'Label'|trans }}</th><th>{{ 'Endpoint count'|trans }}</th><th>Hash</th><th>Changelog</th><th>{{ 'Published at'|trans }}</th></tr></thead>
         <tbody>
         {% for v in api.versions %}

@@ -57,7 +57,7 @@
 </form>
 {% endif %}
 
-<table style="margin-bottom:22px;">
+<table class="data" style="margin-bottom:22px;">
     <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Email'|trans }}</th><th>{{ 'Role'|trans }}</th><th></th></tr></thead>
     <tbody>
     {% for m in members %}
@@ -89,7 +89,7 @@
 
 {% if invitations is not empty %}
     <div class="subtitle" style="margin:0 0 10px;font-size:11px;letter-spacing:.06em;text-transform:uppercase;">{{ 'Pending invitations'|trans }}</div>
-    <table style="margin-bottom:22px;">
+    <table class="data" style="margin-bottom:22px;">
         <thead><tr><th>{{ 'Email'|trans }}</th><th>{{ 'Role'|trans }}</th><th>{{ 'Expires'|trans }}</th><th></th></tr></thead>
         <tbody>
         {% for inv in invitations %}
