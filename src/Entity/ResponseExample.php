@@ -33,7 +33,7 @@ class ResponseExample
     private ApiRequest $apiRequest;
 
     #[ORM\Column(length: 150)]
-    private string $name = 'Örnek';
+    private string $name = 'Example';
 
     #[ORM\Column(length: 12)]
     private string $source = self::SOURCE_MANUAL;

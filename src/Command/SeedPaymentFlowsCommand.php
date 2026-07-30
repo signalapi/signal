@@ -24,13 +24,13 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 /**
  * Seeds an intelligent payment test-flow matrix into a merchant workspace, grouped
- * into runnable suites (Yuno, Payrails, Genel). Each scenario validates the real
+ * into runnable suites (Yuno, Payrails, General). Each scenario validates the real
  * chain against the Zotlo merchant API: pay → confirm the payment went through the
  * EXPECTED provider (transaction/detail.provider_name) → verify subscription/transaction.
  *
  * Idempotent: a flow whose name already exists is skipped.
  */
-#[AsCommand(name: 'app:seed-payment-flows', description: 'Seeds the payment test-flow suites (Yuno / Payrails / Genel).')]
+#[AsCommand(name: 'app:seed-payment-flows', description: 'Seeds the payment test-flow suites (Yuno / Payrails / General).')]
 class SeedPaymentFlowsCommand extends Command
 {
     /** subscription payment with a raw card; vaults the card on success. */
@@ -121,7 +121,7 @@ class SeedPaymentFlowsCommand extends Command
         $user = $this->users->findOneBy(['email' => (string) $input->getOption('email')]);
         $membership = null !== $user ? ($this->merchantMembers->findByUser($user)[0] ?? null) : null;
         if (null === $membership) {
-            $io->error('Kullanıcı/merchant bulunamadı.');
+            $io->error('User/merchant not found.');
 
             return Command::FAILURE;
         }
@@ -132,13 +132,13 @@ class SeedPaymentFlowsCommand extends Command
             }
         }
         if (null === $workspace) {
-            $io->error('Workspace bulunamadı.');
+            $io->error('Workspace not found.');
 
             return Command::FAILURE;
         }
 
         if ($input->getOption('fresh')) {
-            foreach (['Yuno Suite', 'Payrails Suite', 'Genel Ödeme'] as $gn) {
+            foreach (['Yuno Suite', 'Payrails Suite', 'General Payments'] as $gn) {
                 foreach ($this->groups->findByWorkspace($workspace) as $g) {
                     if ($g->getName() === $gn) {
                         foreach ($g->getFlows() as $f) {
@@ -149,7 +149,7 @@ class SeedPaymentFlowsCommand extends Command
                 }
             }
             $this->em->flush();
-            $io->note('Eski suite/flow\'lar silindi (--fresh).');
+            $io->note('Existing suites/flows deleted (--fresh).');
         }
 
         $env = $this->environments->findByWorkspace($workspace)[0] ?? null;
@@ -174,11 +174,11 @@ class SeedPaymentFlowsCommand extends Command
         $this->em->flush();
 
         if ($created) {
-            $io->success(\count($created) . " flow oluşturuldu.");
+            $io->success(\count($created) . ' flow(s) created.');
             $io->listing($created);
         }
         if ($skipped) {
-            $io->note(\count($skipped) . ' flow zaten vardı, atlandı (yeniden üretmek için --fresh).');
+            $io->note(\count($skipped) . ' flow(s) already existed and were skipped (use --fresh to rebuild).');
         }
 
         return Command::SUCCESS;
@@ -193,52 +193,52 @@ class SeedPaymentFlowsCommand extends Command
 
         foreach (self::PROVIDERS as [$suite, $monthly, $consumable, $pname]) {
             $prov = str_replace(' Suite', '', $suite);
-            $set = ['kind' => 'setvar', 'name' => 'Değişkenler',
+            $set = ['kind' => 'setvar', 'name' => 'Variables',
                 'query' => "subscriberId = {{\$randomEmail}}\nmonthlyPkg = $monthly\nconsumablePkg = $consumable"];
 
-            $paySub = ['kind' => 'http', 'name' => "Abonelik ödemesi ($prov)", 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card', 'body' => self::SUB_BODY,
+            $paySub = ['kind' => 'http', 'name' => "Subscription payment ($prov)", 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card', 'body' => self::SUB_BODY,
                 'extract' => "transactionId = result.profile.lastTransactionId\nsubscriptionId = result.profile.subscriptionId",
                 'assert' => "status == 200\nmeta.httpStatus == 200\nresult.profile.status == active\nresponseTime < 25000"];
 
-            $providerCheck = ['kind' => 'http', 'name' => 'Provider + transaction doğrula', 'method' => 'GET',
+            $providerCheck = ['kind' => 'http', 'name' => 'Verify provider + transaction', 'method' => 'GET',
                 'url' => '{{API_URL}}transaction/detail?transactionId={{transactionId}}',
                 'assert' => "meta.httpStatus == 200\nresult.transaction.provider_name contains $pname\nresult.transaction.status notEmpty"];
 
-            $profileActive = ['kind' => 'http', 'name' => 'Abonelik aktif mi', 'method' => 'GET',
+            $profileActive = ['kind' => 'http', 'name' => 'Is the subscription active', 'method' => 'GET',
                 'url' => '{{API_URL}}subscription/profile?subscriberId={{subscriberId}}&packageId={{monthlyPkg}}',
                 'assert' => "meta.httpStatus == 200\nresult.profile.status == active\nresult.profile.subscriptionId notEmpty"];
 
-            $getToken = ['kind' => 'http', 'name' => 'Kayıtlı kartı al', 'method' => 'GET',
+            $getToken = ['kind' => 'http', 'name' => 'Fetch the saved card', 'method' => 'GET',
                 'url' => '{{API_URL}}subscription/card-list?subscriberId={{subscriberId}}',
                 'extract' => 'cardToken = result.cardList.0.token',
                 'assert' => "meta.httpStatus == 200\nresult.cardList.0.token notEmpty"];
 
             // 1) Subscription payment + provider + subscription verification
-            $specs[] = ['name' => "$prov · Abonelik ödeme", 'group' => $suite,
-                'desc' => "Abonelik ödemesi; ödemenin $prov üzerinden geçtiği ve aboneliğin aktif olduğu doğrulanır.",
+            $specs[] = ['name' => "$prov · Subscription payment", 'group' => $suite,
+                'desc' => "Subscription payment; verifies the payment went through $prov and that the subscription is active.",
                 'steps' => [$set, $paySub, $providerCheck, $profileActive]];
 
             // 2) Consumable (one-time) payment + provider verification
-            $specs[] = ['name' => "$prov · Consumable ödeme", 'group' => $suite,
-                'desc' => "Tek seferlik (consumable) ödeme; transaction $prov provider'ında doğrulanır.",
+            $specs[] = ['name' => "$prov · Consumable payment", 'group' => $suite,
+                'desc' => "One-time (consumable) payment; the transaction is verified against the $prov provider.",
                 'steps' => [$set,
-                    ['kind' => 'http', 'name' => "Consumable ödemesi ($prov)", 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card', 'body' => self::CONS_BODY,
+                    ['kind' => 'http', 'name' => "Consumable payment ($prov)", 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card', 'body' => self::CONS_BODY,
                         'extract' => 'transactionId = result.response.transactionId',
                         'assert' => "status == 200\nmeta.httpStatus == 200\nresult.response.isSuccess == true\nresult.package.packageType == consumable"],
                     $providerCheck]];
 
             // 3) Saved-card (token) consumable payment
-            $specs[] = ['name' => "$prov · Kayıtlı kartla ödeme (token)", 'group' => $suite,
-                'desc' => "İlk ödeme kartı kaydeder; kayıtlı token ile ikinci (consumable) ödeme yapılır ve doğrulanır.",
+            $specs[] = ['name' => "$prov · Saved-card payment (token)", 'group' => $suite,
+                'desc' => 'The first payment vaults the card; a second (consumable) payment is made with the saved token and verified.',
                 'steps' => [$set, $paySub, $getToken,
-                    ['kind' => 'http', 'name' => 'Token ile consumable ödeme', 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card', 'body' => self::TOKEN_BODY,
+                    ['kind' => 'http', 'name' => 'Consumable payment with token', 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card', 'body' => self::TOKEN_BODY,
                         'extract' => 'transactionId = result.response.transactionId',
                         'assert' => "status == 200\nmeta.httpStatus == 200\nresult.response.isSuccess == true"],
                     $providerCheck]];
 
             // 4) Custom-pay with a saved card token
-            $specs[] = ['name' => "$prov · Custom-pay (kayıtlı kart)", 'group' => $suite,
-                'desc' => "İlk ödeme sonrası kayıtlı token ile custom-pay (v2) ödemesi ve provider doğrulaması.",
+            $specs[] = ['name' => "$prov · Custom-pay (saved card)", 'group' => $suite,
+                'desc' => 'After the first payment, a custom-pay (v2) payment with the saved token plus provider verification.',
                 'steps' => [$set, $paySub, $getToken,
                     ['kind' => 'http', 'name' => 'Custom-pay (token)', 'method' => 'POST', 'url' => '{{API_URL_V2}}payment/custom-pay', 'body' => self::CUSTOM_BODY,
                         'extract' => 'transactionId = result.response.transactionId',
@@ -247,27 +247,27 @@ class SeedPaymentFlowsCommand extends Command
 
             // 5) Refund
             $specs[] = ['name' => "$prov · Refund", 'group' => $suite,
-                'desc' => "Abonelik ödemesi yapılır, lastTransactionId ile iade edilir, transaction tekrar kontrol edilir.",
+                'desc' => 'A subscription payment is made, refunded via lastTransactionId, then the transaction is checked again.',
                 'steps' => [$set, $paySub,
                     ['kind' => 'http', 'name' => 'Refund', 'method' => 'POST', 'url' => '{{API_URL}}payment/refund',
-                        'body' => "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"refundReason\": \"otomatik test iadesi\",\n  \"refundPrice\": 1,\n  \"refundCurrency\": \"USD\"\n}",
+                        'body' => "{\n  \"transactionId\": \"{{transactionId}}\",\n  \"refundReason\": \"automated test refund\",\n  \"refundPrice\": 1,\n  \"refundCurrency\": \"USD\"\n}",
                         'assert' => "status == 200\nmeta.httpStatus == 200"],
-                    ['kind' => 'http', 'name' => 'İade sonrası transaction', 'method' => 'GET', 'url' => '{{API_URL}}transaction/detail?transactionId={{transactionId}}',
+                    ['kind' => 'http', 'name' => 'Transaction after refund', 'method' => 'GET', 'url' => '{{API_URL}}transaction/detail?transactionId={{transactionId}}',
                         'assert' => "meta.httpStatus == 200\nresult.transaction.provider_name contains $pname"]]];
 
             // 6) Cancel
             $specs[] = ['name' => "$prov · Cancel", 'group' => $suite,
-                'desc' => "Abonelik oluşturulur, iptal edilir, profilde iptal doğrulanır.",
+                'desc' => 'A subscription is created, cancelled, and the cancellation is verified on the profile.',
                 'steps' => [$set, $paySub,
-                    ['kind' => 'http', 'name' => 'Abonelik iptali', 'method' => 'POST', 'url' => '{{API_URL}}subscription/cancellation',
-                        'body' => "{\n  \"subscriberId\": \"{{subscriberId}}\",\n  \"cancellationReason\": \"otomatik test\",\n  \"force\": 0,\n  \"packageId\": \"{{monthlyPkg}}\"\n}",
+                    ['kind' => 'http', 'name' => 'Cancel subscription', 'method' => 'POST', 'url' => '{{API_URL}}subscription/cancellation',
+                        'body' => "{\n  \"subscriberId\": \"{{subscriberId}}\",\n  \"cancellationReason\": \"automated test\",\n  \"force\": 0,\n  \"packageId\": \"{{monthlyPkg}}\"\n}",
                         'assert' => "status == 200\nmeta.httpStatus == 200"],
-                    ['kind' => 'http', 'name' => 'İptal sonrası profil', 'method' => 'GET', 'url' => '{{API_URL}}subscription/profile?subscriberId={{subscriberId}}&packageId={{monthlyPkg}}',
+                    ['kind' => 'http', 'name' => 'Profile after cancellation', 'method' => 'GET', 'url' => '{{API_URL}}subscription/profile?subscriberId={{subscriberId}}&packageId={{monthlyPkg}}',
                         'assert' => "meta.httpStatus == 200\nresult.profile.cancellation notEmpty"]]];
 
             // 7) Direct renewal
             $specs[] = ['name' => "$prov · Direct renewal", 'group' => $suite,
-                'desc' => "Abonelik oluşturulur, doğrudan yenileme yapılır, abonelik aktif kalır.",
+                'desc' => 'A subscription is created, renewed directly, and stays active.',
                 'steps' => [$set, $paySub,
                     ['kind' => 'http', 'name' => 'Direct renewal', 'method' => 'POST', 'url' => '{{API_URL_V2}}subscription/direct-renewal',
                         'body' => "{\n  \"subscriberId\": \"{{subscriberId}}\",\n  \"packageId\": \"{{monthlyPkg}}\"\n}",
@@ -275,19 +275,19 @@ class SeedPaymentFlowsCommand extends Command
                     $profileActive]];
         }
 
-        // ---- Genel Ödeme: negative / safety scenarios (payrails baseline) ----
-        $genSet = ['kind' => 'setvar', 'name' => 'Değişkenler', 'query' => "subscriberId = {{\$randomEmail}}\nconsumablePkg = {{payrailsConsumablePackageId}}"];
-        $specs[] = ['name' => 'Genel · Geçersiz paket (400)', 'group' => 'Genel Ödeme',
-            'desc' => 'Geçersiz paketle ödeme 400 + errorCode döndürmeli.',
+        // ---- General Payments: negative / safety scenarios (payrails baseline) ----
+        $genSet = ['kind' => 'setvar', 'name' => 'Variables', 'query' => "subscriberId = {{\$randomEmail}}\nconsumablePkg = {{payrailsConsumablePackageId}}"];
+        $specs[] = ['name' => 'General · Invalid package (400)', 'group' => 'General Payments',
+            'desc' => 'Paying with an invalid package must return 400 + errorCode.',
             'steps' => [
-                ['kind' => 'setvar', 'name' => 'Değişkenler', 'query' => "subscriberId = {{\$randomEmail}}\nmonthlyPkg = gecersiz-paket-xyz"],
-                ['kind' => 'http', 'name' => 'Geçersiz paket ödemesi', 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card', 'body' => self::SUB_BODY,
+                ['kind' => 'setvar', 'name' => 'Variables', 'query' => "subscriberId = {{\$randomEmail}}\nmonthlyPkg = invalid-package-xyz"],
+                ['kind' => 'http', 'name' => 'Payment with invalid package', 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card', 'body' => self::SUB_BODY,
                     'assert' => "status == 400\nmeta.httpStatus == 400\nmeta.errorCode notEmpty"]]];
-        $specs[] = ['name' => 'Genel · Geçersiz kart reddi', 'group' => 'Genel Ödeme',
-            'desc' => 'Geçersiz kart numarasıyla ödeme başarısız olmalı (isSuccess false / 4xx).',
+        $specs[] = ['name' => 'General · Invalid card rejected', 'group' => 'General Payments',
+            'desc' => 'Paying with an invalid card number must fail (isSuccess false / 4xx).',
             'steps' => [
                 $genSet,
-                ['kind' => 'http', 'name' => 'Geçersiz kartla consumable', 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card',
+                ['kind' => 'http', 'name' => 'Consumable with invalid card', 'method' => 'POST', 'url' => '{{API_URL}}payment/credit-card',
                     'body' => str_replace('{{generalCreditCard}}', '4000000000000002', self::CONS_BODY),
                     'assert' => "result.response.isSuccess == false"]]];
 

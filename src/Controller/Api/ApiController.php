@@ -49,10 +49,10 @@ class ApiController extends AbstractController
         $workspace = $this->workspace($request);
         $flow = $flows->find($id);
         if (null === $flow || $flow->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
-            return $this->json(['ok' => false, 'error' => 'Akış bulunamadı.'], 404);
+            return $this->json(['ok' => false, 'error' => 'Flow not found.'], 404);
         }
         if ($flow->getSteps()->isEmpty()) {
-            return $this->json(['ok' => false, 'error' => 'Akışta adım yok.'], 422);
+            return $this->json(['ok' => false, 'error' => 'Flow has no steps.'], 422);
         }
 
         $body = json_decode($request->getContent() ?: '', true);
@@ -63,7 +63,7 @@ class ApiController extends AbstractController
         $dataset = (\is_array($body) && isset($body['data']) && \is_array($body['data'])) ? $body['data'] : null;
         if (null !== $dataset) {
             if ([] === $dataset) {
-                return $this->json(['ok' => false, 'error' => 'data boş.'], 422);
+                return $this->json(['ok' => false, 'error' => 'data is empty.'], 422);
             }
             $runs = $runner->runDataset($flow, $environment, $dataset, 'api');
             $passed = \count(array_filter($runs, static fn ($r) => \App\Entity\FlowRun::STATUS_PASSED === $r->getStatus()));
@@ -118,12 +118,12 @@ class ApiController extends AbstractController
         $workspace = $this->workspace($request);
         $flow = $flows->find($id);
         if (null === $flow || $flow->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
-            return $this->json(['ok' => false, 'error' => 'Akış bulunamadı.'], 404);
+            return $this->json(['ok' => false, 'error' => 'Flow not found.'], 404);
         }
 
         $run = $runs->find($runId);
         if (null === $run || $run->getFlow()->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122()) {
-            return $this->json(['ok' => false, 'error' => 'Koşum bulunamadı.'], 404);
+            return $this->json(['ok' => false, 'error' => 'Run not found.'], 404);
         }
 
         return $this->json(['ok' => true, 'run' => $reporter->toArray($run)]);

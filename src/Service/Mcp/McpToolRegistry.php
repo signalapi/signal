@@ -66,67 +66,67 @@ class McpToolRegistry
         $strArray = ['type' => 'array', 'items' => ['type' => 'string']];
 
         return [
-            ['name' => 'whoami', 'description' => 'Bu token\'ın bağlı olduğu merchant ve workspace\'i, içindeki kaynak sayılarıyla döner. Her işlem yalnızca bu merchant/workspace ile sınırlıdır.',
+            ['name' => 'whoami', 'description' => 'Return the merchant and workspace this token is bound to, with resource counts. Every operation is limited to this merchant/workspace.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'list_collections', 'description' => 'Workspace içindeki collection\'ları ve istek sayılarını listeler.',
+            ['name' => 'list_collections', 'description' => 'List the collections in the workspace with their request counts.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'search_requests', 'description' => 'İstekleri ada/URL\'ye göre arar; flow adımı eklemek için id döner.',
-                'inputSchema' => ['type' => 'object', 'properties' => ['query' => ['type' => 'string', 'description' => 'Aranacak metin (boş = hepsi)']]]],
-            ['name' => 'list_environments', 'description' => 'Environment\'ları ve değişken adlarını listeler (secret değerler maskelenir).',
+            ['name' => 'search_requests', 'description' => 'Search requests by name or URL; returns ids to use when adding flow steps.',
+                'inputSchema' => ['type' => 'object', 'properties' => ['query' => ['type' => 'string', 'description' => 'Text to search for (empty = all)']]]],
+            ['name' => 'list_environments', 'description' => 'List environments and their variable names (secret values are masked).',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'list_db_connections', 'description' => 'Veritabanı bağlantılarını listeler (kimlik bilgisi dönmez).',
+            ['name' => 'list_db_connections', 'description' => 'List the database connections (no credentials are returned).',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'list_data_factories', 'description' => 'Workspace\'in veri fabrikalarını (yönetilebilir {{$üreteç}}\'ler) VE yerleşik {{$guid}}/{{$randomEmail}}… üreteçlerini örnek değerleriyle listeler.',
+            ['name' => 'list_data_factories', 'description' => 'List the workspace data factories (manageable {{$generator}} tokens) AND the built-in {{$guid}}/{{$randomEmail}}… generators, each with a sample value.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'create_data_factory', 'description' => 'Yeni bir veri fabrikası oluşturur — {{$name}} ile kullanılır, her seferinde taze değer. kind: oneOf {values:[...]} · template {template:"...{{$guid}}..."} · intRange {min,max} · pattern {pattern:"#### #### #### ####"} (#=rakam A=A-Z a=a-z *=harf+rakam).',
+            ['name' => 'create_data_factory', 'description' => 'Create a data factory — used as {{$name}}, producing a fresh value on every use. kind: oneOf {values:[...]} · template {template:"...{{$guid}}..."} · intRange {min,max} · pattern {pattern:"#### #### #### ####"} (#=digit A=A-Z a=a-z *=letter or digit).',
                 'inputSchema' => ['type' => 'object', 'required' => ['name', 'kind', 'config'], 'properties' => [
                     'name' => ['type' => 'string'], 'kind' => ['type' => 'string', 'enum' => ['oneOf', 'template', 'intRange', 'pattern']],
                     'config' => ['type' => 'object'], 'description' => ['type' => 'string'],
                 ]]],
-            ['name' => 'delete_data_factory', 'description' => 'Bir veri fabrikasını adıyla siler.',
+            ['name' => 'delete_data_factory', 'description' => 'Delete a data factory by name.',
                 'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => ['name' => ['type' => 'string']]]],
-            ['name' => 'db_schema', 'description' => 'Bir DB bağlantısının şemasını keşfeder (SQL: tablolar; table verilirse kolon adı+tipi). DB adımı yazmadan önce hangi tablo/alan var görmek için. Mongo/Redis için db_query kullanın.',
+            ['name' => 'db_schema', 'description' => 'Introspect the schema of a DB connection (SQL: tables; with table, its column names and types). Use it to see which tables and fields exist before writing a DB step. For Mongo/Redis use db_query instead.',
                 'inputSchema' => ['type' => 'object', 'required' => ['connection'], 'properties' => [
-                    'connection' => ['type' => 'string', 'description' => 'DB bağlantısı adı veya id'],
-                    'table' => ['type' => 'string', 'description' => 'Verilirse o tablonun kolonlarını döner; boşsa tablo listesi'],
+                    'connection' => ['type' => 'string', 'description' => 'DB connection name or id'],
+                    'table' => ['type' => 'string', 'description' => 'If given, returns that table\'s columns; if empty, returns the table list'],
                 ]]],
-            ['name' => 'db_query', 'description' => 'Bir DB bağlantısında SALT-OKUNUR ad-hoc sorgu çalıştırıp satırları döner (SQL: yalnız SELECT/WITH/SHOW/EXPLAIN; yazma engellenir). Gerçek değerleri görüp doğru assertion yazmak için. Sonuç {rowCount, rows[]}.',
+            ['name' => 'db_query', 'description' => 'Run a READ-ONLY ad-hoc query on a DB connection and return the rows (SQL: SELECT/WITH/SHOW/EXPLAIN only; writes are blocked). Use it to see real values before writing accurate assertions. Result: {rowCount, rows[]}.',
                 'inputSchema' => ['type' => 'object', 'required' => ['connection', 'query'], 'properties' => [
-                    'connection' => ['type' => 'string', 'description' => 'DB bağlantısı adı veya id'],
-                    'query' => ['type' => 'string', 'description' => 'Salt-okunur sorgu. {{değişken}} desteklenir.'],
-                    'limit' => ['type' => 'integer', 'description' => 'Dönecek satır üst sınırı (varsayılan 50)'],
+                    'connection' => ['type' => 'string', 'description' => 'DB connection name or id'],
+                    'query' => ['type' => 'string', 'description' => 'Read-only query. {{variable}} placeholders are supported.'],
+                    'limit' => ['type' => 'integer', 'description' => 'Maximum number of rows to return (default 50)'],
                 ]]],
-            ['name' => 'list_flows', 'description' => 'Test akışlarını ve adım sayılarını listeler.',
+            ['name' => 'list_flows', 'description' => 'List the test flows with their step counts.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'create_flow', 'description' => 'Yeni bir test akışı oluşturur; flowId döner.',
+            ['name' => 'create_flow', 'description' => 'Create a new test flow; returns flowId.',
                 'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => [
                     'name' => ['type' => 'string'],
                     'description' => ['type' => 'string'],
-                    'environmentName' => ['type' => 'string', 'description' => 'Varsayılan environment adı'],
+                    'environmentName' => ['type' => 'string', 'description' => 'Default environment name'],
                     'stopOnFailure' => ['type' => 'boolean'],
                 ]]],
-            ['name' => 'update_flow', 'description' => 'Bir akışı günceller: ad değiştirme (rename), açıklama, stopOnFailure, varsayılan environment. Yalnızca verilen alanlar değişir.',
+            ['name' => 'update_flow', 'description' => 'Update a flow: rename, description, stopOnFailure, default environment. Only the fields you pass are changed.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
                     'description' => ['type' => 'string'],
-                    'environmentName' => ['type' => 'string', 'description' => 'Varsayılan environment adı'],
+                    'environmentName' => ['type' => 'string', 'description' => 'Default environment name'],
                     'stopOnFailure' => ['type' => 'boolean'],
                 ]]],
-            ['name' => 'update_step', 'description' => 'Bir adımı günceller: ad, DB adımı için query/connection, ve KOŞUL (run-if). condition: {left, op, right} verilirse adım yalnızca koşul sağlanınca çalışır (dallanma); null verilirse koşul kalkar. op: eq/ne/contains/matches/gt/lt/ge/le/exists/empty/notEmpty. HTTP isteğini düzenlemek için set_step_request kullanın.',
+            ['name' => 'update_step', 'description' => 'Update a step: its name, query/connection for a DB step, and its run-if CONDITION. Pass condition {left, op, right} to make the step run only when the condition holds (branching); pass null to drop the condition. op: eq/ne/contains/matches/gt/lt/ge/le/exists/empty/notEmpty. To edit an HTTP request, use set_step_request.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
                     'stepId' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
-                    'query' => ['type' => 'string', 'description' => 'Yalnızca DB adımı: {{değişken}} destekler'],
-                    'connection' => ['type' => 'string', 'description' => 'Yalnızca DB adımı: bağlantı adı veya id'],
-                    'condition' => ['type' => ['object', 'null'], 'description' => '{left, op, right} — örn {"left":"{{provider}}","op":"eq","right":"Yuno"}. null = koşulu kaldır.', 'properties' => [
+                    'query' => ['type' => 'string', 'description' => 'DB step only: supports {{variable}}'],
+                    'connection' => ['type' => 'string', 'description' => 'DB step only: connection name or id'],
+                    'condition' => ['type' => ['object', 'null'], 'description' => '{left, op, right} — e.g. {"left":"{{provider}}","op":"eq","right":"Yuno"}. null = remove the condition.', 'properties' => [
                         'left' => ['type' => 'string'], 'op' => ['type' => 'string'], 'right' => ['type' => 'string'],
                     ]],
-                    'loop' => ['type' => ['object', 'null'], 'description' => 'forEach döngüsü {over, as}: over bir dizi döndüren ifade ({{pkgs}}), as öğe değişkeni. Adım her öğe için tekrar çalışır ({{as}}, nesnede {{as.field}}, {{as_index}}). null = döngüyü kaldır.', 'properties' => [
+                    'loop' => ['type' => ['object', 'null'], 'description' => 'forEach loop {over, as}: over is an expression that resolves to an array ({{pkgs}}), as is the item variable. The step repeats for every item ({{as}}, or {{as.field}} for objects, plus {{as_index}}). null = remove the loop.', 'properties' => [
                         'over' => ['type' => 'string'], 'as' => ['type' => 'string'],
                     ]],
                 ]]],
-            ['name' => 'add_http_step', 'description' => 'Akışa bir HTTP isteği adımı ekler. extractions: ["var = json.path"], assertions: ["status == 200", "data.id exists"].',
+            ['name' => 'add_http_step', 'description' => 'Append an HTTP request step to a flow. extractions: ["var = json.path"], assertions: ["status == 200", "data.id exists"].',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'requestId'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'requestId' => ['type' => 'string'],
@@ -134,93 +134,93 @@ class McpToolRegistry
                     'extractions' => $strArray,
                     'assertions' => $strArray,
                 ]]],
-            ['name' => 'add_db_step', 'description' => 'Akışa bir DB doğrulama adımı ekler. query {{değişken}} destekler. assertions örn: ["rowCount == 1", "rows.0.status == active"].',
+            ['name' => 'add_db_step', 'description' => 'Append a DB verification step to a flow. query supports {{variable}}. Example assertions: ["rowCount == 1", "rows.0.status == active"].',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'connection', 'query'], 'properties' => [
                     'flowId' => ['type' => 'string'],
-                    'connection' => ['type' => 'string', 'description' => 'DB bağlantısı adı veya id'],
+                    'connection' => ['type' => 'string', 'description' => 'DB connection name or id'],
                     'query' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
                     'extractions' => $strArray,
                     'assertions' => $strArray,
                 ]]],
-            ['name' => 'add_call_step', 'description' => 'Akışa bir ALT-AKIŞ çağrısı adımı ekler: başka bir akışın adımları bu koşumda inline, aynı değişken bağlamıyla çalışır (referans — hep güncel hâli). Döngüsel çağrılar koşumda otomatik engellenir. Tekrar eden blokları (login, abonelik başlat) bir kez kurup her akıştan çağırmak için.',
+            ['name' => 'add_call_step', 'description' => 'Append a SUB-FLOW call step to a flow: the other flow\'s steps run inline in this run, sharing the same variable context (by reference — always its current version). Circular calls are blocked automatically at run time. Use it to define a repeated block once (login, start subscription) and call it from every flow.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'calledFlow'], 'properties' => [
-                    'flowId' => ['type' => 'string', 'description' => 'Adımın ekleneceği ana akış id\'si'],
-                    'calledFlow' => ['type' => 'string', 'description' => 'Çağrılacak alt-akışın id\'si veya adı'],
+                    'flowId' => ['type' => 'string', 'description' => 'Id of the parent flow the step is added to'],
+                    'calledFlow' => ['type' => 'string', 'description' => 'Id or name of the sub-flow to call'],
                     'name' => ['type' => 'string'],
                 ]]],
-            ['name' => 'create_flow_from_collection', 'description' => 'Bir collection\'ın isteklerinden tek seferde sıralı HTTP adımlı akış kurar. requestIds verilmezse collection\'daki tüm istekler sırasıyla eklenir; verilirse yalnızca o istekler (verilen sırayla).',
+            ['name' => 'create_flow_from_collection', 'description' => 'Build a flow with ordered HTTP steps from a collection\'s requests in one call. Without requestIds, every request in the collection is added in order; with requestIds, only those requests, in the given order.',
                 'inputSchema' => ['type' => 'object', 'required' => ['collectionId', 'name'], 'properties' => [
                     'collectionId' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
                     'description' => ['type' => 'string'],
-                    'requestIds' => array_merge($strArray, ['description' => 'Eklenecek istek id\'leri (sıralı). Boş = collection\'daki tüm istekler.']),
+                    'requestIds' => array_merge($strArray, ['description' => 'Ids of the requests to add, in order. Empty = every request in the collection.']),
                     'environmentName' => ['type' => 'string'],
                     'stopOnFailure' => ['type' => 'boolean'],
                 ]]],
-            ['name' => 'add_setvar_step', 'description' => 'Akışa değişken atama adımı ekler. assignments: ["orderId = {{data.id}}", "label = sabit"]. Değerlerde {{değişken}} ve {{$randomEmail}} çözülür.',
+            ['name' => 'add_setvar_step', 'description' => 'Append a variable-assignment step to a flow. assignments: ["orderId = {{data.id}}", "label = literal"]. Values resolve {{variable}} and {{$randomEmail}} tokens.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'assignments'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'assignments' => $strArray,
                     'name' => ['type' => 'string'],
                 ]]],
-            ['name' => 'add_delay_step', 'description' => 'Akışa bekleme adımı ekler (asenkron işlemler arası gecikme).',
+            ['name' => 'add_delay_step', 'description' => 'Append a wait step to a flow (delay between asynchronous operations).',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'ms'], 'properties' => [
                     'flowId' => ['type' => 'string'],
-                    'ms' => ['type' => 'integer', 'description' => 'Bekleme süresi (ms, maks 60000)'],
+                    'ms' => ['type' => 'integer', 'description' => 'Wait duration (ms, max 60000)'],
                     'name' => ['type' => 'string'],
                 ]]],
-            ['name' => 'get_flow', 'description' => 'Bir akışın detayını (tüm adımları, extraction/assertion\'ları, retry ayarları ve istediği dış değişkenlerle) döner.',
+            ['name' => 'get_flow', 'description' => 'Return a flow in detail: all its steps, extractions/assertions, retry settings and the external variables it expects.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
-            ['name' => 'get_flow_variables', 'description' => 'Bir akışın çalışmak için DIŞARIDAN beklediği değişkenleri döner (adımlarda kullanılan {{değişken}}\'lerden, akışın kendi ürettikleri ve dinamik olanlar hariç). Her biri için environment sağlıyor mu ve değeri belirtilir. run_flow/run_suite öncesi hangi değerleri vereceğini bilmek için.',
+            ['name' => 'get_flow_variables', 'description' => 'Return the variables a flow expects to be supplied FROM OUTSIDE (collected from the {{variable}} tokens used in its steps, excluding the ones the flow produces itself and the dynamic ones). For each one, reports whether an environment provides it and with what value. Call it before run_flow/run_suite to know which values to pass.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
-            ['name' => 'run_flow', 'description' => 'Bir akışı SENKRON çalıştırır, biter ve adım adım sonucu (assertion durumları dahil) döner. Kısa akışlar için.',
+            ['name' => 'run_flow', 'description' => 'Run a flow SYNCHRONOUSLY, wait for it to finish and return the step-by-step result including assertion outcomes. Use for short flows.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'environmentName' => ['type' => 'string'],
-                    'variables' => ['type' => 'object', 'description' => 'Tek seferlik değişkenler {ad: değer}'],
+                    'variables' => ['type' => 'object', 'description' => 'One-off variables {name: value}'],
                 ]]],
-            ['name' => 'run_flow_async', 'description' => 'Bir akışı ARKA PLANDA başlatır ve hemen runId döner (beklemez). Uzun/poll\'lü akışlar için. İlerlemeyi list_runs veya get_run ile izleyin.',
+            ['name' => 'run_flow_async', 'description' => 'Start a flow IN THE BACKGROUND and return runId immediately (without waiting). Use for long or polling flows. Track progress with list_runs or get_run.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'environmentName' => ['type' => 'string'],
                     'variables' => ['type' => 'object'],
                 ]]],
-            ['name' => 'list_runs', 'description' => 'Son koşumları listeler (durum, geçen adım, süre, tarih). flowId verilirse o akışın, verilmezse workspace genelinin.',
+            ['name' => 'list_runs', 'description' => 'List recent runs (status, passed steps, duration, date). With flowId, only that flow\'s runs; without it, the whole workspace.',
                 'inputSchema' => ['type' => 'object', 'properties' => [
                     'flowId' => ['type' => 'string'],
-                    'limit' => ['type' => 'integer', 'description' => 'Maks kayıt (varsayılan 10)'],
+                    'limit' => ['type' => 'integer', 'description' => 'Maximum records (default 10)'],
                 ]]],
-            ['name' => 'get_run', 'description' => 'Bir koşumun detayını döner.',
+            ['name' => 'get_run', 'description' => 'Return a run in detail.',
                 'inputSchema' => ['type' => 'object', 'required' => ['runId'], 'properties' => ['runId' => ['type' => 'string']]]],
-            ['name' => 'reset_contract_baseline', 'description' => 'Bir adımın kontrat baseline\'ını (yanıt şekli) sıfırlar; sonraki başarılı koşumda yeniden alınır. API bilinçli değiştiyse drift uyarısını temizlemek için.',
+            ['name' => 'reset_contract_baseline', 'description' => 'Reset a step\'s contract baseline (its recorded response shape); it is captured again on the next successful run. Use it to clear a drift warning after an intentional API change.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => ['stepId' => ['type' => 'string']]]],
-            ['name' => 'diagnose_run', 'description' => 'Başarısız bir koşumu TEŞHİS için ham kanıt döner: her başarısız adımın isteği, GERÇEK yanıt gövdesi, hangi assertion\'ın beklenen vs gerçek değeri tutmadığı, çıkarılan değişkenler ve hata. runId ver ya da flowId ile son koşumu al. Sonucu yorumlayıp neden patladığını açıkla; gerekiyorsa update_step/set_step_request/set_step_checks ile düzeltme öner, DB durumunu db_query ile kontrol et.',
+            ['name' => 'diagnose_run', 'description' => 'Return raw evidence to DIAGNOSE a failed run: for every failing step, the request sent, the ACTUAL response body, which assertion mismatched with its expected vs actual value, the extracted variables and the error. Pass runId, or pass flowId to take that flow\'s latest run. Interpret the result and explain why it broke; where needed, propose a fix via update_step/set_step_request/set_step_checks and check DB state with db_query.',
                 'inputSchema' => ['type' => 'object', 'properties' => [
                     'runId' => ['type' => 'string'],
-                    'flowId' => ['type' => 'string', 'description' => 'runId verilmezse bu akışın en son koşumu teşhis edilir'],
+                    'flowId' => ['type' => 'string', 'description' => 'Without runId, this flow\'s latest run is diagnosed'],
                 ]]],
-            ['name' => 'delete_flow', 'description' => 'Bir akışı ve tüm koşum geçmişini siler.',
+            ['name' => 'delete_flow', 'description' => 'Delete a flow and its entire run history.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
-            ['name' => 'delete_step', 'description' => 'Bir akış adımını siler.',
+            ['name' => 'delete_step', 'description' => 'Delete a flow step.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => ['stepId' => ['type' => 'string']]]],
 
             // ---- request building & wiring (chain requests without the panel) ----
-            ['name' => 'add_request_step', 'description' => 'Akışa SIFIRDAN bir HTTP isteği adımı ekler (collection\'a gerek yok). headers/params: [{"name":"x","value":"y"}]. body\'de ve alanlarda {{değişken}} kullanılır. extractions ile yanıttan değer çıkar (sonraki adımlar kullanır), assertions ile doğrula. stepId döner.',
+            ['name' => 'add_request_step', 'description' => 'Append an HTTP request step built FROM SCRATCH to a flow (no collection needed). headers/params: [{"name":"x","value":"y"}]. {{variable}} tokens work in the body and in every field. Use extractions to pull values out of the response for later steps, and assertions to verify it. Returns stepId.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'method', 'url'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
                     'method' => ['type' => 'string', 'description' => 'GET|POST|PUT|PATCH|DELETE'],
-                    'url' => ['type' => 'string', 'description' => '{{API_URL}}/... gibi değişkenler kullanılabilir'],
+                    'url' => ['type' => 'string', 'description' => 'Variables may be used, e.g. {{API_URL}}/...'],
                     'headers' => ['type' => 'array', 'items' => ['type' => 'object']],
                     'params' => ['type' => 'array', 'items' => ['type' => 'object']],
                     'bodyMode' => ['type' => 'string', 'description' => 'none|raw|json|form'],
                     'body' => ['type' => 'string'],
-                    'auth' => ['type' => 'object', 'description' => '{type:bearer, token:"{{token}}"} vb.'],
+                    'auth' => ['type' => 'object', 'description' => 'e.g. {type:bearer, token:"{{token}}"}'],
                     'extractions' => $strArray,
                     'assertions' => $strArray,
                 ]]],
-            ['name' => 'set_step_request', 'description' => 'Bir adımın kendi (flow\'a özel) istek alanlarını günceller — bağlama için: önceki adımın çıktısını {{var}} olarak gövdeye/URL\'e/header\'a koy. Sadece verilen alanlar değişir.',
+            ['name' => 'set_step_request', 'description' => 'Update a step\'s own (flow-specific) request fields — this is how you chain steps: put a previous step\'s output into the body, URL or headers as {{var}}. Only the fields you pass are changed.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
                     'stepId' => ['type' => 'string'],
                     'method' => ['type' => 'string'], 'url' => ['type' => 'string'],
@@ -229,36 +229,36 @@ class McpToolRegistry
                     'bodyMode' => ['type' => 'string'], 'body' => ['type' => 'string'],
                     'auth' => ['type' => 'object'],
                 ]]],
-            ['name' => 'add_extraction', 'description' => 'Bir adımın yanıtından değer çıkarır (var ← json path). Böylece sonraki adımlar {{var}} ile bu değeri kullanır = istekleri birbirine bağlamanın yolu. Örn: var="token", path="result.profile.lastTransactionId".',
+            ['name' => 'add_extraction', 'description' => 'Extract a value from a step\'s response (var <- json path) so later steps can use it as {{var}} — this is how requests are chained. Example: var="token", path="result.profile.lastTransactionId".',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId', 'var', 'path'], 'properties' => [
                     'stepId' => ['type' => 'string'], 'var' => ['type' => 'string'], 'path' => ['type' => 'string'],
                 ]]],
-            ['name' => 'set_step_checks', 'description' => 'Bir adımın extraction, assertion ve/veya JSON şema doğrulamasını ayarlar (verilmeyen değişmez). schema: bir JSON-Schema objesi (type/properties/required/items) — yanıt uymazsa adım başarısız olur; null/boş verilirse şema kaldırılır.',
+            ['name' => 'set_step_checks', 'description' => 'Set a step\'s extractions, assertions and/or JSON schema validation (anything you omit is left unchanged). schema: a JSON Schema object (type/properties/required/items) — the step fails when the response does not match; pass null or an empty value to remove the schema.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
                     'stepId' => ['type' => 'string'], 'extractions' => $strArray, 'assertions' => $strArray,
-                    'schema' => ['type' => ['object', 'null'], 'description' => 'JSON-Schema objesi; null = kaldır'],
+                    'schema' => ['type' => ['object', 'null'], 'description' => 'JSON Schema object; null = remove'],
                 ]]],
-            ['name' => 'set_flow_order', 'description' => 'Adımların çalışma sırasını (ve tuval bağlantılarını) belirler. stepIds: çalışacakları sırayla adım id\'leri.',
+            ['name' => 'set_flow_order', 'description' => 'Set the execution order of the steps (and the canvas edges). stepIds: step ids in the order they should run.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'stepIds'], 'properties' => [
                     'flowId' => ['type' => 'string'], 'stepIds' => $strArray,
                 ]]],
 
             // ---- suites (run many flows together) ----
-            ['name' => 'list_suites', 'description' => 'Suite\'leri (akış gruplarını), içlerindeki akışları ve son koşum durumlarını listeler.',
+            ['name' => 'list_suites', 'description' => 'List the suites (flow groups), the flows inside them and their last run status.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'create_suite', 'description' => 'Yeni bir suite (akış grubu) oluşturur; suiteId döner.',
+            ['name' => 'create_suite', 'description' => 'Create a new suite (flow group); returns suiteId.',
                 'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => ['name' => ['type' => 'string'], 'description' => ['type' => 'string']]]],
-            ['name' => 'update_suite', 'description' => 'Bir suite\'i günceller: ad (rename) ve/veya açıklama. Yalnızca verilen alan değişir.',
+            ['name' => 'update_suite', 'description' => 'Update a suite: rename and/or change its description. Only the field you pass is changed.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string'], 'name' => ['type' => 'string'], 'description' => ['type' => 'string']]]],
-            ['name' => 'add_flow_to_suite', 'description' => 'Bir akışı suite\'e ekler (sona). Bir akış birden fazla suite\'te olabilir; bu ekleme diğer üyelikleri etkilemez.',
+            ['name' => 'add_flow_to_suite', 'description' => 'Add a flow to a suite (at the end). A flow may belong to several suites; this does not affect its other memberships.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'flowId'], 'properties' => ['suiteId' => ['type' => 'string'], 'flowId' => ['type' => 'string']]]],
-            ['name' => 'remove_flow_from_suite', 'description' => 'Bir akışı belirtilen suite\'ten çıkarır (akış ve diğer suite üyelikleri korunur).',
+            ['name' => 'remove_flow_from_suite', 'description' => 'Remove a flow from the given suite (the flow itself and its other suite memberships are kept).',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'flowId'], 'properties' => ['suiteId' => ['type' => 'string'], 'flowId' => ['type' => 'string']]]],
-            ['name' => 'run_suite', 'description' => 'Suite\'teki tüm akışları ARKA PLANDA sırayla çalıştırır; batchId döner. Durumu get_suite_run ile izleyin.',
+            ['name' => 'run_suite', 'description' => 'Run every flow in the suite IN THE BACKGROUND, one after another; returns batchId. Track the status with get_suite_run.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string'], 'environmentName' => ['type' => 'string']]]],
-            ['name' => 'get_suite_run', 'description' => 'Bir suite koşumunun durumunu (her akışın geçti/başarısız/çalışıyor) döner.',
+            ['name' => 'get_suite_run', 'description' => 'Return the status of a suite run (passed/failed/running per flow).',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'batchId'], 'properties' => ['suiteId' => ['type' => 'string'], 'batchId' => ['type' => 'string']]]],
-            ['name' => 'delete_suite', 'description' => 'Bir suite\'i (akış grubunu) siler. İçindeki akışlar silinmez, sadece gruptan çıkar.',
+            ['name' => 'delete_suite', 'description' => 'Delete a suite (flow group). The flows inside it are not deleted, they just leave the group.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string']]]],
         ];
     }
@@ -314,7 +314,7 @@ class McpToolRegistry
             'run_suite' => $this->runSuite($ws, $args),
             'get_suite_run' => $this->getSuiteRun($ws, $args),
             'delete_suite' => $this->deleteSuite($ws, $args),
-            default => throw new \InvalidArgumentException("Bilinmeyen araç: $name"),
+            default => throw new \InvalidArgumentException("Unknown tool: $name"),
         };
     }
 
@@ -391,7 +391,7 @@ class McpToolRegistry
     private function createFlow(Workspace $ws, array $args): array
     {
         if (empty($args['name'])) {
-            throw new \InvalidArgumentException('name zorunlu.');
+            throw new \InvalidArgumentException('name is required.');
         }
 
         $flow = new TestFlow();
@@ -413,7 +413,7 @@ class McpToolRegistry
         if (isset($args['name'])) {
             $name = trim((string) $args['name']);
             if ('' === $name) {
-                throw new \InvalidArgumentException('name boş olamaz.');
+                throw new \InvalidArgumentException('name cannot be empty.');
             }
             $flow->setName($name);
         }
@@ -439,13 +439,13 @@ class McpToolRegistry
         if (isset($args['name'])) {
             $name = trim((string) $args['name']);
             if ('' === $name) {
-                throw new \InvalidArgumentException('name boş olamaz.');
+                throw new \InvalidArgumentException('name cannot be empty.');
             }
             $step->setName($name);
         }
         if (isset($args['query']) || isset($args['connection'])) {
             if (FlowStep::TYPE_DB !== $step->getType()) {
-                throw new \InvalidArgumentException('query/connection yalnızca DB adımında geçerli.');
+                throw new \InvalidArgumentException('query/connection are only valid on a DB step.');
             }
             if (isset($args['query'])) {
                 $step->setQuery((string) $args['query']);
@@ -508,7 +508,7 @@ class McpToolRegistry
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
         $request = $this->requests->find((string) ($args['requestId'] ?? ''));
         if (null === $request || $request->getCollection()->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
-            throw new \InvalidArgumentException('İstek bulunamadı.');
+            throw new \InvalidArgumentException('Request not found.');
         }
 
         $step = new FlowStep();
@@ -549,7 +549,7 @@ class McpToolRegistry
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
         $called = $this->resolveFlow($ws, (string) ($args['calledFlow'] ?? ''));
         if ($called->getId()?->toRfc4122() === $flow->getId()?->toRfc4122()) {
-            throw new \InvalidArgumentException('Bir akış kendini çağıramaz.');
+            throw new \InvalidArgumentException('A flow cannot call itself.');
         }
 
         $step = new FlowStep();
@@ -567,7 +567,7 @@ class McpToolRegistry
     {
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
         if ($flow->getSteps()->isEmpty()) {
-            throw new \InvalidArgumentException('Akışta adım yok.');
+            throw new \InvalidArgumentException('Flow has no steps.');
         }
 
         $environment = $flow->getDefaultEnvironment();
@@ -584,7 +584,7 @@ class McpToolRegistry
     {
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
         if ($flow->getSteps()->isEmpty()) {
-            throw new \InvalidArgumentException('Akışta adım yok.');
+            throw new \InvalidArgumentException('Flow has no steps.');
         }
 
         $environment = $flow->getDefaultEnvironment();
@@ -604,7 +604,7 @@ class McpToolRegistry
             'runId' => (string) $run->getId(),
             'status' => $run->getStatus(),
             'totalSteps' => $run->getTotalSteps(),
-            'hint' => 'Arka planda başlatıldı. İlerleme için get_run veya list_runs kullanın.',
+            'hint' => 'Started in the background. Use get_run or list_runs to follow the progress.',
         ];
     }
 
@@ -639,7 +639,7 @@ class McpToolRegistry
     {
         $run = $this->runs->find((string) ($args['runId'] ?? ''));
         if (null === $run || $run->getFlow()->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
-            throw new \InvalidArgumentException('Koşum bulunamadı.');
+            throw new \InvalidArgumentException('Run not found.');
         }
 
         return $this->reporter->toArray($run);
@@ -652,7 +652,7 @@ class McpToolRegistry
         if ('' !== $runId) {
             $found = Uuid::isValid($runId) ? $this->runs->find($runId) : null;
             if (null === $found || $found->getFlow()->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
-                throw new \InvalidArgumentException('Koşum bulunamadı.');
+                throw new \InvalidArgumentException('Run not found.');
             }
             $run = $found;
         } elseif (!empty($args['flowId'])) {
@@ -660,16 +660,16 @@ class McpToolRegistry
             $recent = $this->runs->recentForFlow($flow, 1);
             $run = $recent[0] ?? null;
             if (null === $run) {
-                throw new \InvalidArgumentException('Bu akışın henüz koşumu yok.');
+                throw new \InvalidArgumentException('This flow has no runs yet.');
             }
         } else {
-            throw new \InvalidArgumentException('runId veya flowId gerekli.');
+            throw new \InvalidArgumentException('runId or flowId is required.');
         }
 
         $evidence = $this->diag->evidence($run);
         $evidence['guidance'] = [] === $evidence['failingSteps']
-            ? 'Bu koşumda başarısız adım yok (durum: ' . $run->getStatus() . ').'
-            : 'Her failingStep için responseBody ve failedAssertions.actual/expected\'i incele; neden patladığını açıkla ve gerekiyorsa update_step (koşul), set_step_request (istek) veya set_step_checks ile düzeltme öner. DB doğrulaması gerekiyorsa db_query ile o anki durumu kontrol et.';
+            ? 'No step failed in this run (status: ' . $run->getStatus() . ').'
+            : 'For every failingStep, inspect responseBody and failedAssertions.actual/expected; explain why it broke and, where needed, propose a fix via update_step (condition), set_step_request (request) or set_step_checks. If DB verification is needed, check the current state with db_query.';
 
         return $evidence;
     }
@@ -681,7 +681,7 @@ class McpToolRegistry
         $step->setContractBaselineAt(null);
         $this->steps->save($step);
 
-        return ['ok' => true, 'stepId' => (string) $step->getId(), 'note' => 'Baseline sıfırlandı; sonraki başarılı koşumda yeniden alınacak.'];
+        return ['ok' => true, 'stepId' => (string) $step->getId(), 'note' => 'Baseline reset; it will be captured again on the next successful run.'];
     }
 
     private function whoami(Workspace $ws): array
@@ -697,19 +697,19 @@ class McpToolRegistry
                 'environments' => \count($this->environments->findByWorkspace($ws)),
                 'dbConnections' => \count($this->dbConnections->findByWorkspace($ws)),
             ],
-            'scope' => 'Tüm araçlar yalnızca bu merchant\'ın bu workspace\'i ile sınırlıdır; başka merchant/workspace verisine erişilemez.',
+            'scope' => 'Every tool is limited to this workspace of this merchant; no other merchant or workspace data is reachable.',
         ];
     }
 
     private function createFlowFromCollection(Workspace $ws, array $args): array
     {
         if (empty($args['collectionId']) || empty($args['name'])) {
-            throw new \InvalidArgumentException('collectionId ve name zorunlu.');
+            throw new \InvalidArgumentException('collectionId and name are required.');
         }
 
         $collection = $this->collections->find((string) $args['collectionId']);
         if (null === $collection || $collection->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
-            throw new \InvalidArgumentException('Collection bulunamadı.');
+            throw new \InvalidArgumentException('Collection not found.');
         }
 
         // Resolve the requests to include: explicit ordered ids, or all requests in collection order.
@@ -722,7 +722,7 @@ class McpToolRegistry
             foreach ($args['requestIds'] as $rid) {
                 $rid = (string) $rid;
                 if (!isset($byId[$rid])) {
-                    throw new \InvalidArgumentException("İstek bu collection'da değil: $rid");
+                    throw new \InvalidArgumentException("Request is not in this collection: $rid");
                 }
                 $requests[] = $byId[$rid];
             }
@@ -730,7 +730,7 @@ class McpToolRegistry
             $requests = array_values($byId);
         }
         if ([] === $requests) {
-            throw new \InvalidArgumentException('Collection\'da eklenecek istek yok.');
+            throw new \InvalidArgumentException('The collection has no requests to add.');
         }
 
         $flow = new TestFlow();
@@ -763,7 +763,7 @@ class McpToolRegistry
             'name' => $flow->getName(),
             'steps' => \count($added),
             'addedFrom' => $collection->getName(),
-            'hint' => 'Adımlar HTTP isteği olarak eklendi. İstersen add_db_step ile DB doğrulaması, get_flow ile detay, run_flow ile çalıştır.',
+            'hint' => 'The steps were added as HTTP requests. Optionally add DB verification with add_db_step, inspect the flow with get_flow, and run it with run_flow.',
         ];
     }
 
@@ -772,14 +772,14 @@ class McpToolRegistry
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
         $assignments = $this->joinLines($args['assignments'] ?? []);
         if ('' === trim($assignments)) {
-            throw new \InvalidArgumentException('assignments boş olamaz.');
+            throw new \InvalidArgumentException('assignments cannot be empty.');
         }
 
         $step = new FlowStep();
         $step->setFlow($flow);
         $step->setType(FlowStep::TYPE_SETVAR);
         $step->setQuery($assignments);
-        $step->setName((string) ($args['name'] ?? 'Değişken set'));
+        $step->setName((string) ($args['name'] ?? 'Set variables'));
         $step->setPosition($this->nextPosition($flow));
         $this->steps->save($step);
 
@@ -795,7 +795,7 @@ class McpToolRegistry
         $step->setFlow($flow);
         $step->setType(FlowStep::TYPE_DELAY);
         $step->setQuery((string) $ms);
-        $step->setName((string) ($args['name'] ?? $ms . ' ms bekle'));
+        $step->setName((string) ($args['name'] ?? 'Wait ' . $ms . ' ms'));
         $step->setPosition($this->nextPosition($flow));
         $this->steps->save($step);
 
@@ -864,8 +864,8 @@ class McpToolRegistry
             'variables' => $vars,
             'mustSupply' => array_map(static fn (array $v): string => $v['name'], $mustSupply),
             'hint' => [] === $mustSupply
-                ? 'Tüm değişkenler environment\'tan geliyor; run_flow ekstra değişken istemeden çalışır.'
-                : 'mustSupply alanındaki değişkenleri run_flow\'da variables ile verin.',
+                ? 'Every variable comes from the environment; run_flow works without any extra variables.'
+                : 'Pass the variables listed in mustSupply through the variables argument of run_flow.',
         ];
     }
 
@@ -882,7 +882,7 @@ class McpToolRegistry
     {
         $step = $this->steps->find((string) ($args['stepId'] ?? ''));
         if (null === $step || $step->getFlow()->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
-            throw new \InvalidArgumentException('Adım bulunamadı.');
+            throw new \InvalidArgumentException('Step not found.');
         }
         $this->steps->remove($step);
 
@@ -897,7 +897,7 @@ class McpToolRegistry
         $step = new FlowStep();
         $step->setFlow($flow);
         $step->setType(FlowStep::TYPE_HTTP);
-        $step->setName((string) ($args['name'] ?? (strtoupper((string) ($args['method'] ?? 'GET')) . ' isteği')));
+        $step->setName((string) ($args['name'] ?? (strtoupper((string) ($args['method'] ?? 'GET')) . ' request')));
         $step->setPosition($this->nextPosition($flow));
         $step->setReqMethod(strtoupper((string) ($args['method'] ?? 'GET')));
         $step->setReqUrl((string) ($args['url'] ?? ''));
@@ -918,7 +918,7 @@ class McpToolRegistry
     {
         $step = $this->requireStep($ws, (string) ($args['stepId'] ?? ''));
         if (FlowStep::TYPE_HTTP !== $step->getType()) {
-            throw new \InvalidArgumentException('Yalnızca HTTP adımının isteği düzenlenir.');
+            throw new \InvalidArgumentException('Only an HTTP step\'s request can be edited.');
         }
         if (isset($args['method'])) {
             $step->setReqMethod(strtoupper((string) $args['method']));
@@ -953,7 +953,7 @@ class McpToolRegistry
         $var = trim((string) ($args['var'] ?? ''));
         $path = trim((string) ($args['path'] ?? ''));
         if ('' === $var || '' === $path) {
-            throw new \InvalidArgumentException('var ve path zorunlu.');
+            throw new \InvalidArgumentException('var and path are required.');
         }
         $ex = array_values(array_filter($step->getExtractions(), static fn (array $e): bool => ($e['var'] ?? null) !== $var));
         $ex[] = ['var' => $var, 'path' => $path];
@@ -1010,7 +1010,7 @@ class McpToolRegistry
         foreach ((array) ($args['stepIds'] ?? []) as $sid) {
             $sid = (string) $sid;
             if (!isset($byId[$sid])) {
-                throw new \InvalidArgumentException("Adım bu akışta değil: $sid");
+                throw new \InvalidArgumentException("Step is not in this flow: $sid");
             }
             $byId[$sid]->setPosition($pos++);
             $order[] = $sid;
@@ -1051,7 +1051,7 @@ class McpToolRegistry
     private function createSuite(Workspace $ws, array $args): array
     {
         if (empty($args['name'])) {
-            throw new \InvalidArgumentException('name zorunlu.');
+            throw new \InvalidArgumentException('name is required.');
         }
         $group = new FlowGroup();
         $group->setWorkspace($ws);
@@ -1068,7 +1068,7 @@ class McpToolRegistry
         if (isset($args['name'])) {
             $name = trim((string) $args['name']);
             if ('' === $name) {
-                throw new \InvalidArgumentException('name boş olamaz.');
+                throw new \InvalidArgumentException('name cannot be empty.');
             }
             $suite->setName($name);
         }
@@ -1104,7 +1104,7 @@ class McpToolRegistry
     {
         $suite = $this->requireSuite($ws, (string) ($args['suiteId'] ?? ''));
         if ($suite->getFlows()->isEmpty()) {
-            throw new \InvalidArgumentException('Suite\'te akış yok.');
+            throw new \InvalidArgumentException('The suite has no flows.');
         }
         $envId = null;
         if (!empty($args['environmentName'])) {
@@ -1122,7 +1122,7 @@ class McpToolRegistry
         $this->bus->dispatch(new RunFlowGroupMessage((string) $suite->getId(), $batchId, $envId));
 
         return ['batchId' => $batchId, 'status' => 'running', 'total' => $suite->getFlows()->count(),
-            'hint' => 'Arka planda başladı. Durumu get_suite_run ile izleyin.'];
+            'hint' => 'Started in the background. Track the status with get_suite_run.'];
     }
 
     private function getSuiteRun(Workspace $ws, array $args): array
@@ -1191,11 +1191,11 @@ class McpToolRegistry
     {
         $name = preg_replace('/[^\w.\-]/', '', trim((string) ($args['name'] ?? ''))) ?? '';
         if ('' === $name) {
-            throw new \InvalidArgumentException('Geçerli bir ad gerekli (harf, rakam, _ veya .).');
+            throw new \InvalidArgumentException('A valid name is required (letters, digits, _ or .).');
         }
         $kind = (string) ($args['kind'] ?? '');
         if (!\in_array($kind, \App\Entity\DataFactory::KINDS, true)) {
-            throw new \InvalidArgumentException('Geçersiz kind. oneOf/template/intRange/pattern.');
+            throw new \InvalidArgumentException('Invalid kind. Use oneOf/template/intRange/pattern.');
         }
 
         $factory = new \App\Entity\DataFactory();
@@ -1208,7 +1208,7 @@ class McpToolRegistry
         try {
             $this->dataFactories->save($factory);
         } catch (\Throwable) {
-            throw new \InvalidArgumentException('Bu adla bir fabrika zaten var: ' . $name);
+            throw new \InvalidArgumentException('A data factory with this name already exists: ' . $name);
         }
 
         $this->dynamic->setFactories([$name => ['kind' => $kind, 'config' => $factory->getConfig()]]);
@@ -1226,7 +1226,7 @@ class McpToolRegistry
                 return ['deleted' => true, 'name' => $name];
             }
         }
-        throw new \InvalidArgumentException('Fabrika bulunamadı: ' . $name);
+        throw new \InvalidArgumentException('Data factory not found: ' . $name);
     }
 
     // ---- db introspection ----
@@ -1237,7 +1237,7 @@ class McpToolRegistry
         $type = $conn->getType();
         if (!\in_array($type, [\App\Entity\DbConnection::TYPE_POSTGRES, \App\Entity\DbConnection::TYPE_MYSQL], true)) {
             return ['connection' => $conn->getName(), 'type' => $type,
-                'note' => 'Şema keşfi yalnızca SQL (postgres/mysql) için. Mongo/Redis için db_query ile örnek veri çekin.'];
+                'note' => 'Schema introspection is only available for SQL (postgres/mysql). For Mongo/Redis, fetch sample data with db_query.'];
         }
 
         $table = trim((string) ($args['table'] ?? ''));
@@ -1250,12 +1250,12 @@ class McpToolRegistry
                 : "SELECT table_name FROM information_schema.tables WHERE table_schema NOT IN ('pg_catalog','information_schema') ORDER BY table_name";
             $res = $this->dbQuery->run($conn, $query, []);
             if (!$res->ok) {
-                throw new \InvalidArgumentException('Şema okunamadı: ' . (string) $res->error);
+                throw new \InvalidArgumentException('Could not read the schema: ' . (string) $res->error);
             }
             $tables = array_map(static fn (array $r): string => (string) array_values($r)[0], $res->data['rows'] ?? []);
 
             return ['connection' => $conn->getName(), 'type' => $type, 'tables' => $tables,
-                'hint' => 'Bir tablonun kolonlarını görmek için table parametresiyle tekrar çağırın.'];
+                'hint' => 'Call again with the table parameter to see a table\'s columns.'];
         }
 
         // List columns of a table. Quote-strip to keep the literal safe.
@@ -1264,7 +1264,7 @@ class McpToolRegistry
         $query = "SELECT column_name, data_type, is_nullable FROM information_schema.columns WHERE table_name = '$safe' $schemaFilter ORDER BY ordinal_position";
         $res = $this->dbQuery->run($conn, $query, []);
         if (!$res->ok) {
-            throw new \InvalidArgumentException('Kolonlar okunamadı: ' . (string) $res->error);
+            throw new \InvalidArgumentException('Could not read the columns: ' . (string) $res->error);
         }
         $columns = array_map(static fn (array $r): array => [
             'name' => (string) ($r['column_name'] ?? ''),
@@ -1273,7 +1273,7 @@ class McpToolRegistry
         ], $res->data['rows'] ?? []);
 
         return ['connection' => $conn->getName(), 'type' => $type, 'table' => $table, 'columns' => $columns,
-            'hint' => 'add_db_step ile assertion: "rows.0.' . ($columns[0]['name'] ?? 'kolon') . ' == ..."'];
+            'hint' => 'Assertion for add_db_step: "rows.0.' . ($columns[0]['name'] ?? 'column') . ' == ..."'];
     }
 
     private function dbQueryTool(Workspace $ws, array $args): array
@@ -1281,17 +1281,17 @@ class McpToolRegistry
         $conn = $this->findConnection($ws, (string) ($args['connection'] ?? ''));
         $query = (string) ($args['query'] ?? '');
         if ('' === trim($query)) {
-            throw new \InvalidArgumentException('query zorunlu.');
+            throw new \InvalidArgumentException('query is required.');
         }
         // Read-only guard for SQL connections: reject any write/DDL statement.
         if (\in_array($conn->getType(), [\App\Entity\DbConnection::TYPE_POSTGRES, \App\Entity\DbConnection::TYPE_MYSQL], true)
             && preg_match('/\b(insert|update|delete|drop|alter|truncate|create|grant|revoke|replace|merge|call|do|set)\b/i', $query)) {
-            throw new \InvalidArgumentException('db_query salt-okunur: yalnızca SELECT/WITH/SHOW/EXPLAIN. Yazma için flow DB adımı kullanın.');
+            throw new \InvalidArgumentException('db_query is read-only: SELECT/WITH/SHOW/EXPLAIN only. Use a flow DB step for writes.');
         }
 
         $res = $this->dbQuery->run($conn, $query, []);
         if (!$res->ok) {
-            throw new \InvalidArgumentException('Sorgu hatası: ' . (string) $res->error);
+            throw new \InvalidArgumentException('Query error: ' . (string) $res->error);
         }
         $limit = max(1, (int) ($args['limit'] ?? 50));
         $data = \is_array($res->data) ? $res->data : [];
@@ -1337,7 +1337,7 @@ class McpToolRegistry
     {
         $step = $this->steps->find($id);
         if (null === $step || $step->getFlow()->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
-            throw new \InvalidArgumentException('Adım bulunamadı.');
+            throw new \InvalidArgumentException('Step not found.');
         }
 
         return $step;
@@ -1347,7 +1347,7 @@ class McpToolRegistry
     {
         $suite = $this->groups->find($id);
         if (null === $suite || $suite->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
-            throw new \InvalidArgumentException('Suite bulunamadı.');
+            throw new \InvalidArgumentException('Suite not found.');
         }
 
         return $suite;
@@ -1401,7 +1401,7 @@ class McpToolRegistry
     {
         $flow = $this->flows->find($id);
         if (null === $flow || $flow->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
-            throw new \InvalidArgumentException('Akış bulunamadı.');
+            throw new \InvalidArgumentException('Flow not found.');
         }
 
         return $flow;
@@ -1414,7 +1414,7 @@ class McpToolRegistry
     {
         $ref = trim($ref);
         if ('' === $ref) {
-            throw new \InvalidArgumentException('calledFlow zorunlu.');
+            throw new \InvalidArgumentException('calledFlow is required.');
         }
         if (Uuid::isValid($ref)) {
             $flow = $this->flows->find($ref);
@@ -1427,7 +1427,7 @@ class McpToolRegistry
                 return $f;
             }
         }
-        throw new \InvalidArgumentException('Çağrılacak akış bulunamadı: ' . $ref);
+        throw new \InvalidArgumentException('Flow to call not found: ' . $ref);
     }
 
     private function findEnvironmentByName(Workspace $ws, string $name): ?Environment
@@ -1454,7 +1454,7 @@ class McpToolRegistry
             }
         }
         if (null === $conn || $conn->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
-            throw new \InvalidArgumentException('DB bağlantısı bulunamadı: ' . $ref);
+            throw new \InvalidArgumentException('DB connection not found: ' . $ref);
         }
 
         return $conn;

@@ -55,7 +55,7 @@ class RunDueFlowsCommand extends Command
             $io->writeln(sprintf('- %s → %s (%d/%d)', $flow->getName(), strtoupper($run->getStatus()), $run->getPassedSteps(), $run->getTotalSteps()));
         }
 
-        $io->success(sprintf('%d zamanlanmış akış çalıştırıldı.', $ran));
+        $io->success(sprintf('%d scheduled flow(s) executed.', $ran));
 
         return Command::SUCCESS;
     }

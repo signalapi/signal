@@ -10,7 +10,7 @@ use Symfony\Component\Security\Core\Authentication\Token\TokenInterface;
 use Symfony\Component\Security\Core\Authorization\Voter\Voter;
 
 /**
- * Merchant-level authority: owners and company admins ("genel yönetici") manage
+ * Merchant-level authority: owners and company admins ("general manager") manage
  * members and the workspace inventory (create/delete); owner-only operations
  * (deleting the merchant, transferring ownership) require MERCHANT_ADMIN.
  *

@@ -40,17 +40,17 @@ class ApiTokenAuthenticator extends AbstractAuthenticator
     {
         $header = (string) $request->headers->get('Authorization', '');
         if (!preg_match('/^Bearer\s+(\S+)$/i', $header, $m)) {
-            throw new CustomUserMessageAuthenticationException('Authorization: Bearer <token> başlığı gerekli.');
+            throw new CustomUserMessageAuthenticationException('Authorization: Bearer <token> header is required.');
         }
 
         $apiToken = $this->tokens->findActiveByHash(hash('sha256', $m[1]));
         if (null === $apiToken) {
-            throw new CustomUserMessageAuthenticationException('Geçersiz veya iptal edilmiş API token.');
+            throw new CustomUserMessageAuthenticationException('Invalid or revoked API token.');
         }
 
         $owner = $apiToken->getCreatedBy();
         if (null === $owner) {
-            throw new CustomUserMessageAuthenticationException('Token sahibi kullanıcı silinmiş.');
+            throw new CustomUserMessageAuthenticationException('The user who owns this token has been deleted.');
         }
 
         $apiToken->setLastUsedAt(new \DateTimeImmutable());

@@ -31,7 +31,7 @@ class McpController extends AbstractController
     {
         $token = $request->attributes->get(ApiTokenAuthenticator::REQUEST_ATTR);
         if (!$token instanceof ApiToken) {
-            return new JsonResponse(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32000, 'message' => 'Yetkisiz.']], 401);
+            return new JsonResponse(['jsonrpc' => '2.0', 'id' => null, 'error' => ['code' => -32000, 'message' => 'Unauthorized.']], 401);
         }
         $workspace = $token->getWorkspace();
 
@@ -83,9 +83,9 @@ class McpController extends AbstractController
                     'capabilities' => ['tools' => new \stdClass()],
                     'serverInfo' => ['name' => 'signal-mcp', 'version' => '1.1.0'],
                     'instructions' => sprintf(
-                        'API test platformu. Bu oturum yalnızca "%s" merchant\'ının "%s" workspace\'i ile sınırlıdır — başka merchant/workspace verisine erişemezsiniz. '
-                        . 'Collection/istek/environment/DB bağlantılarını listeleyip test akışları kurabilir, collection\'dan flow üretebilir ve senkron/asenkron çalıştırabilirsiniz. '
-                        . 'Başlangıçta whoami çağırarak kapsamı doğrulayın.',
+                        'API testing platform. This session is scoped to the "%s" workspace of merchant "%s" only — no other merchant or workspace data is reachable. '
+                        . 'You can list collections, requests, environments and DB connections, build test flows, generate a flow from a collection, and run flows synchronously or asynchronously. '
+                        . 'Call whoami first to confirm the scope.',
                         $merchant->getName(),
                         $workspace->getName(),
                     ),
@@ -134,7 +134,7 @@ class McpController extends AbstractController
         } catch (\Throwable $e) {
             // Tool errors are reported inside the result (MCP convention), not as JSON-RPC errors.
             return $this->result($id, [
-                'content' => [['type' => 'text', 'text' => 'Hata: ' . $e->getMessage()]],
+                'content' => [['type' => 'text', 'text' => 'Error: ' . $e->getMessage()]],
                 'isError' => true,
             ]);
         }
