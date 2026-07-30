@@ -1,33 +1,24 @@
+{# Workbench shell: an icon-only rail so the editor gets the full width. #}
 {% extends 'base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
 
 {% block body %}
 {% set ws = workspace %}
 {% set route = app.request.attributes.get('_route') %}
-<style>
-    .rail { width: 60px; background: var(--panel); border-right: 1px solid var(--border);
-        display: flex; flex-direction: column; align-items: center; padding: 12px 0; gap: 4px; }
-    .rail .logo { font-size: 22px; margin-bottom: 10px; text-decoration: none; }
-    .rail a.item { width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
-        border-radius: 10px; font-size: 18px; color: var(--muted); text-decoration: none; }
-    .rail a.item:hover { background: var(--panel-2); }
-    .rail a.item.active { background: var(--accent); color: #fff; }
-    .rail .spacer { flex: 1; }
-    .wb { display: flex; height: 100vh; overflow: hidden; }
-    .wb-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-</style>
 <div class="wb">
-    <nav class="rail">
-        <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="logo" title="API Test">🧪</a>
-        <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="item" title="{{ 'Overview'|trans }}">🏠</a>
-        <a href="{{ path('app_collection_index', {workspace: ws.id}) }}" class="item active" title="{{ 'Collections'|trans }}">📁</a>
-        <a href="{{ path('app_environment_index', {workspace: ws.id}) }}" class="item" title="{{ 'Environments'|trans }}">🌐</a>
-        <a href="{{ path('app_flow_index', {workspace: ws.id}) }}" class="item" title="{{ 'Test Flows'|trans }}">▶️</a>
-        <a href="{{ path('app_trends', {workspace: ws.id}) }}" class="item" title="{{ 'Trends'|trans }}">📈</a>
-        <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="item" title="{{ 'DB Connections'|trans }}">🗄️</a>
-        <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="item" title="{{ 'API Tokens'|trans }}">🔑</a>
-        <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="item" title="{{ 'Cookies'|trans }}">🍪</a>
-        <div class="spacer"></div>
-        <a href="{{ path('app_logout') }}" class="item" title="{{ 'Sign out'|trans }}">⎋</a>
+    <nav class="wb-rail">
+        <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="brand-mark" title="Signal">{{ ic.i('terminal', 15, 2.4) }}</a>
+        <a href="{{ path('app_workspace_show', {id: ws.id}) }}" class="icon-btn" title="{{ 'Overview'|trans }}">{{ ic.i('overview') }}</a>
+        <a href="{{ path('app_collection_index', {workspace: ws.id}) }}" class="icon-btn on" title="{{ 'Collections'|trans }}">{{ ic.i('collections') }}</a>
+        <a href="{{ path('app_environment_index', {workspace: ws.id}) }}" class="icon-btn" title="{{ 'Environments'|trans }}">{{ ic.i('environments') }}</a>
+        <a href="{{ path('app_flow_index', {workspace: ws.id}) }}" class="icon-btn" title="{{ 'Tests'|trans }}">{{ ic.i('flows') }}</a>
+        <a href="{{ path('app_trends', {workspace: ws.id}) }}" class="icon-btn" title="{{ 'Trends'|trans }}">{{ ic.i('trends') }}</a>
+        <a href="{{ path('app_dbconn_index', {workspace: ws.id}) }}" class="icon-btn" title="{{ 'DB connections'|trans }}">{{ ic.i('db') }}</a>
+        <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="icon-btn" title="API &amp; MCP">{{ ic.i('token') }}</a>
+        <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="icon-btn" title="{{ 'Cookies'|trans }}">{{ ic.i('cookie') }}</a>
+        <div class="grow"></div>
+        <button class="icon-btn" data-theme-toggle title="{{ 'Theme'|trans }}" aria-label="{{ 'Theme'|trans }}">{{ ic.i('moon', 14) }}</button>
+        <a href="{{ path('app_logout') }}" class="icon-btn" title="{{ 'Sign out'|trans }}">{{ ic.i('x') }}</a>
     </nav>
     {% block workbench %}{% endblock %}
 </div>

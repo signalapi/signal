@@ -784,3 +784,12 @@ table.data tbody tr:hover { background:var(--panel2); }
 
 /* hi-row is a link; let children decide their colour */
 .hi-row { color:inherit; }
+
+/* ---------- workbench shell (icon-only rail, editor takes the rest) ---------- */
+.wb { display:flex; height:100vh; overflow:hidden; }
+.wb-rail { width:56px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--line);
+  display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 0; }
+.wb-rail .brand-mark { margin-bottom:10px; }
+.wb-rail .icon-btn { width:38px; height:38px; }
+.wb-rail .icon-btn.on { background:var(--pri-soft); color:var(--pri); }
+.wb-main { flex:1; min-width:0; display:flex; flex-direction:column; }
