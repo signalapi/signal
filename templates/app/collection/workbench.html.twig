@@ -75,8 +75,28 @@
     .tree-folder.drag-target > .lbl { background: var(--pri-soft); outline: 1px dashed var(--pri); }
     .wb-tree-body.drag-target { outline: 1px dashed var(--pri); outline-offset: -4px; border-radius: 8px; }
 
-    .wb-topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px;
-        padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .wb-topbar { display: flex; align-items: center; gap: 12px; min-height: 47px;
+        padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+
+    /* open-request tabs — several requests stay open, each keeping its own draft */
+    .wb-tabs { display: flex; align-items: stretch; gap: 2px; flex: 1; min-width: 0;
+        overflow-x: auto; scrollbar-width: none; }
+    .wb-tabs::-webkit-scrollbar { display: none; }
+    .wb-tab { display: flex; align-items: center; gap: 7px; flex-shrink: 0; max-width: 220px;
+        padding: 0 9px 0 10px; margin: 6px 0; border-radius: 9px; cursor: pointer;
+        color: var(--muted); font-size: 12.5px; border: 1px solid transparent; background: none; }
+    .wb-tab:hover { background: var(--panel2); }
+    .wb-tab.active { background: var(--pri-soft); border-color: var(--pri-soft); color: var(--pri-ink); font-weight: 600; }
+    .wb-tab .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .wb-tab .x { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;
+        border-radius: 5px; color: var(--faint); flex-shrink: 0; }
+    .wb-tab .x:hover { background: var(--fail-soft); color: var(--fail); }
+    /* an unsaved tab shows a dot instead of the close affordance until hovered */
+    .wb-tab.dirty .x { color: var(--warn); }
+    .wb-tab.dirty .x .ic { display: none; }
+    .wb-tab.dirty .x::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .wb-tab.dirty:hover .x::after { display: none; }
+    .wb-tab.dirty:hover .x .ic { display: inline-flex; }
     .wb-topbar .crumb { font-weight: 600; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 7px; }
     .wb-env { display: flex; align-items: center; gap: 8px; }
     .wb-env select { width: auto; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px;
@@ -150,9 +170,13 @@
 <aside class="wb-tree">
     <div class="wb-tree-head">
         <span class="nm" title="{{ collection.name }}">{{ collection.name }}</span>
-        <span style="display:flex;gap:6px;white-space:nowrap;">
-            <button class="btn ghost small" onclick="WB.newFolder()" title="{{ 'Add folder'|trans }}">{{ ic.i('plus', 13) }}{{ 'Folder'|trans }}</button>
-            <button class="btn small" onclick="WB.newRequest()">{{ ic.i('plus', 13) }}{{ 'Request'|trans }}</button>
+        {# icon-only: the collection name gets the width it needs, and two labelled
+           buttons pushed it into an ellipsis at any realistic panel size. #}
+        <span style="display:flex;gap:5px;white-space:nowrap;">
+            <button class="icon-btn" style="width:26px;height:26px;" onclick="WB.newFolder()"
+                    title="{{ 'Add folder'|trans }}" aria-label="{{ 'Add folder'|trans }}">{{ ic.i('folder', 13) }}</button>
+            <button class="icon-btn" style="width:26px;height:26px;border-color:var(--pri);background:var(--pri);color:#fff;"
+                    onclick="WB.newRequest()" title="{{ 'New request'|trans }}" aria-label="{{ 'New request'|trans }}">{{ ic.i('plus', 14, 2.4) }}</button>
         </span>
     </div>
     <div class="wb-search">
@@ -169,7 +193,7 @@
 
 <div class="wb-main">
     <div class="wb-topbar">
-        <div class="crumb">{{ ic.i('folder', 14) }} {{ collection.name }}</div>
+        <div class="wb-tabs" id="wbTabs"></div>
         <div class="wb-env">
             {# lang="en": the Turkish copy keeps the loanword, and tr casing would
                render an uppercase eyebrow as "ENVİRONMENT". #}
@@ -305,6 +329,7 @@
         reorder: path('wb_request_reorder', {workspace: workspace.id, collection: collection.id})
     },
     wsId: workspace.id,
+    collectionId: collection.id,
     envs: environments|map(e => {'id': e.id, 'vars': e.variables|map(v => v.name)}),
     i18n: {
         name: 'name'|trans,
@@ -350,7 +375,9 @@
         undefinedInEnv: 'undefined (not in the selected environment)'|trans,
         folderNamePrompt: 'Folder name:'|trans,
         newFolderDefault: 'New folder'|trans,
-        moved: 'Moved'|trans
+        moved: 'Moved'|trans,
+        closeTab: 'Close'|trans,
+        discardChanges: 'This request has unsaved changes. Close it anyway?'|trans
     },
     icons: {
         folder: ic.i('folder', 14) ~ '',
@@ -421,24 +448,107 @@ const WB = (() => {
         $('reqUrl').value = pairs.length ? base + '?' + pairs.map(p => p.name + '=' + p.value).join('&') : base;
     }
 
-    function select(id) {
+    // ---- Open-request tabs -------------------------------------------------
+    // Several requests stay open at once. Each tab carries its own unsaved
+    // draft, so switching away and back does not lose edits, and the set of
+    // open tabs survives a reload.
+    let tabs = [];                       // [{id, name, method, dirty, draft}]
+    const TABS_KEY = 'wb_tabs_' + CFG.collectionId;
+
+    function tabOf(id) { return tabs.find(t => t.id === id); }
+
+    function persistTabs() {
+        try {
+            localStorage.setItem(TABS_KEY, JSON.stringify({open: tabs.map(t => t.id), active: currentId}));
+        } catch (e) { /* private mode: tabs simply do not survive the reload */ }
+    }
+
+    function renderTabs() {
+        $('wbTabs').innerHTML = tabs.map(t =>
+            '<div class="wb-tab' + (t.id === currentId ? ' active' : '') + (t.dirty ? ' dirty' : '') + '"'
+            + ' data-id="' + escAttr(t.id) + '" title="' + escAttr(t.name) + '">'
+            + '<span class="kind m-' + String(t.method || 'get').toLowerCase() + '">' + escHtml(t.method || '') + '</span>'
+            + '<span class="nm">' + escHtml(t.name || '') + '</span>'
+            + '<span class="x" data-close="' + escAttr(t.id) + '" title="' + escAttr(T.closeTab) + '">' + CFG.icons.x + '</span>'
+            + '</div>').join('');
+    }
+
+    /** Park the on-screen state on the active tab before we navigate away. */
+    function snapshot() {
+        const t = tabOf(currentId);
+        if (t) t.draft = payload();
+    }
+
+    /** Write a request (server shape or parked draft) into the builder. */
+    function applyDraft(d) {
+        $('reqName').value = d.name || '';
+        $('reqMethod').value = d.method || 'GET';
+        $('reqUrl').value = d.url || '';
+        $('bodyMode').value = d.bodyMode || 'none';
+        $('reqBody').value = d.body || '';
+        kvRows($('paramsRows'), d.params || []);
+        kvRows($('headersRows'), d.headers || []);
+        if (($('reqUrl').value || '').includes('?')) urlToParams(); else paramsToUrl();
+        const a = d.auth || {}; $('authType').value = a.type || 'none'; renderAuth(a);
+        validateBody(); refreshVars();
+    }
+
+    function markDirty() {
+        const t = tabOf(currentId);
+        if (!t) return;
+        const name = $('reqName').value, method = $('reqMethod').value;
+        const changed = !t.dirty || t.name !== name || t.method !== method;
+        t.dirty = true; t.name = name; t.method = method;
+        if (changed) renderTabs();
+    }
+
+    function closeTab(id) {
+        const i = tabs.findIndex(t => t.id === id);
+        if (i === -1) return;
+        if (tabs[i].dirty && !confirm(T.discardChanges)) return;
+        const wasActive = id === currentId;
+        tabs.splice(i, 1);
+        if (!wasActive) { renderTabs(); persistTabs(); return; }
+        currentId = null;
+        const next = tabs[i] || tabs[i - 1];
+        if (next) { select(next.id); return; }
+        $('builder').hidden = true; $('response').hidden = true;
+        $('wbResizer').hidden = true; $('emptyState').hidden = false;
+        document.querySelectorAll('.tree-req.active').forEach(el => el.classList.remove('active'));
+        renderTabs(); persistTabs();
+    }
+
+    function select(id, meta) {
+        if (id === currentId) return;
+        snapshot();
+        if (!tabOf(id)) {
+            const row = document.querySelector('.tree-req[data-id="' + id + '"]');
+            tabs.push({
+                id: id,
+                name: (meta && meta.name) || row?.querySelector('.t-name')?.textContent || '…',
+                method: (meta && meta.method) || row?.querySelector('.kind')?.textContent || 'GET',
+                dirty: false, draft: null,
+            });
+        }
         currentId = id;
         lastResp = null; currentExampleId = null;
         $('saveExampleBtn').hidden = true; $('delExampleBtn').hidden = true;
         document.querySelectorAll('.ex-row.active').forEach(el => el.classList.remove('active'));
         document.querySelectorAll('.tree-req').forEach(el => el.classList.toggle('active', el.dataset.id === id));
+        $('emptyState').hidden = true; $('builder').hidden = false; $('wbResizer').hidden = false;
+        $('response').hidden = false;
+        $('respStatus').textContent = '—'; $('respStatus').style.color = 'var(--muted)';
+        $('respMeta').textContent = T.pressSend;
+        $('respBody').textContent = ''; $('respHeaders').textContent = ''; rtab('body');
+        renderTabs(); persistTabs();
+
+        const t = tabOf(id);
+        if (t.draft) { applyDraft(t.draft); return; }
         api(U.get.replace('REQID', id)).then(r => {
-            $('emptyState').hidden = true; $('builder').hidden = false; $('wbResizer').hidden = false;
-            $('reqName').value = r.name; $('reqMethod').value = r.method; $('reqUrl').value = r.url;
-            $('bodyMode').value = r.bodyMode || 'none'; $('reqBody').value = r.body || '';
-            kvRows($('paramsRows'), r.params); kvRows($('headersRows'), r.headers);
-            if (($('reqUrl').value || '').includes('?')) urlToParams(); else paramsToUrl();
-            const a = r.auth || {}; $('authType').value = a.type || 'none'; renderAuth(a);
-            $('response').hidden = false;
-            $('respStatus').textContent = '—'; $('respStatus').style.color = 'var(--muted)';
-            $('respMeta').textContent = T.pressSend;
-            $('respBody').textContent = ''; $('respHeaders').textContent = ''; rtab('body');
-            validateBody(); refreshVars();
+            if (currentId !== id) return;   // switched tabs while the fetch was in flight
+            t.name = r.name; t.method = r.method;
+            applyDraft(r);
+            renderTabs();
         });
     }
     // Remove // line comments and /* block */ comments without touching anything inside strings.
@@ -600,16 +710,26 @@ const WB = (() => {
 
     function save() {
         if (!currentId) return;
-        api(U.save.replace('REQID', currentId), 'POST', payload()).then(r => {
-            if (r.ok) { const el = document.querySelector('.tree-req[data-id="'+currentId+'"] .t-name'); if(el) el.textContent = r.request.name;
-                const m = document.querySelector('.tree-req[data-id="'+currentId+'"] .kind');
-                if(m) { m.textContent = r.request.method; m.className = 'kind m-' + String(r.request.method).toLowerCase(); } flash(T.saved); }
+        const id = currentId;
+        api(U.save.replace('REQID', id), 'POST', payload()).then(r => {
+            if (!r.ok) return;
+            const el = document.querySelector('.tree-req[data-id="'+id+'"] .t-name'); if(el) el.textContent = r.request.name;
+            const m = document.querySelector('.tree-req[data-id="'+id+'"] .kind');
+            if(m) { m.textContent = r.request.method; m.className = 'kind m-' + String(r.request.method).toLowerCase(); }
+            const t = tabOf(id);
+            if (t) { t.dirty = false; t.draft = null; t.name = r.request.name; t.method = r.request.method; renderTabs(); }
+            flash(T.saved);
         });
     }
     function del() {
         if (!currentId || !confirm(T.requestDeleteConfirm)) return;
-        api(U.del.replace('REQID', currentId), 'POST').then(r => {
-            if (r.ok) { document.querySelector('.tree-req[data-id="'+currentId+'"]')?.remove(); currentId=null; $('builder').hidden=true; $('response').hidden=true; $('emptyState').hidden=false; }
+        const id = currentId;
+        api(U.del.replace('REQID', id), 'POST').then(r => {
+            if (!r.ok) return;
+            document.querySelector('.tree-req[data-id="'+id+'"]')?.remove();
+            const t = tabOf(id);
+            if (t) t.dirty = false;   // it is gone from the server; nothing to warn about
+            closeTab(id);
         });
     }
     function newRequest() {
@@ -619,7 +739,8 @@ const WB = (() => {
             const tree = $('tree');
             const div = document.createElement('div'); div.className='tree-req'; div.dataset.id=r.request.id;
             div.innerHTML = '<span class="kind m-'+String(r.request.method).toLowerCase()+'">'+r.request.method+'</span><span class="t-name">'+r.request.name+'</span>';
-            div.onclick = () => select(r.request.id); tree.appendChild(div); select(r.request.id);
+            div.onclick = () => select(r.request.id); tree.appendChild(div);
+            select(r.request.id, {name: r.request.name, method: r.request.method});
         });
     }
     function tab(name) {
@@ -925,15 +1046,54 @@ const WB = (() => {
 
     document.addEventListener('DOMContentLoaded', () => {
         document.querySelectorAll('.tree-req').forEach(el => el.onclick = () => select(el.dataset.id));
-        // ?request=ID (e.g. from the flow canvas "tam düzenle") preselects that request.
+
+        // Tab bar: click to switch, the ✕ (or a middle click) to close.
+        $('wbTabs').addEventListener('click', function (e) {
+            var x = e.target.closest('[data-close]');
+            if (x) { e.stopPropagation(); closeTab(x.dataset.close); return; }
+            var tab = e.target.closest('.wb-tab');
+            if (tab) select(tab.dataset.id);
+        });
+        $('wbTabs').addEventListener('auxclick', function (e) {
+            if (e.button !== 1) return;
+            var tab = e.target.closest('.wb-tab');
+            if (tab) { e.preventDefault(); closeTab(tab.dataset.id); }
+        });
+
+        // Restore the tabs that were open last time, then honour ?request=ID
+        // (e.g. arriving from the flow canvas), else fall back to the first request.
+        var restored = null;
+        try { restored = JSON.parse(localStorage.getItem(TABS_KEY) || 'null'); } catch (e) { restored = null; }
+        if (restored && Array.isArray(restored.open)) {
+            restored.open.forEach(function (id) {
+                var row = document.querySelector('.tree-req[data-id="' + id + '"]');
+                if (!row) return;   // deleted since
+                tabs.push({
+                    id: id,
+                    name: row.querySelector('.t-name')?.textContent || '…',
+                    method: row.querySelector('.kind')?.textContent || 'GET',
+                    dirty: false, draft: null,
+                });
+            });
+            renderTabs();
+        }
         var wanted = new URLSearchParams(location.search).get('request');
         var target = wanted && document.querySelector('.tree-req[data-id="' + wanted + '"]');
         if (target) { target.scrollIntoView({block: 'center'}); select(wanted); }
+        else if (restored && tabOf(restored.active)) { select(restored.active); }
+        else if (tabs.length) { select(tabs[0].id); }
         else { var firstReq = document.querySelector('.tree-req'); if (firstReq) select(firstReq.dataset.id); }
         $('reqUrl').addEventListener('keydown', e => { if(e.key==='Enter' && !AC.isOpen()){ e.preventDefault(); send(); }});
         $('reqUrl').addEventListener('input', urlToParams);
         $('paramsRows').addEventListener('input', paramsToUrl);
-        $('builder').addEventListener('input', refreshVars);
+        $('builder').addEventListener('input', () => { refreshVars(); markDirty(); });
+        // <select> fires change but not always input for keyboard picks
+        $('builder').addEventListener('change', markDirty);
+        // Leaving with unsaved work in any tab should ask first.
+        window.addEventListener('beforeunload', (e) => {
+            snapshot();
+            if (tabs.some(t => t.dirty)) { e.preventDefault(); e.returnValue = ''; }
+        });
         AC.attach($('reqBody'));
         AC.attach($('reqUrl'));
 
