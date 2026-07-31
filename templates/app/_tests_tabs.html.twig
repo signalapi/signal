@@ -1,0 +1,5 @@
+{# The two halves of Tests: what you run, and when it runs by itself. #}
+<div class="tabs page">
+    <a class="tab{{ current == 'flows' ? ' active' }}" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">{{ 'Flows and suites'|trans }}</a>
+    <a class="tab{{ current == 'scheduled' ? ' active' }}" href="{{ path('app_schedule_index', {workspace: workspace.id}) }}">{{ 'Scheduled'|trans }}</a>
+</div>

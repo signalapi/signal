@@ -32,7 +32,6 @@
                 <span>{{ '%count% step|%count% steps'|trans({'%count%': flow.steps|length}) }}</span>
                 <span>·</span>
                 <span>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name : 'no env'|trans }}</span>
-                {% if flow.scheduleEnabled %}<span class="cron">{{ flow.cronExpression }}</span>{% endif %}
                 {% set subs = flow.steps|filter(s => s.isCall)|length %}
                 {% if subs %}<span class="sub">{{ '%count% sub-flow|%count% sub-flows'|trans({'%count%': subs}) }}</span>{% endif %}
             </span>
@@ -68,6 +67,8 @@
         <a class="btn" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">{{ ic.i('plus', 13, 2.2) }}{{ 'New flow'|trans }}</a>
     </div>
 </div>
+
+{{ include('app/_tests_tabs.html.twig', {workspace: workspace, current: 'flows'}) }}
 
 <div class="filterbar">
     <label class="search">

@@ -33,15 +33,6 @@ class TestFlowRepository extends ServiceEntityRepository
         }
     }
 
-    /** @return TestFlow[] */
-    public function findScheduled(): array
-    {
-        return $this->createQueryBuilder('f')
-            ->andWhere('f.scheduleEnabled = true')
-            ->andWhere('f.cronExpression IS NOT NULL')
-            ->getQuery()
-            ->getResult();
-    }
 
     /** @return TestFlow[] */
     public function findByWorkspace(Workspace $workspace): array

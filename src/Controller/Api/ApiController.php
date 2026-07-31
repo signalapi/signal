@@ -38,7 +38,6 @@ class ApiController extends AbstractController
             'id' => (string) $f->getId(),
             'name' => $f->getName(),
             'steps' => $f->getSteps()->count(),
-            'scheduleEnabled' => $f->isScheduleEnabled(),
             'cron' => $f->getCronExpression(),
         ], $flows->findByWorkspace($workspace));
 

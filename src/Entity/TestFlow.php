@@ -37,15 +37,7 @@ class TestFlow
     #[ORM\Column]
     private bool $stopOnFailure = true;
 
-    #[ORM\Column]
-    private bool $scheduleEnabled = false;
-
     /** Standard 5-field cron expression, evaluated by app:run-due-flows. */
-    #[ORM\Column(length: 100, nullable: true)]
-    private ?string $cronExpression = null;
-
-    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
-    private ?\DateTimeImmutable $lastScheduledRunAt = null;
 
     /**
      * Suite memberships (a flow can belong to many suites, each with its own order).
@@ -146,42 +138,6 @@ class TestFlow
     public function setStopOnFailure(bool $stopOnFailure): static
     {
         $this->stopOnFailure = $stopOnFailure;
-
-        return $this;
-    }
-
-    public function isScheduleEnabled(): bool
-    {
-        return $this->scheduleEnabled;
-    }
-
-    public function setScheduleEnabled(bool $scheduleEnabled): static
-    {
-        $this->scheduleEnabled = $scheduleEnabled;
-
-        return $this;
-    }
-
-    public function getCronExpression(): ?string
-    {
-        return $this->cronExpression;
-    }
-
-    public function setCronExpression(?string $cronExpression): static
-    {
-        $this->cronExpression = $cronExpression;
-
-        return $this;
-    }
-
-    public function getLastScheduledRunAt(): ?\DateTimeImmutable
-    {
-        return $this->lastScheduledRunAt;
-    }
-
-    public function setLastScheduledRunAt(?\DateTimeImmutable $lastScheduledRunAt): static
-    {
-        $this->lastScheduledRunAt = $lastScheduledRunAt;
 
         return $this;
     }

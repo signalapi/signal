@@ -104,6 +104,7 @@ class FlowController extends AbstractAppController
         EnvironmentRepository $environments,
         \App\Repository\DbConnectionRepository $connections,
         \App\Service\FlowVariableScanner $scanner,
+        \App\Repository\ScheduleRepository $schedules,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertFlow($workspace, $flow);
@@ -111,6 +112,7 @@ class FlowController extends AbstractAppController
         return $this->render('app/flow/show.html.twig', [
             'workspace' => $workspace,
             'flow' => $flow,
+            'scheduled_count' => count($schedules->findForFlow($flow)),
             'available_requests' => $requests->findByWorkspace($workspace),
             'environments' => $environments->findByWorkspace($workspace),
             'db_connections' => $connections->findByWorkspace($workspace),
@@ -118,37 +120,6 @@ class FlowController extends AbstractAppController
         ]);
     }
 
-    #[Route('/{flow}/schedule', name: 'app_flow_schedule', methods: ['POST'])]
-    public function schedule(
-        Workspace $workspace,
-        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
-        Request $httpRequest,
-        TestFlowRepository $flows,
-        TranslatorInterface $translator,
-    ): Response {
-        $this->assertWorkspace($workspace, 'edit');
-        $this->assertFlow($workspace, $flow);
-
-        if (!$this->isCsrfTokenValid('schedule' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
-            throw $this->createAccessDeniedException();
-        }
-
-        $cron = trim((string) $httpRequest->request->get('cronExpression'));
-        $enabled = (bool) $httpRequest->request->get('scheduleEnabled');
-
-        if ($enabled && ('' === $cron || !\Cron\CronExpression::isValidExpression($cron))) {
-            $this->addFlash('error', $translator->trans('Invalid cron expression.'));
-
-            return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
-        }
-
-        $flow->setCronExpression('' === $cron ? null : $cron);
-        $flow->setScheduleEnabled($enabled);
-        $flows->save($flow);
-        $this->addFlash('success', $translator->trans('Schedule updated.'));
-
-        return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
-    }
 
     #[Route('/{flow}/delete', name: 'app_flow_delete', methods: ['POST'])]
     public function delete(

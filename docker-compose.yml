@@ -42,6 +42,35 @@ services:
       redis:
         condition: service_started
 
+  # One tick a minute: runs every schedule that has come due.
+  # Sleeps to the top of the next minute rather than `sleep 60`, so a slow tick
+  # cannot make the schedule drift.
+  scheduler:
+    build:
+      context: .
+      dockerfile: docker/php/Dockerfile
+    container_name: signal_scheduler
+    volumes:
+      - ./:/var/www:cached
+    environment:
+      APP_ENV: ${APP_ENV:-dev}
+      DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
+      REDIS_URL: "redis://redis:6379"
+      APP_SECRET_KEY: "${APP_SECRET_KEY:-REMOVED-FROM-HISTORY}"
+      SKIP_DB_INIT: "1"
+      HTTP_INSECURE_SSL: "${HTTP_INSECURE_SSL:-0}"
+    command: >
+      sh -c 'while true; do
+        sleep $$((60 - $$(date +%S)));
+        php bin/console app:run-due-schedules --no-interaction || true;
+      done'
+    restart: unless-stopped
+    depends_on:
+      database:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
   nginx:
     image: nginx:1.27-alpine
     container_name: signal_nginx

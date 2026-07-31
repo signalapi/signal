@@ -17,9 +17,6 @@
                 <span class="pill"><b style="color:var(--ink);">{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>
                 <span class="pill">{{ ic.i('environments', 11) }}{{ flow.defaultEnvironment ? 'default:'|trans ~ ' ' : 'no env'|trans }}<b style="color:var(--ink);">{{ flow.defaultEnvironment ? flow.defaultEnvironment.name }}</b></span>
                 <span class="pill">{{ flow.stopOnFailure ? 'stops at the first error'|trans : 'runs all steps'|trans }}</span>
-                {% if flow.scheduleEnabled %}
-                    <span class="pill passed">{{ ic.i('clock', 11) }}<b>{{ flow.cronExpression }}</b></span>
-                {% endif %}
             </div>
         </div>
         <div class="actions">
@@ -202,25 +199,15 @@
                 </div>
             </details>
 
-            {# schedule #}
-            <details class="fold" {{ flow.scheduleEnabled ? 'open' }}>
-                <summary>
-                    <span class="ic-box warn">{{ ic.i('clock', 15) }}</span>
-                    <span><span class="t">{{ 'Schedule'|trans }}</span></span>
-                    {% if flow.scheduleEnabled %}<span class="pill passed">{{ 'on'|trans }}</span>{% endif %}
-                    <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
-                </summary>
-                <div class="fold-body">
-                    <form method="post" action="{{ path('app_flow_schedule', {workspace: workspace.id, flow: flow.id}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('schedule' ~ flow.id) }}">
-                        <label style="display:inline-flex;align-items:center;gap:8px;font-size:12.5px;margin-bottom:10px;">
-                            <input type="checkbox" name="scheduleEnabled" value="1" {{ flow.scheduleEnabled ? 'checked' }} style="width:auto;"> {{ 'Active'|trans }}</label>
-                        <input type="text" name="cronExpression" value="{{ flow.cronExpression }}" placeholder="*/5 * * * *" class="input-mono" style="margin-bottom:10px;">
-                        <p class="fhint" style="margin:0 0 10px;">{{ '5-field cron · <code>app:run-due-flows</code> runs every minute.'|trans|raw }}</p>
-                        <button class="btn small" type="submit">{{ 'Save'|trans }}</button>
-                    </form>
-                </div>
-            </details>
+            {# Scheduling lives under Tests → Scheduled now: a schedule can point
+               at a suite as well as a flow, and one target can have several. #}
+            <a class="fold" style="display:flex;align-items:center;gap:10px;text-decoration:none;"
+               href="{{ path('app_schedule_index', {workspace: workspace.id}) }}">
+                <span class="ic-box warn">{{ ic.i('clock', 15) }}</span>
+                <span class="grow"><span class="t">{{ 'Schedule'|trans }}</span>
+                    <span class="s">{{ scheduled_count ? '%count% schedule|%count% schedules'|trans({'%count%': scheduled_count}) : 'not scheduled'|trans }}</span></span>
+                <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+            </a>
         </div>
     </div>
 

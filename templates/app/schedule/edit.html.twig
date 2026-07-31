@@ -1,0 +1,140 @@
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ schedule.id ? schedule.name : 'New schedule'|trans }} · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+{% set days = {1: 'Mon'|trans, 2: 'Tue'|trans, 3: 'Wed'|trans, 4: 'Thu'|trans, 5: 'Fri'|trans, 6: 'Sat'|trans, 7: 'Sun'|trans} %}
+
+<a class="backlink" href="{{ path('app_schedule_index', {workspace: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Scheduled'|trans }}</a>
+<div class="pagehead">
+    <div>
+        <h1>{{ schedule.id ? 'Edit schedule'|trans : 'New schedule'|trans }}</h1>
+        <p class="subtitle">{{ 'A schedule runs one flow or one suite. Add a rule per timing — a schedule can hold several.'|trans }}</p>
+    </div>
+</div>
+
+{% for e in errors %}<div class="flash error">{{ ic.i('alert', 14, 2.4) }}{{ e }}</div>{% endfor %}
+
+<form method="post" id="schedForm">
+    <input type="hidden" name="_token" value="{{ csrf_token('schedule-save') }}">
+
+    <div class="fgroup">
+        <div class="fgroup-title">{{ 'What runs'|trans }}</div>
+        <div class="fgrid">
+            <div class="field">
+                <label for="target">{{ 'Flow or suite'|trans }}</label>
+                <select name="target" id="target" required>
+                    <option value="">{{ '— pick one —'|trans }}</option>
+                    {% if groups is not empty %}
+                        <optgroup label="{{ 'Suites'|trans }}">
+                            {% for g in groups %}
+                                <option value="suite:{{ g.id }}" {{ schedule.flowGroup and schedule.flowGroup.id == g.id ? 'selected' }}>{{ g.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endif %}
+                    {% if flows is not empty %}
+                        <optgroup label="{{ 'Flows'|trans }}">
+                            {% for f in flows %}
+                                <option value="flow:{{ f.id }}" {{ schedule.flow and schedule.flow.id == f.id ? 'selected' }}>{{ f.name }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endif %}
+                </select>
+            </div>
+            <div class="field">
+                <label for="environment">{{ 'Environment'|trans }}</label>
+                <select name="environment" id="environment">
+                    <option value="">{{ 'use the target’s own'|trans }}</option>
+                    {% for e in environments %}
+                        <option value="{{ e.id }}" {{ schedule.environment and schedule.environment.id == e.id ? 'selected' }}>{{ e.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="fgrid">
+            <div class="field">
+                <label for="name">{{ 'Name'|trans }}</label>
+                <input type="text" name="name" id="name" value="{{ schedule.name }}" placeholder="{{ 'Nightly regression'|trans }}">
+            </div>
+            <div class="field">
+                <label for="timezone">{{ 'Timezone'|trans }}</label>
+                <select name="timezone" id="timezone">
+                    {% for tz in timezones %}
+                        <option value="{{ tz }}" {{ schedule.timezone == tz ? 'selected' }}>{{ tz }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <label class="inline" style="margin-top:4px;">
+            <input type="checkbox" name="enabled" value="1" {{ schedule.id is null or schedule.enabled ? 'checked' }}> {{ 'Active'|trans }}
+        </label>
+    </div>
+
+    <div class="fgroup">
+        <div class="fgroup-title">{{ 'When it runs'|trans }}</div>
+        <p class="fhint" style="margin-top:-4px;">{{ 'Each rule is a separate timing. “Mondays every hour” and “Tuesdays every two hours” are two rules on the same schedule.'|trans }}</p>
+
+        <div id="rules">
+            {% for rule in schedule.rules %}
+                {{ include('app/schedule/_rule.html.twig', {i: loop.index0, rule: rule, days: days}) }}
+            {% else %}
+                {{ include('app/schedule/_rule.html.twig', {i: 0, rule: null, days: days}) }}
+            {% endfor %}
+        </div>
+
+        <button type="button" class="btn ghost small" id="addRule" style="margin-top:10px;">{{ ic.i('plus', 13, 2.2) }}{{ 'Add rule'|trans }}</button>
+    </div>
+
+    {% if preview %}
+        <div class="hintbox">
+            {{ ic.i('clock', 14) }}
+            <span>
+                {{ preview|join(' · ') }}
+                {% if next %} — {{ 'next run'|trans }}: <b>{{ next|date('d.m.Y H:i', schedule.timezone) }}</b> <span class="subtitle">{{ schedule.timezone }}</span>{% endif %}
+            </span>
+        </div>
+    {% endif %}
+
+    <div class="form-actions">
+        <button class="btn" type="submit">{{ 'Save'|trans }}</button>
+        <a class="btn ghost" href="{{ path('app_schedule_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
+    </div>
+</form>
+
+{# a blank rule for the "Add rule" button to clone #}
+<template id="ruleTemplate">{{ include('app/schedule/_rule.html.twig', {i: '__I__', rule: null, days: days}) }}</template>
+
+<script>
+(function () {
+    var box = document.getElementById('rules');
+    var tpl = document.getElementById('ruleTemplate').innerHTML;
+
+    function syncModes(scope) {
+        (scope || document).querySelectorAll('.rule').forEach(function (r) {
+            var mode = r.querySelector('[data-mode]').value;
+            r.querySelectorAll('[data-when]').forEach(function (el) {
+                el.hidden = el.dataset.when !== mode;
+            });
+            r.querySelectorAll('[data-hide-when]').forEach(function (el) {
+                el.hidden = el.dataset.hideWhen === mode;
+            });
+        });
+    }
+    box.addEventListener('change', function (e) { if (e.target.matches('[data-mode]')) syncModes(); });
+    box.addEventListener('click', function (e) {
+        var rm = e.target.closest('[data-remove-rule]');
+        if (!rm) return;
+        if (box.querySelectorAll('.rule').length === 1) return;   // keep one
+        rm.closest('.rule').remove();
+    });
+    document.getElementById('addRule').addEventListener('click', function () {
+        var i = box.querySelectorAll('.rule').length;
+        // a fresh index keeps the parallel arrays lined up on submit
+        box.insertAdjacentHTML('beforeend', tpl.replace(/__I__/g, String(i)));
+        syncModes();
+    });
+    syncModes();
+})();
+</script>
+{% endblock %}

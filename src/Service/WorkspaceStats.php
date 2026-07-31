@@ -128,8 +128,14 @@ final class WorkspaceStats
         $flows = (int) $this->db->fetchOne(
             'SELECT count(*) FROM test_flow WHERE workspace_id = :ws', ['ws' => $ws]);
 
+        // A flow counts as scheduled when a schedule points at it, or at a
+        // suite it belongs to.
         $scheduled = (int) $this->db->fetchOne(
-            'SELECT count(*) FROM test_flow WHERE workspace_id = :ws AND schedule_enabled = true', ['ws' => $ws]);
+            'SELECT count(DISTINCT f.id) FROM test_flow f
+               LEFT JOIN schedule sf ON sf.flow_id = f.id AND sf.enabled
+               LEFT JOIN flow_group_item gi ON gi.flow_id = f.id
+               LEFT JOIN schedule sg ON sg.flow_group_id = gi.flow_group_id AND sg.enabled
+              WHERE f.workspace_id = :ws AND (sf.id IS NOT NULL OR sg.id IS NOT NULL)', ['ws' => $ws]);
 
         return [
             $this->ratio('Requests in a flow', $inFlow, $requests),

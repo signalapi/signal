@@ -1,0 +1,61 @@
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Scheduled'|trans }} · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Tests'|trans }}</h1>
+        <p class="subtitle">{{ '%count% schedule|%count% schedules'|trans({'%count%': rows|length}) }}</p>
+    </div>
+    <div class="actions">
+        <a class="btn" href="{{ path('app_schedule_new', {workspace: workspace.id}) }}">{{ ic.i('plus', 13, 2.2) }}{{ 'New schedule'|trans }}</a>
+    </div>
+</div>
+
+{{ include('app/_tests_tabs.html.twig', {workspace: workspace, current: 'scheduled'}) }}
+
+{% if rows is empty %}
+    <div class="empty">
+        {{ 'Nothing is scheduled yet. A schedule runs one flow or one suite on a repeating timing — every hour, weekday mornings, the first of the month.'|trans }}
+    </div>
+{% else %}
+    <div class="card">
+        {% for row in rows %}
+            {% set s = row.schedule %}
+            <div class="hi-row" style="grid-template-columns:10px minmax(0,1fr) auto auto auto;gap:14px;">
+                <span class="hi-dot {{ s.enabled ? 'passed' : '' }}" title="{{ s.enabled ? 'Active'|trans : 'Paused'|trans }}"></span>
+                <span class="hi-flow">
+                    <span class="nm">{{ s.name }}</span>
+                    <span class="tags">
+                        <span class="hi-tag">{{ ic.i(s.suite ? 'suites' : 'flows', 11) }}{{ s.targetName }}</span>
+                        {% if s.environment %}<span class="hi-tag">{{ ic.i('environments', 11) }}{{ s.environment.name }}</span>{% endif %}
+                        {% for r in row.rules %}<span class="hi-tag suite">{{ r }}</span>{% endfor %}
+                    </span>
+                </span>
+                <span class="hi-date" title="{{ 'Timezone'|trans }}: {{ s.timezone }}">
+                    {%- if row.next -%}
+                        {{ 'next'|trans }} {{ row.next|date('d.m H:i', s.timezone) }}
+                    {%- elseif not s.enabled -%}
+                        {{ 'paused'|trans }}
+                    {%- else -%}—{%- endif -%}
+                </span>
+                <span class="hi-num">{{ s.lastRunAt ? s.lastRunAt|date('d.m H:i', s.timezone) : ('never'|trans) }}</span>
+                <span style="display:flex;gap:6px;align-items:center;">
+                    <form method="post" action="{{ path('app_schedule_toggle', {workspace: workspace.id, schedule: s.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('schedule-toggle' ~ s.id) }}">
+                        <button class="btn ghost small" type="submit">{{ s.enabled ? 'Pause'|trans : 'Resume'|trans }}</button>
+                    </form>
+                    <a class="icon-btn" style="width:26px;height:26px;" href="{{ path('app_schedule_edit', {workspace: workspace.id, schedule: s.id}) }}" title="{{ 'Edit'|trans }}">{{ ic.i('pencil', 12) }}</a>
+                    <form method="post" action="{{ path('app_schedule_delete', {workspace: workspace.id, schedule: s.id}) }}"
+                          onsubmit="return confirm('{{ 'The schedule will be deleted.'|trans|e('js') }}');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('schedule-delete' ~ s.id) }}">
+                        <button class="icon-btn" style="width:26px;height:26px;" type="submit" title="{{ 'Delete'|trans }}">{{ ic.i('trash', 12) }}</button>
+                    </form>
+                </span>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+{% endblock %}
