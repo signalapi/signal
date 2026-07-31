@@ -159,8 +159,9 @@ h2 { margin:0 0 4px; font-size:16px; font-weight:700; letter-spacing:-.025em; co
 .btn.block { width:100%; justify-content:center; }
 
 /* ---------- cards ---------- */
+/* overflow:hidden so full-bleed children (rows, tables) clip to the corners */
 .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r-lg);
-  box-shadow:var(--sh); }
+  box-shadow:var(--sh); overflow:hidden; }
 .card-head { display:flex; align-items:center; gap:10px; padding:11px 15px; border-bottom:1px solid var(--line2); }
 .card-head .t { font-size:12.5px; font-weight:700; color:var(--ink); }
 .card-body { padding:14px 15px; }
@@ -829,6 +830,13 @@ table.data tbody tr:hover { background:var(--panel2); }
 
 /* hi-row is a link; let children decide their colour */
 .hi-row { color:inherit; }
+/* Inside a card the row is not its own card: drop the chrome, use a divider.
+   Nesting the standalone variant made every row collide with the card's
+   rounded edge. */
+.card > .hi-row { border:none; border-radius:0; box-shadow:none; margin:0;
+  border-top:1px solid var(--line2); }
+.card > .hi-row:hover { background:var(--panel2); }
+.card > .card-head + .hi-row { border-top:none; }
 
 /* ---------- workbench shell (icon-only rail, editor takes the rest) ---------- */
 /* Workbench content area: the sidebar stays, this pane fills the rest of the

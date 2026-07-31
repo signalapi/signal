@@ -5,7 +5,7 @@
 
 {% macro tree_request(r) %}
     <div class="tree-req" draggable="true" data-id="{{ r.id }}">
-        <span class="kind m-{{ r.method|lower }}">{{ r.method }}</span>
+        <span class="meth m-{{ r.method|lower }}">{{ r.method }}</span>
         <span class="t-name">{{ r.name }}</span>
     </div>
     <div class="ex-list" data-ex-for="{{ r.id }}">
@@ -38,20 +38,31 @@
     /* Workbench-only shell. Anything with a signal.css primitive uses the primitive;
        what is left here is the request bench itself: tree column, url bar, the
        highlighted body editor and the response pane. */
-    .wb-tree { width: 258px; border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
-    .wb-tree-head { padding: 12px 14px 11px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-    .wb-tree-head .nm { font-weight: 700; font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .wb-search { padding: 10px 12px; border-bottom: 1px solid var(--line); }
-    .wb-tree-body { flex: 1; overflow: auto; padding: 8px 8px 18px; }
+    .wb-tree { width: 246px; border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
+    .wb-tree-head { padding: 11px 12px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .wb-tree-head .nm { font-weight: 700; font-size: 12.5px; flex: 1; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .wb-search { padding: 9px 11px; border-bottom: 1px solid var(--line); }
+    .wb-tree-body { flex: 1; overflow: auto; padding: 7px 7px 20px; }
+    .wb-search input { width: 100%; background: var(--panel2); border: 1px solid var(--line);
+        border-radius: 9px; padding: 7px 9px; color: var(--text); font-family: inherit; font-size: 12px; }
+    .wb-tree-head .add { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center;
+        border: 1px solid var(--line); background: var(--panel2); border-radius: 7px; cursor: pointer;
+        color: var(--muted); flex-shrink: 0; }
+    .wb-tree-head .add:hover { color: var(--pri); border-color: var(--pri); }
 
-    .tree-req { display: flex; gap: 9px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer; font-size: 13px; color: var(--text); position: relative; }
+    .tree-req { display: flex; gap: 7px; align-items: center; padding: 6px 8px; border-radius: 8px; cursor: pointer;
+        font-size: 12px; font-weight: 500; color: var(--text); position: relative; }
     .tree-req:hover { background: var(--panel2); }
-    .tree-req.active { background: var(--pri-soft); color: var(--pri); font-weight: 600; }
+    .tree-req.active { background: var(--pri-soft); color: var(--pri); font-weight: 700; }
     .tree-req.active .t-name { color: var(--pri); }
     .tree-req.active::before { content: ""; position: absolute; left: -8px; top: 6px; bottom: 6px; width: 3px; border-radius: 0 3px 3px 0; background: var(--pri); }
     .tree-req.dragging { opacity: .4; }
     .tree-req.hide, .tree-folder.hide, .ex-list.hide { display: none; }
-    .tree-req .kind { min-width: 40px; padding: 3px 5px; }
+    /* the design writes the method as bare coloured mono text, not a badge */
+    .meth { font-family: var(--mono); font-size: 9px; font-weight: 800; min-width: 34px; flex-shrink: 0; }
+    .m-get { color: var(--pass); } .m-post { color: var(--warn); } .m-put { color: var(--pri); }
+    .m-patch { color: var(--vio); } .m-delete { color: var(--fail); }
+    .m-head, .m-options { color: var(--muted); }
     .t-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
     /* Saved example responses, nested under their request (Postman-style) */
@@ -66,7 +77,7 @@
     .ex-ic.bad { color: var(--fail); border-color: color-mix(in srgb, var(--fail) 40%, transparent); }
     .ex-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .tree-folder > .lbl { display: flex; align-items: center; gap: 6px; font-weight: 600; font-size: 13px; padding: 6px 8px; color: var(--ink); cursor: pointer; border-radius: 8px; user-select: none; }
+    .tree-folder > .lbl { display: flex; align-items: center; gap: 7px; font-weight: 700; font-size: 12px; padding: 6px 8px; color: var(--ink); cursor: pointer; border-radius: 8px; user-select: none; }
     .tree-folder > .lbl:hover { background: var(--panel2); }
     .tree-folder > .lbl .chev { font-size: 10px; color: var(--muted); transition: transform .15s; width: 10px; text-align: center; }
     .tree-folder > .lbl .ic { color: var(--faint); }
@@ -77,80 +88,89 @@
     .tree-folder.drag-target > .lbl { background: var(--pri-soft); outline: 1px dashed var(--pri); }
     .wb-tree-body.drag-target { outline: 1px dashed var(--pri); outline-offset: -4px; border-radius: 8px; }
 
-    .wb-topbar { display: flex; align-items: center; gap: 12px; min-height: 47px;
-        padding: 0 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
+    .wb-topbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; row-gap: 6px;
+        padding: 9px 14px; border-bottom: 1px solid var(--line); background: var(--panel); }
 
     /* open-request tabs — several requests stay open, each keeping its own draft */
     .wb-tabs { display: flex; align-items: stretch; gap: 2px; flex: 1; min-width: 0;
         overflow-x: auto; scrollbar-width: none; }
     .wb-tabs::-webkit-scrollbar { display: none; }
-    .wb-tab { display: flex; align-items: center; gap: 7px; flex-shrink: 0; max-width: 220px;
-        padding: 0 9px 0 10px; margin: 6px 0; border-radius: 9px; cursor: pointer;
-        color: var(--muted); font-size: 12.5px; border: 1px solid transparent; background: none; }
+    .wb-tab { display: inline-flex; align-items: center; flex-shrink: 0; max-width: 230px;
+        padding: 6px 11px; border-radius: 9px; cursor: pointer; font-size: 11.5px; font-weight: 600;
+        color: var(--muted); border: 1px solid transparent; background: transparent; }
     .wb-tab:hover { background: var(--panel2); }
-    .wb-tab.active { background: var(--pri-soft); border-color: var(--pri-soft); color: var(--pri-ink); font-weight: 600; }
+    .wb-tab.active { background: var(--panel2); border-color: var(--line); color: var(--ink); }
+    .wb-tab .meth { min-width: 0; margin-right: 6px; }
     .wb-tab .nm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .wb-tab .x { display: flex; align-items: center; justify-content: center; width: 16px; height: 16px;
-        border-radius: 5px; color: var(--faint); flex-shrink: 0; }
+    .wb-tab .x { display: flex; align-items: center; justify-content: center; width: 15px; height: 15px;
+        margin-left: 6px; border-radius: 5px; color: var(--faint); flex-shrink: 0; }
     .wb-tab .x:hover { background: var(--fail-soft); color: var(--fail); }
     /* an unsaved tab shows a dot instead of the close affordance until hovered */
-    .wb-tab.dirty .x { color: var(--warn); }
+    .wb-tab.dirty .x { color: var(--pri); }
     .wb-tab.dirty .x .ic { display: none; }
-    .wb-tab.dirty .x::after { content: ''; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+    .wb-tab.dirty .x::after { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
     .wb-tab.dirty:hover .x::after { display: none; }
     .wb-tab.dirty:hover .x .ic { display: inline-flex; }
-    .wb-topbar .crumb { font-weight: 600; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 7px; }
-    .wb-env { display: flex; align-items: center; gap: 8px; }
-    .wb-env select { width: auto; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px;
-        color: var(--ink); font-weight: 600; font-size: 13px; font-family: inherit; min-width: 150px; }
-    .tab-n { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: 5px; }
+    .wb-env { display: flex; align-items: center; gap: 6px; padding: 4px 9px; background: var(--panel2);
+        border: 1px solid var(--line); border-radius: 9px; flex-shrink: 0; }
+    .wb-env .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); flex-shrink: 0; }
+    .wb-env select { width: auto; background: none; border: none; padding: 1px 0; box-shadow: none;
+        color: var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 600; }
+    .wb-env select:focus { outline: none; }
+    .tab-n { font-family: var(--mono); font-size: 9.5px; color: var(--faint); margin-left: 5px; }
     .tab.active .tab-n { color: var(--pri); }
-    .tab-dot { display: none; width: 6px; height: 6px; border-radius: 50%; background: var(--pri); margin-left: 6px; vertical-align: middle; }
+    .tab-dot { display: none; width: 5px; height: 5px; border-radius: 50%; background: var(--pri); margin-left: 6px; vertical-align: middle; }
     .tab-dot.on { display: inline-block; }
     .builder { flex: 1; display: flex; flex-direction: column; min-height: 0; }
     .wb-resizer { height: 8px; flex-shrink: 0; background: var(--panel2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: row-resize; position: relative; }
     .wb-resizer::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 36px; height: 3px; border-radius: 3px; background: var(--line); }
     .wb-resizer:hover::after { background: var(--pri); }
-    .urlbar { display: flex; gap: 8px; padding: 12px 16px; align-items: center; }
+    .urlbar { display: flex; gap: 7px; padding: 12px 14px 0; align-items: center; }
     /* width:auto — signal.css gives every <select> width:100%, which would
        squeeze the URL field down to nothing. */
-    .urlbar select.method { width: auto; flex: 0 0 auto; background: var(--panel2); border: 1px solid var(--line); border-radius: var(--r); padding: 9px 10px; font-weight: 700; color: var(--text); font-family: var(--mono); font-size: 13px; }
-    .urlbar input.url { flex: 1; background: var(--panel2); border: 1px solid var(--line); border-radius: var(--r); padding: 9px 12px; color: var(--text); font-family: var(--mono); font-size: 13px; }
-    .tabs { display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--line); }
-    .tab { padding: 9px 12px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); font-size: 13px; }
-    .tab.active { color: var(--pri); border-bottom-color: var(--pri); font-weight: 600; }
-    .tabpanel { flex: 1; min-height: 0; overflow: auto; padding: 14px 16px; }
+    .urlbar select.method { width: auto; flex: 0 0 auto; background: var(--panel2); border: 1px solid var(--line);
+        border-radius: 10px; padding: 9px 11px; font-family: var(--mono); font-size: 12px; font-weight: 700; }
+    .urlbar input.url { flex: 1; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+        padding: 9px 11px; color: var(--ink); font-family: var(--mono); font-size: 12px; box-shadow: var(--sh); }
+    .urlbar .btn { border-radius: 10px; padding: 9px 15px; font-size: 12.5px; }
+    .urlbar .btn:not(.ghost):not(.danger) { box-shadow: 0 4px 14px -6px var(--pri); }
+    .tabs { display: flex; gap: 4px; padding: 12px 14px 0; }
+    .tab { padding: 7px 11px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 12px; font-weight: 500;
+        color: var(--muted); border-bottom: 2px solid transparent; }
+    .tab.active { color: var(--pri); border-bottom-color: var(--pri); font-weight: 700; }
+    .tabpanel { flex: 1; min-height: 0; overflow: auto; padding: 10px 14px 14px; }
     .tabpanel.body-area { overflow: hidden; display: flex; flex-direction: column; }
 
-    /* Code editor: line-number gutter + transparent textarea over a highlighted
-       backdrop. Fills the available height and scrolls internally. */
-    .hl-wrap { display: flex; flex: 1; min-height: 0; border: 1px solid var(--line); border-radius: var(--r);
-        background: var(--panel2); overflow: hidden; }
+    /* Body editor. The design draws this as a dark block in BOTH themes — the
+       one surface in the app that is always dark — so the palette below is
+       literal hex from the handoff, not theme tokens. Structure: line-number
+       gutter + a transparent textarea over a highlighted backdrop. */
+    .hl-wrap { display: flex; flex: 1; min-height: 0; border: 1px solid var(--line); border-radius: 11px;
+        background: #0A0D14; overflow: hidden; }
     .hl-wrap:focus-within { border-color: var(--pri); box-shadow: 0 0 0 3px var(--pri-soft); }
-    .ln { flex-shrink: 0; width: 48px; padding: 12px 8px 12px 0; text-align: right; font-family: var(--mono);
-        font-size: 13px; line-height: 1.55; color: var(--faint); background: var(--panel); overflow: hidden; white-space: pre;
-        user-select: none; border-right: 1px solid var(--line); }
+    .ln { flex-shrink: 0; width: 42px; padding: 11px 8px; text-align: right; font-family: var(--mono);
+        font-size: 11.5px; line-height: 1.65; color: #3F4A63; overflow: hidden; white-space: pre;
+        user-select: none; border-right: 1px solid rgba(255,255,255,.06); }
     .ed-stack { position: relative; flex: 1; min-height: 0; }
-    .code-edit, .hl-backdrop { font-family: var(--mono); font-size: 13px; line-height: 1.55; white-space: pre;
-        box-sizing: border-box; padding: 12px; margin: 0; border: none; }
+    .code-edit, .hl-backdrop { font-family: var(--mono); font-size: 11.5px; line-height: 1.65; white-space: pre;
+        box-sizing: border-box; padding: 11px 12px; margin: 0; border: none; }
     .code-edit { position: absolute; inset: 0; width: 100%; height: 100%; background: transparent; color: transparent;
-        caret-color: var(--ink); resize: none; overflow: auto; }
+        caret-color: #C9D2E4; resize: none; overflow: auto; }
     .code-edit:focus { outline: none; box-shadow: none; }
-    .code-edit::selection { color: var(--ink); background: color-mix(in srgb, var(--pri) 26%, transparent); }
-    .code-edit::-moz-selection { color: var(--ink); background: color-mix(in srgb, var(--pri) 26%, transparent); }
-    .hl-backdrop { position: absolute; inset: 0; color: var(--ink); background: transparent; overflow: hidden; pointer-events: none; }
-    .hl-backdrop .j-key { color: var(--vio); }
-    .hl-backdrop .j-str { color: var(--pass); }
-    .hl-backdrop .j-num { color: var(--warn); }
-    .hl-backdrop .j-kw  { color: var(--pri); font-weight: 600; }
-    .hl-backdrop .j-pun { color: var(--faint); }
-    .hl-backdrop .j-com { color: var(--faint); font-style: italic; }
-    /* env-defined variable */
-    .hl-backdrop .v-ok { background: var(--pri-soft); color: var(--pri); border-radius: 3px; padding: 0 1px; }
-    /* dynamic ($) variable — distinct teal */
-    .hl-backdrop .v-dyn { background: var(--teal-soft); color: var(--teal); border-radius: 3px; padding: 0 1px; }
-    /* undefined variable */
-    .hl-backdrop .v-bad { background: var(--fail-soft); color: var(--fail); border-radius: 3px; padding: 0 1px; }
+    .code-edit::selection { color: #fff; background: rgba(108,134,255,.35); }
+    .code-edit::-moz-selection { color: #fff; background: rgba(108,134,255,.35); }
+    .hl-backdrop { position: absolute; inset: 0; color: #C9D2E4; background: transparent; overflow: hidden; pointer-events: none; }
+    .hl-backdrop .j-key { color: #A48BFF; }
+    .hl-backdrop .j-str { color: #3FCF8E; }
+    .hl-backdrop .j-num { color: #F5B544; }
+    .hl-backdrop .j-kw  { color: #6C86FF; }
+    .hl-backdrop .j-pun { color: #5A6480; }
+    .hl-backdrop .j-com { color: #4A5470; font-style: italic; }
+    /* variables carry the design's chip: tinted background, 3px radius */
+    .hl-backdrop .v-ok, .hl-backdrop .v-dyn, .hl-backdrop .v-bad { border-radius: 3px; padding: 0 2px; }
+    .hl-backdrop .v-ok  { color: #6C86FF; background: rgba(108,134,255,.14); }   /* defined in the env */
+    .hl-backdrop .v-dyn { color: #3AD1DC; background: rgba(58,209,220,.14); }    /* dynamic ($) */
+    .hl-backdrop .v-bad { color: #FF6369; background: rgba(255,99,105,.16); }    /* undefined */
 
     /* autocomplete: the .ac primitive, minus the two classes this list emits */
     .ac-item .ac-name { font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
@@ -160,11 +180,12 @@
     .auth-lbl { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
 
     .response { height: 260px; flex-shrink: 0; display: flex; flex-direction: column; min-height: 0; background: var(--panel); }
-    .resp-head { padding: 10px 16px; display: flex; gap: 18px; align-items: center; border-bottom: 1px solid var(--line); }
-    .resp-status { font-weight: 700; }
+    .resp-head { padding: 10px 14px; display: flex; gap: 14px; align-items: center; border-bottom: 1px solid var(--line2); }
+    .resp-status { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12px; font-weight: 700; }
+    .resp-head .btn.small { padding: 6px 10px; border-radius: 8px; font-size: 11.5px; }
     .resp-body { flex: 1; overflow: auto; }
-    .resp-body pre { margin: 0; padding: 14px 16px; font-family: var(--mono); font-size: 12.5px; white-space: pre-wrap; word-break: break-word; }
-    .muted-sm { color: var(--muted); font-size: 12px; }
+    .resp-body pre { margin: 0; padding: 12px 14px; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; }
+    .muted-sm { color: var(--muted); font-family: var(--mono); font-size: 11px; }
     .hist-row { display: flex; gap: 10px; align-items: center; padding: 8px 16px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; }
     .hist-row:hover { background: var(--panel2); }
 </style>
@@ -172,17 +193,15 @@
 <aside class="wb-tree">
     <div class="wb-tree-head">
         <span class="nm" title="{{ collection.name }}">{{ collection.name }}</span>
-        {# icon-only: the collection name gets the width it needs, and two labelled
-           buttons pushed it into an ellipsis at any realistic panel size. #}
         <span style="display:flex;gap:5px;white-space:nowrap;">
-            <button class="icon-btn" style="width:26px;height:26px;" onclick="WB.newFolder()"
-                    title="{{ 'Add folder'|trans }}" aria-label="{{ 'Add folder'|trans }}">{{ ic.i('folder', 13) }}</button>
-            <button class="icon-btn" style="width:26px;height:26px;border-color:var(--pri);background:var(--pri);color:#fff;"
-                    onclick="WB.newRequest()" title="{{ 'New request'|trans }}" aria-label="{{ 'New request'|trans }}">{{ ic.i('plus', 14, 2.4) }}</button>
+            <button class="add" onclick="WB.newFolder()"
+                    title="{{ 'Add folder'|trans }}" aria-label="{{ 'Add folder'|trans }}">{{ ic.i('folder', 12) }}</button>
+            <button class="add" onclick="WB.newRequest()"
+                    title="{{ 'New request'|trans }}" aria-label="{{ 'New request'|trans }}">{{ ic.i('plus', 12, 2.2) }}</button>
         </span>
     </div>
     <div class="wb-search">
-        <div class="search">{{ ic.i('search', 14) }}<input type="text" id="treeSearch" placeholder="{{ 'Search requests…'|trans }}" spellcheck="false" autocomplete="off"></div>
+        <input type="text" id="treeSearch" placeholder="{{ 'Search requests…'|trans }}" spellcheck="false" autocomplete="off">
     </div>
     <div class="wb-tree-body" id="tree">
         {% for f in collection.rootFolders %}{{ t.tree_folder(f) }}{% endfor %}
@@ -197,10 +216,8 @@
     <div class="wb-topbar">
         <div class="wb-tabs" id="wbTabs"></div>
         <div class="wb-env">
-            {# lang="en": the Turkish copy keeps the loanword, and tr casing would
-               render an uppercase eyebrow as "ENVİRONMENT". #}
-            <span class="eyebrow" lang="en">{{ 'Environment'|trans }}</span>
-            <select id="wbEnv" title="{{ 'Applied to all requests'|trans }}">
+            <span class="dot"></span>
+            <select id="wbEnv" title="{{ 'Environment · applied to all requests'|trans }}">
                 <option value="">{{ '— none —'|trans }}</option>
                 {% for e in environments %}<option value="{{ e.id }}">{{ e.name }}</option>{% endfor %}
             </select>
@@ -223,7 +240,7 @@
                 {% for m in constant('App\\Entity\\ApiRequest::METHODS') %}<option>{{ m }}</option>{% endfor %}
             </select>
             <input class="url" id="reqUrl" placeholder="https://api.example.com/{{ '{{path}}' }}">
-            <button class="btn" onclick="WB.send()" id="sendBtn">{{ 'Send'|trans }}</button>
+            <button class="btn" onclick="WB.send()" id="sendBtn">{{ 'Send'|trans }}{{ ic.i('flows', 12) }}</button>
             <button class="btn ghost" onclick="WB.save()">{{ 'Save'|trans }}</button>
             <button class="btn ghost" onclick="WB.openCode()" title="{{ 'Generate code'|trans }}">{{ ic.i('terminal', 14) }}</button>
             <button class="btn danger" onclick="WB.del()" title="{{ 'Delete request'|trans }}">{{ ic.i('trash', 14) }}</button>
@@ -469,7 +486,7 @@ const WB = (() => {
         $('wbTabs').innerHTML = tabs.map(t =>
             '<div class="wb-tab' + (t.id === currentId ? ' active' : '') + (t.dirty ? ' dirty' : '') + '"'
             + ' data-id="' + escAttr(t.id) + '" title="' + escAttr(t.name) + '">'
-            + '<span class="kind m-' + String(t.method || 'get').toLowerCase() + '">' + escHtml(t.method || '') + '</span>'
+            + '<span class="meth m-' + String(t.method || 'get').toLowerCase() + '">' + escHtml(t.method || '') + '</span>'
             + '<span class="nm">' + escHtml(t.name || '') + '</span>'
             + '<span class="x" data-close="' + escAttr(t.id) + '" title="' + escAttr(T.closeTab) + '">' + CFG.icons.x + '</span>'
             + '</div>').join('');
@@ -528,7 +545,7 @@ const WB = (() => {
             tabs.push({
                 id: id,
                 name: (meta && meta.name) || row?.querySelector('.t-name')?.textContent || '…',
-                method: (meta && meta.method) || row?.querySelector('.kind')?.textContent || 'GET',
+                method: (meta && meta.method) || row?.querySelector('.meth')?.textContent || 'GET',
                 dirty: false, draft: null,
             });
         }
@@ -716,8 +733,8 @@ const WB = (() => {
         api(U.save.replace('REQID', id), 'POST', payload()).then(r => {
             if (!r.ok) return;
             const el = document.querySelector('.tree-req[data-id="'+id+'"] .t-name'); if(el) el.textContent = r.request.name;
-            const m = document.querySelector('.tree-req[data-id="'+id+'"] .kind');
-            if(m) { m.textContent = r.request.method; m.className = 'kind m-' + String(r.request.method).toLowerCase(); }
+            const m = document.querySelector('.tree-req[data-id="'+id+'"] .meth');
+            if(m) { m.textContent = r.request.method; m.className = 'meth m-' + String(r.request.method).toLowerCase(); }
             const t = tabOf(id);
             if (t) { t.dirty = false; t.draft = null; t.name = r.request.name; t.method = r.request.method; renderTabs(); }
             flash(T.saved);
@@ -740,7 +757,7 @@ const WB = (() => {
             if (!r.ok) return;
             const tree = $('tree');
             const div = document.createElement('div'); div.className='tree-req'; div.dataset.id=r.request.id;
-            div.innerHTML = '<span class="kind m-'+String(r.request.method).toLowerCase()+'">'+r.request.method+'</span><span class="t-name">'+r.request.name+'</span>';
+            div.innerHTML = '<span class="meth m-'+String(r.request.method).toLowerCase()+'">'+r.request.method+'</span><span class="t-name">'+r.request.name+'</span>';
             div.onclick = () => select(r.request.id); tree.appendChild(div);
             select(r.request.id, {name: r.request.name, method: r.request.method});
         });
@@ -1073,7 +1090,7 @@ const WB = (() => {
                 tabs.push({
                     id: id,
                     name: row.querySelector('.t-name')?.textContent || '…',
-                    method: row.querySelector('.kind')?.textContent || 'GET',
+                    method: row.querySelector('.meth')?.textContent || 'GET',
                     dirty: false, draft: null,
                 });
             });
