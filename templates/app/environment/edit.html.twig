@@ -1,3 +1,13 @@
+{# ==========================================================================
+   Two scopes live on this page and they used to be stacked as two tables
+   listing the same variables, with two save buttons — editing one and
+   saving the other silently lost the work. They are tabs now:
+
+     Shared variables — the workspace definition, needs WORKSPACE_EDIT
+     My values        — personal overrides, any member, only affect that member
+
+   Each tab keeps its own form and its own endpoint.
+   ========================================================================== #}
 {% extends 'app/_layout.html.twig' %}
 {% import '_icons.html.twig' as ic %}
 
@@ -5,22 +15,80 @@
 
 {% block panel %}
 {% set can_edit = is_granted('WORKSPACE_EDIT', workspace) %}
+{% set mine_count = my_values|filter(v => v != '')|length %}
+
 <a class="backlink" href="{{ path('app_environment_index', {workspace: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Environments'|trans }}</a>
 <div class="pagehead">
     <div>
-        <h1>{{ can_edit ? 'Edit environment'|trans : environment.name }}</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ 'shared values are used by everyone; your own values override them only for you'|trans }}</p>
+        <h1>{{ environment.name }}</h1>
+        <p class="subtitle">{{ workspace.name }} · {{ 'Shared values apply to everyone. Your own values override them for you only — including when you run a flow.'|trans }}</p>
     </div>
 </div>
 
-<form method="post" action="{{ path('app_environment_my_values', {workspace: workspace.id, environment: environment.id}) }}">
-    <input type="hidden" name="_token" value="{{ csrf_token('my-values' ~ environment.id) }}">
-    <div class="fgroup">
-        <div class="fgroup-title">{{ 'My values'|trans }}</div>
+<div class="tabs page" id="envTabs">
+    <button class="tab{{ not can_edit ? ' active' }}" type="button" data-tab="shared"{{ not can_edit ? ' disabled' : '' }}>
+        {{ 'Shared variables'|trans }}<span class="tab-n">{{ environment.variables|length }}</span>
+    </button>
+    <button class="tab" type="button" data-tab="mine">
+        {{ 'My values'|trans }}{% if mine_count %}<span class="tab-n">{{ mine_count }}</span>{% endif %}
+    </button>
+</div>
+
+{# ---------------- shared ---------------- #}
+<div data-pane="shared"{{ not can_edit ? ' hidden' : '' }}>
+    {% if can_edit %}
+        <form method="post">
+            <input type="hidden" name="_token" value="{{ csrf_token('edit-environment' ~ environment.id) }}">
+            <div class="field" style="max-width:480px;">
+                <label>{{ 'Environment name'|trans }}</label>
+                <input type="text" name="name" value="{{ environment.name }}">
+            </div>
+
+            <table class="data" id="vars">
+                <thead><tr>
+                    <th style="width:32%;">{{ 'Name'|trans }}</th>
+                    <th>{{ 'Value'|trans }}</th>
+                    <th style="width:70px;text-align:center;">{{ 'Secret'|trans }}</th>
+                </tr></thead>
+                <tbody>
+                {% set idx = 0 %}
+                {% for v in environment.variables %}
+                    <tr>
+                        <td><input type="text" name="var_name[{{ idx }}]" value="{{ v.name }}" class="input-mono"></td>
+                        <td><input type="text" name="var_value[{{ idx }}]" value="{{ v.value }}" class="input-mono"></td>
+                        <td style="text-align:center;"><input type="checkbox" name="var_secret[{{ idx }}]" value="1" {{ v.secret ? 'checked' }}></td>
+                    </tr>
+                    {% set idx = idx + 1 %}
+                {% endfor %}
+                {% for i in 1..3 %}
+                    <tr>
+                        <td><input type="text" name="var_name[{{ idx }}]" value="" class="input-mono"></td>
+                        <td><input type="text" name="var_value[{{ idx }}]" value="" class="input-mono"></td>
+                        <td style="text-align:center;"><input type="checkbox" name="var_secret[{{ idx }}]" value="1"></td>
+                    </tr>
+                    {% set idx = idx + 1 %}
+                {% endfor %}
+                </tbody>
+            </table>
+            <p class="fhint">{{ 'Empty rows are ignored. Secret variables are masked in the UI.'|trans }}</p>
+            <button type="button" class="btn ghost small" onclick="addRow()" style="margin-top:10px;">{{ ic.i('plus', 13, 2.2) }}{{ 'Add row'|trans }}</button>
+
+            <div class="form-actions">
+                <button class="btn" type="submit">{{ 'Save'|trans }}</button>
+                <a class="btn ghost" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
+            </div>
+        </form>
+    {% endif %}
+</div>
+
+{# ---------------- mine ---------------- #}
+<div data-pane="mine" hidden>
+    <form method="post" action="{{ path('app_environment_my_values', {workspace: workspace.id, environment: environment.id}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('my-values' ~ environment.id) }}">
         {% if environment.variables is empty %}
-            <p class="fhint">{{ 'This environment has no variables yet.'|trans }}</p>
+            <div class="empty">{{ 'This environment has no variables yet.'|trans }}</div>
         {% else %}
-            <table class="data" id="myvars">
+            <table class="data">
                 <thead><tr>
                     <th style="width:30%;">{{ 'Name'|trans }}</th>
                     <th style="width:35%;">{{ 'Shared value'|trans }}</th>
@@ -28,9 +96,12 @@
                 </tr></thead>
                 <tbody>
                 {% for v in environment.variables %}
+                    {% set overridden = my_values[v.name]|default('') != '' %}
                     <tr>
                         <td class="mono">
-                            {{ v.name }}{% if v.secret %} <span class="pill">{{ ic.i('shield', 11) }}{{ 'secret'|trans }}</span>{% endif %}
+                            {{ v.name }}
+                            {%- if v.secret %} <span class="pill">{{ ic.i('shield', 11) }}{{ 'secret'|trans }}</span>{% endif -%}
+                            {%- if overridden %} <span class="pill info">{{ 'yours'|trans }}</span>{% endif -%}
                         </td>
                         <td class="mono" style="color:var(--muted);">
                             {%- if v.secret -%}
@@ -49,56 +120,13 @@
                 {% endfor %}
                 </tbody>
             </table>
-            <p class="fhint">{{ 'Only you see and use these. Clear a field to fall back to the shared value. Your values are also used when you run a flow.'|trans }}</p>
+            <p class="fhint">{{ 'Only you see these. Clear a field to fall back to the shared value.'|trans }}</p>
             <div class="form-actions">
                 <button class="btn" type="submit">{{ 'Save my values'|trans }}</button>
             </div>
         {% endif %}
-    </div>
-</form>
-
-{% if can_edit %}
-<form method="post">
-    <input type="hidden" name="_token" value="{{ csrf_token('edit-environment' ~ environment.id) }}">
-    <div class="field" style="max-width:480px;">
-        <label>{{ 'Environment name'|trans }}</label>
-        <input type="text" name="name" value="{{ environment.name }}">
-    </div>
-
-    <div class="fgroup">
-        <div class="fgroup-title">{{ 'Shared variables'|trans }}</div>
-        <table class="data" id="vars">
-            <thead><tr><th style="width:32%;">{{ 'Name'|trans }}</th><th>{{ 'Value'|trans }}</th><th style="width:70px;text-align:center;">{{ 'Secret'|trans }}</th></tr></thead>
-            <tbody>
-            {% set idx = 0 %}
-            {% for v in environment.variables %}
-                <tr>
-                    <td><input type="text" name="var_name[{{ idx }}]" value="{{ v.name }}" class="input-mono"></td>
-                    <td><input type="text" name="var_value[{{ idx }}]" value="{{ v.value }}" class="input-mono"></td>
-                    <td style="text-align:center;"><input type="checkbox" name="var_secret[{{ idx }}]" value="1" {{ v.secret ? 'checked' }}></td>
-                </tr>
-                {% set idx = idx + 1 %}
-            {% endfor %}
-            {% for i in 1..3 %}
-                <tr>
-                    <td><input type="text" name="var_name[{{ idx }}]" value="" class="input-mono"></td>
-                    <td><input type="text" name="var_value[{{ idx }}]" value="" class="input-mono"></td>
-                    <td style="text-align:center;"><input type="checkbox" name="var_secret[{{ idx }}]" value="1"></td>
-                </tr>
-                {% set idx = idx + 1 %}
-            {% endfor %}
-            </tbody>
-        </table>
-        <p class="fhint">{{ 'Empty rows are ignored. Secret variables are masked in the UI.'|trans }}</p>
-        <button type="button" class="btn ghost small" onclick="addRow()" style="margin-top:10px;">{{ ic.i('plus', 13, 2.2) }}{{ 'Add row'|trans }}</button>
-    </div>
-
-    <div class="form-actions">
-        <button class="btn" type="submit">{{ 'Save'|trans }}</button>
-        <a class="btn ghost" href="{{ path('app_environment_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
-    </div>
-</form>
-{% endif %}
+    </form>
+</div>
 
 <script>
 function addRow() {
@@ -111,5 +139,21 @@ function addRow() {
         '<td style="text-align:center;"><input type="checkbox" name="var_secret[' + i + ']" value="1"></td>';
     tb.appendChild(tr);
 }
+(function () {
+    var bar = document.getElementById('envTabs');
+    function show(name) {
+        bar.querySelectorAll('.tab').forEach(function (t) { t.classList.toggle('active', t.dataset.tab === name); });
+        document.querySelectorAll('[data-pane]').forEach(function (p) { p.hidden = p.dataset.pane !== name; });
+    }
+    bar.addEventListener('click', function (e) {
+        var t = e.target.closest('.tab');
+        if (!t || t.disabled) return;
+        show(t.dataset.tab);
+        history.replaceState(null, '', '#' + t.dataset.tab);
+    });
+    // saving personal values redirects back with #mine so you land where you were
+    var start = location.hash.replace('#', '');
+    show(start === 'mine' ? 'mine' : {{ can_edit ? "'shared'" : "'mine'" }});
+})();
 </script>
 {% endblock %}

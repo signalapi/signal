@@ -117,10 +117,6 @@
     .wb-env select { width: auto; background: none; border: none; padding: 1px 0; box-shadow: none;
         color: var(--ink); font-family: var(--mono); font-size: 11px; font-weight: 600; }
     .wb-env select:focus { outline: none; }
-    .tab-n { font-family: var(--mono); font-size: 9.5px; color: var(--faint); margin-left: 5px; }
-    .tab.active .tab-n { color: var(--pri); }
-    .tab-dot { display: none; width: 5px; height: 5px; border-radius: 50%; background: var(--pri); margin-left: 6px; vertical-align: middle; }
-    .tab-dot.on { display: inline-block; }
     .builder { flex: 1; display: flex; flex-direction: column; min-height: 0; }
     .wb-resizer { height: 8px; flex-shrink: 0; background: var(--panel2); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); cursor: row-resize; position: relative; }
     .wb-resizer::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 36px; height: 3px; border-radius: 3px; background: var(--line); }
@@ -134,10 +130,8 @@
         padding: 9px 11px; color: var(--ink); font-family: var(--mono); font-size: 12px; box-shadow: var(--sh); }
     .urlbar .btn { border-radius: 10px; padding: 9px 15px; font-size: 12.5px; }
     .urlbar .btn:not(.ghost):not(.danger) { box-shadow: 0 4px 14px -6px var(--pri); }
-    .tabs { display: flex; gap: 4px; padding: 12px 14px 0; }
-    .tab { padding: 7px 11px; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 12px; font-weight: 500;
-        color: var(--muted); border-bottom: 2px solid transparent; }
-    .tab.active { color: var(--pri); border-bottom-color: var(--pri); font-weight: 700; }
+    /* .tabs/.tab now live in signal.css; only the bench's padding is local */
+    .builder > .tabs { padding: 12px 14px 0; }
     .tabpanel { flex: 1; min-height: 0; overflow: auto; padding: 10px 14px 14px; }
     .tabpanel.body-area { overflow: hidden; display: flex; flex-direction: column; }
 

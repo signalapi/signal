@@ -21,13 +21,26 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 class EnvironmentController extends AbstractAppController
 {
     #[Route('', name: 'app_environment_index', methods: ['GET'])]
-    public function index(Workspace $workspace, EnvironmentRepository $environments): Response
-    {
+    public function index(
+        Workspace $workspace,
+        EnvironmentRepository $environments,
+        EnvironmentResolver $envResolver,
+    ): Response {
         $this->assertWorkspace($workspace);
+
+        $list = $environments->findByWorkspace($workspace);
+
+        // How many variables this user has overridden, per environment — the
+        // card badge is the only place that fact is visible.
+        $mine = [];
+        foreach ($list as $environment) {
+            $mine[(string) $environment->getId()] = count($envResolver->overridesFor($environment, $this->currentUser()));
+        }
 
         return $this->render('app/environment/index.html.twig', [
             'workspace' => $workspace,
-            'environments' => $environments->findByWorkspace($workspace),
+            'environments' => $list,
+            'mine_counts' => $mine,
         ]);
     }
 
@@ -172,6 +185,7 @@ class EnvironmentController extends AbstractAppController
         return $this->redirectToRoute('app_environment_edit', [
             'workspace' => $workspace->getId(),
             'environment' => $environment->getId(),
+            '_fragment' => 'mine',   // land back on the tab you were on
         ]);
     }
 

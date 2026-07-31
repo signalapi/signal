@@ -37,7 +37,11 @@
                 <div class="ic">{{ ic.i('environments', 17) }}</div>
                 <div class="rc-name">
                     <a href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ env.name }}</a>
-                    <div class="s">{{ '%count% variable|%count% variables'|trans({'%count%': env.variables|length}) }}</div>
+                    <div class="s">
+                        {{ '%count% variable|%count% variables'|trans({'%count%': env.variables|length}) }}
+                        {% set mine = mine_counts[env.id]|default(0) %}
+                        {% if mine %} · <span class="pill info">{{ '%count% yours'|trans({'%count%': mine}) }}</span>{% endif %}
+                    </div>
                 </div>
             </div>
             <div class="rc-foot">

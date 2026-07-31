@@ -459,6 +459,23 @@ table.data tbody tr:hover { background:var(--panel2); }
 .overlay-foot { display:flex; align-items:center; gap:8px; padding:12px 16px;
   border-top:1px solid var(--line); background:var(--panel2); }
 
+/* ---------- pane tabs ---------- */
+/* The handoff's pane tabs: 7px 11px, top-rounded, active carries a 2px
+   underline. Promoted out of the workbench so any page can use them. */
+.tabs { display:flex; gap:4px; }
+.tab { padding:7px 11px; border-radius:8px 8px 0 0; cursor:pointer; font-size:12px; font-weight:500;
+  color:var(--muted); border:none; background:none; font-family:inherit;
+  border-bottom:2px solid transparent; }
+.tab:hover { color:var(--ink); }
+.tab.active { color:var(--pri); border-bottom-color:var(--pri); font-weight:700; }
+.tab-n { font-family:var(--mono); font-size:9.5px; color:var(--faint); margin-left:5px; }
+.tab.active .tab-n { color:var(--pri); }
+.tab-dot { display:none; width:5px; height:5px; border-radius:50%; background:var(--pri);
+  margin-left:6px; vertical-align:middle; }
+.tab-dot.on { display:inline-block; }
+/* a page-level tab strip sits on a rule that the active tab breaks through */
+.tabs.page { border-bottom:1px solid var(--line); margin-bottom:18px; }
+
 /* step-type palette + source picker (add-step drawer) */
 .typebar { display:flex; gap:6px; padding:12px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
 .typebtn { display:flex; align-items:center; gap:9px; padding:9px 11px; border-radius:var(--r-md);
