@@ -62,7 +62,6 @@
 "+ Create First Workspace": "+ İlk Workspace’i Oluştur"
 "+ New Merchant": "+ Yeni Merchant"
 "+ New workspace…": "+ Yeni workspace…"
-"5-field cron · <code>app:run-due-flows</code> runs every minute.": "5 alanlı cron · <code>app:run-due-flows</code> dakikada bir."
 "A Mongo query must be JSON and contain \"collection\".": "Mongo sorgusu JSON olmalı ve \"collection\" içermeli."
 "A catalog entry with this name already exists.": "Bu isimde bir katalog kaydı zaten var."
 "A factory with this name already exists.": "Bu adla bir fabrika zaten var."

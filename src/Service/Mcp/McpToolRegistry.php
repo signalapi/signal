@@ -54,6 +54,8 @@ class McpToolRegistry
         private readonly FlowVariableScanner $varScanner,
         private readonly FlowRunReporter $reporter,
         private readonly MessageBusInterface $bus,
+        private readonly \App\Repository\ScheduleRepository $schedules,
+        private readonly \App\Service\ScheduleCompiler $scheduleCompiler,
     ) {
     }
 
@@ -261,6 +263,52 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'batchId'], 'properties' => ['suiteId' => ['type' => 'string'], 'batchId' => ['type' => 'string']]]],
             ['name' => 'delete_suite', 'description' => 'Delete a suite (flow group). The flows inside it are not deleted, they just leave the group.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string']]]],
+
+            ['name' => 'list_schedules', 'description' => 'List the workspace\'s schedules: what each one runs (a flow or a suite), its timing rules in plain words, whether it is active, its timezone, and the next and last run.',
+                'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'create_schedule', 'description' => 'Schedule a flow or a suite to run by itself. Give EITHER flowId OR suiteId. A schedule holds a LIST of rules, so "Mondays every hour and Tuesdays every two hours" is one schedule with two rules. The smallest unit is a minute. Times are read in the schedule\'s timezone.',
+                'inputSchema' => ['type' => 'object', 'required' => ['rules'], 'properties' => [
+                    'flowId' => ['type' => 'string'],
+                    'suiteId' => ['type' => 'string'],
+                    'name' => ['type' => 'string', 'description' => 'Defaults to the target\'s name'],
+                    'timezone' => ['type' => 'string', 'description' => 'IANA name, e.g. Europe/Istanbul (default)'],
+                    'environmentName' => ['type' => 'string', 'description' => 'Override the target\'s own environment'],
+                    'enabled' => ['type' => 'boolean'],
+                    'rules' => ['type' => 'array', 'description' => 'Timing rules; the schedule fires when ANY rule matches.', 'items' => ['type' => 'object', 'properties' => [
+                    'mode' => ['type' => 'string', 'enum' => ['at', 'every', 'cron'], 'description' => 'at = fixed times of day · every = a repeating interval · cron = a raw 5-field expression'],
+                    'at' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'mode=at: times as HH:MM, e.g. ["09:00","18:30"]'],
+                    'n' => ['type' => 'integer', 'description' => 'mode=every: the interval, e.g. 2'],
+                    'unit' => ['type' => 'string', 'enum' => ['minute', 'hour'], 'description' => 'mode=every: minute is the smallest unit the scheduler ticks at'],
+                    'from' => ['type' => 'string', 'description' => 'mode=every, optional: only inside this window, HH:MM'],
+                    'to' => ['type' => 'string', 'description' => 'mode=every, optional: window end, HH:MM'],
+                    'expr' => ['type' => 'string', 'description' => 'mode=cron: e.g. */5 * * * *'],
+                    'days' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Days of the week, 1=Mon … 7=Sun; omit or empty for every day'],
+                    'monthDays' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Days of the month 1-31; omit or empty for every day'],
+                ]]],
+                ]]],
+            ['name' => 'update_schedule', 'description' => 'Change a schedule. Anything you omit is left alone; pass rules to replace the whole rule list.',
+                'inputSchema' => ['type' => 'object', 'required' => ['scheduleId'], 'properties' => [
+                    'scheduleId' => ['type' => 'string'],
+                    'name' => ['type' => 'string'],
+                    'enabled' => ['type' => 'boolean'],
+                    'timezone' => ['type' => 'string'],
+                    'environmentName' => ['type' => 'string'],
+                    'flowId' => ['type' => 'string'],
+                    'suiteId' => ['type' => 'string'],
+                    'rules' => ['type' => 'array', 'description' => 'Timing rules; the schedule fires when ANY rule matches.', 'items' => ['type' => 'object', 'properties' => [
+                    'mode' => ['type' => 'string', 'enum' => ['at', 'every', 'cron'], 'description' => 'at = fixed times of day · every = a repeating interval · cron = a raw 5-field expression'],
+                    'at' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'mode=at: times as HH:MM, e.g. ["09:00","18:30"]'],
+                    'n' => ['type' => 'integer', 'description' => 'mode=every: the interval, e.g. 2'],
+                    'unit' => ['type' => 'string', 'enum' => ['minute', 'hour'], 'description' => 'mode=every: minute is the smallest unit the scheduler ticks at'],
+                    'from' => ['type' => 'string', 'description' => 'mode=every, optional: only inside this window, HH:MM'],
+                    'to' => ['type' => 'string', 'description' => 'mode=every, optional: window end, HH:MM'],
+                    'expr' => ['type' => 'string', 'description' => 'mode=cron: e.g. */5 * * * *'],
+                    'days' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Days of the week, 1=Mon … 7=Sun; omit or empty for every day'],
+                    'monthDays' => ['type' => 'array', 'items' => ['type' => 'integer'], 'description' => 'Days of the month 1-31; omit or empty for every day'],
+                ]]],
+                ]]],
+            ['name' => 'delete_schedule', 'description' => 'Delete a schedule. What it pointed at (the flow or suite) is not touched.',
+                'inputSchema' => ['type' => 'object', 'required' => ['scheduleId'], 'properties' => ['scheduleId' => ['type' => 'string']]]],
         ];
     }
 
@@ -315,6 +363,10 @@ class McpToolRegistry
             'run_suite' => $this->runSuite($ws, $args),
             'get_suite_run' => $this->getSuiteRun($ws, $args),
             'delete_suite' => $this->deleteSuite($ws, $args),
+            'list_schedules' => $this->listSchedules($ws),
+            'create_schedule' => $this->createSchedule($ws, $args),
+            'update_schedule' => $this->updateSchedule($ws, $args),
+            'delete_schedule' => $this->deleteSchedule($ws, $args),
             default => throw new \InvalidArgumentException("Unknown tool: $name"),
         };
     }
@@ -693,6 +745,196 @@ class McpToolRegistry
         return ['ok' => true, 'stepId' => (string) $step->getId(), 'note' => 'Baseline reset; it will be captured again on the next successful run.'];
     }
 
+    // ---------------------------------------------------------- schedules
+
+    /** @return array<string, mixed> */
+    private function listSchedules(Workspace $ws): array
+    {
+        $out = [];
+        foreach ($this->schedules->findByWorkspace($ws) as $s) {
+            $next = $s->isEnabled() ? $this->scheduleCompiler->nextRun($s) : null;
+            $out[] = [
+                'id' => (string) $s->getId(),
+                'name' => $s->getName(),
+                'enabled' => $s->isEnabled(),
+                'target' => $s->isSuite() ? 'suite' : 'flow',
+                'targetId' => (string) ($s->getFlowGroup()?->getId() ?? $s->getFlow()?->getId()),
+                'targetName' => $s->getTargetName(),
+                'timezone' => $s->getTimezone(),
+                'environment' => $s->getEnvironment()?->getName(),
+                'rules' => $this->scheduleCompiler->describe($s),
+                'cron' => $this->scheduleCompiler->scheduleCrons($s),
+                'nextRunAt' => $next?->format(\DATE_ATOM),
+                'lastRunAt' => $s->getLastRunAt()?->format(\DATE_ATOM),
+            ];
+        }
+
+        return ['schedules' => $out];
+    }
+
+    /** @return array<string, mixed> */
+    private function createSchedule(Workspace $ws, array $args): array
+    {
+        $schedule = new \App\Entity\Schedule();
+        $schedule->setWorkspace($ws);
+
+        $error = $this->applyScheduleTarget($ws, $schedule, $args);
+        if (null !== $error) {
+            return ['error' => $error];
+        }
+        if (!$schedule->hasTarget()) {
+            return ['error' => 'Give either flowId or suiteId.'];
+        }
+
+        $rules = $this->normaliseRuleArgs($args['rules'] ?? []);
+        if (!$rules) {
+            return ['error' => 'rules must contain at least one usable rule.'];
+        }
+        $schedule->setRules($rules);
+
+        $this->applyScheduleFields($ws, $schedule, $args);
+        if ('' === $schedule->getName()) {
+            $schedule->setName($schedule->getTargetName());
+        }
+        $this->schedules->save($schedule);
+
+        return ['ok' => true, 'id' => (string) $schedule->getId()] + $this->scheduleSummary($schedule);
+    }
+
+    /** @return array<string, mixed> */
+    private function updateSchedule(Workspace $ws, array $args): array
+    {
+        $schedule = $this->findSchedule($ws, (string) ($args['scheduleId'] ?? ''));
+        if (null === $schedule) {
+            return ['error' => 'Schedule not found in this workspace.'];
+        }
+
+        $error = $this->applyScheduleTarget($ws, $schedule, $args);
+        if (null !== $error) {
+            return ['error' => $error];
+        }
+
+        if (\array_key_exists('rules', $args)) {
+            $rules = $this->normaliseRuleArgs($args['rules']);
+            if (!$rules) {
+                return ['error' => 'rules must contain at least one usable rule.'];
+            }
+            $schedule->setRules($rules);
+        }
+
+        $this->applyScheduleFields($ws, $schedule, $args);
+        $this->schedules->save($schedule);
+
+        return ['ok' => true] + $this->scheduleSummary($schedule);
+    }
+
+    /** @return array<string, mixed> */
+    private function deleteSchedule(Workspace $ws, array $args): array
+    {
+        $schedule = $this->findSchedule($ws, (string) ($args['scheduleId'] ?? ''));
+        if (null === $schedule) {
+            return ['error' => 'Schedule not found in this workspace.'];
+        }
+
+        $name = $schedule->getName();
+        $this->schedules->remove($schedule);
+
+        return ['ok' => true, 'deleted' => $name];
+    }
+
+    private function findSchedule(Workspace $ws, string $id): ?\App\Entity\Schedule
+    {
+        if ('' === $id) {
+            return null;
+        }
+        $schedule = $this->schedules->find($id);
+
+        return $schedule && $schedule->getWorkspace()->getId()?->toRfc4122() === $ws->getId()?->toRfc4122() ? $schedule : null;
+    }
+
+    /** Returns an error string, or null when the target is unchanged or valid. */
+    private function applyScheduleTarget(Workspace $ws, \App\Entity\Schedule $schedule, array $args): ?string
+    {
+        if (!empty($args['suiteId'])) {
+            $group = $this->groups->find((string) $args['suiteId']);
+            if (!$group || $group->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
+                return 'Suite not found in this workspace.';
+            }
+            $schedule->setFlowGroup($group);
+
+            return null;
+        }
+
+        if (!empty($args['flowId'])) {
+            $flow = $this->flows->find((string) $args['flowId']);
+            if (!$flow || $flow->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
+                return 'Flow not found in this workspace.';
+            }
+            $schedule->setFlow($flow);
+        }
+
+        return null;
+    }
+
+    private function applyScheduleFields(Workspace $ws, \App\Entity\Schedule $schedule, array $args): void
+    {
+        if (isset($args['name']) && '' !== trim((string) $args['name'])) {
+            $schedule->setName(trim((string) $args['name']));
+        }
+        if (\array_key_exists('enabled', $args)) {
+            $schedule->setEnabled((bool) $args['enabled']);
+        }
+        if (!empty($args['timezone']) && \in_array((string) $args['timezone'], \DateTimeZone::listIdentifiers(), true)) {
+            $schedule->setTimezone((string) $args['timezone']);
+        }
+        if (\array_key_exists('environmentName', $args)) {
+            $name = trim((string) $args['environmentName']);
+            $env = null;
+            foreach ($this->environments->findByWorkspace($ws) as $candidate) {
+                if (strcasecmp($candidate->getName(), $name) === 0) {
+                    $env = $candidate;
+                    break;
+                }
+            }
+            $schedule->setEnvironment($env);
+        }
+    }
+
+    /**
+     * @param  mixed                       $raw
+     * @return list<array<string, mixed>>
+     */
+    private function normaliseRuleArgs(mixed $raw): array
+    {
+        $out = [];
+        foreach ((array) $raw as $entry) {
+            if (!\is_array($entry)) {
+                continue;
+            }
+            $rule = $this->scheduleCompiler->normaliseRule($entry);
+            if (null !== $rule) {
+                $out[] = $rule;
+            }
+        }
+
+        return $out;
+    }
+
+    /** @return array<string, mixed> */
+    private function scheduleSummary(\App\Entity\Schedule $schedule): array
+    {
+        $next = $schedule->isEnabled() ? $this->scheduleCompiler->nextRun($schedule) : null;
+
+        return [
+            'name' => $schedule->getName(),
+            'target' => $schedule->getTargetName(),
+            'timezone' => $schedule->getTimezone(),
+            'rules' => $this->scheduleCompiler->describe($schedule),
+            'cron' => $this->scheduleCompiler->scheduleCrons($schedule),
+            'nextRunAt' => $next?->format(\DATE_ATOM),
+        ];
+    }
+
     private function whoami(Workspace $ws): array
     {
         $merchant = $ws->getMerchant();
@@ -705,6 +947,7 @@ class McpToolRegistry
                 'flows' => \count($this->flows->findByWorkspace($ws)),
                 'environments' => \count($this->environments->findByWorkspace($ws)),
                 'dbConnections' => \count($this->dbConnections->findByWorkspace($ws)),
+                'schedules' => \count($this->schedules->findByWorkspace($ws)),
             ],
             'scope' => 'Every tool is limited to this workspace of this merchant; no other merchant or workspace data is reachable.',
         ];

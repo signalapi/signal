@@ -21,6 +21,12 @@ use Symfony\Component\Routing\Attribute\Route;
 #[Route('/api/v1')]
 class ApiController extends AbstractController
 {
+    public function __construct(
+        private readonly \App\Repository\ScheduleRepository $schedules,
+        private readonly \App\Service\ScheduleCompiler $scheduleCompiler,
+    ) {
+    }
+
     /** The user the bearer token belongs to — the actor behind API-triggered runs. */
     private function tokenOwner(): ?\App\Entity\User
     {
@@ -34,11 +40,21 @@ class ApiController extends AbstractController
     {
         $workspace = $this->workspace($request);
 
-        $data = array_map(static fn (TestFlow $f) => [
+        // Scheduling moved off TestFlow into its own entity; a flow can be on
+        // several schedules, or on none, or reached through a suite.
+        $data = array_map(fn (TestFlow $f) => [
             'id' => (string) $f->getId(),
             'name' => $f->getName(),
             'steps' => $f->getSteps()->count(),
-            'cron' => $f->getCronExpression(),
+            'schedules' => array_map(
+                fn (\App\Entity\Schedule $s) => [
+                    'name' => $s->getName(),
+                    'enabled' => $s->isEnabled(),
+                    'timezone' => $s->getTimezone(),
+                    'rules' => $this->scheduleCompiler->describe($s),
+                ],
+                $this->schedules->findForFlow($f),
+            ),
         ], $flows->findByWorkspace($workspace));
 
         return $this->json(['ok' => true, 'workspace' => $workspace->getName(), 'flows' => $data]);

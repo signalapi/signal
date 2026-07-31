@@ -37,8 +37,6 @@ class TestFlow
     #[ORM\Column]
     private bool $stopOnFailure = true;
 
-    /** Standard 5-field cron expression, evaluated by app:run-due-flows. */
-
     /**
      * Suite memberships (a flow can belong to many suites, each with its own order).
      *
