@@ -73,25 +73,23 @@ class WorkspaceController extends AbstractAppController
     #[Route('/{id}', name: 'app_workspace_show', methods: ['GET'])]
     public function show(
         Workspace $workspace,
-        \App\Repository\ApiCollectionRepository $collections,
-        \App\Repository\EnvironmentRepository $environments,
-        \App\Repository\TestFlowRepository $flows,
-        \App\Repository\DbConnectionRepository $dbConnections,
         \App\Repository\ApiTokenRepository $apiTokens,
         \App\Repository\FlowRunRepository $runs,
         \App\Service\WorkspaceContext $context,
+        \App\Service\WorkspaceStats $stats,
+        \App\Service\Mcp\McpToolRegistry $mcpTools,
     ): Response {
         $this->assertWorkspace($workspace);
         $context->remember($workspace);
 
         return $this->render('app/workspace/show.html.twig', [
             'workspace' => $workspace,
-            'collection_count' => count($collections->findByWorkspace($workspace)),
-            'environment_count' => count($environments->findByWorkspace($workspace)),
-            'flow_count' => count($flows->findByWorkspace($workspace)),
-            'dbconn_count' => count($dbConnections->findByWorkspace($workspace)),
-            'token_count' => count($apiTokens->findByWorkspace($workspace)),
             'recent_runs' => $runs->recentForWorkspace($workspace, 6),
+            'metrics' => $stats->metrics($workspace),
+            'coverage' => $stats->coverage($workspace),
+            'health' => $stats->health($workspace),
+            'mcp_connected' => count($apiTokens->findByWorkspace($workspace)) > 0,
+            'mcp_tools' => count($mcpTools->definitions()),
         ]);
     }
 

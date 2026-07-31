@@ -1,59 +1,75 @@
+{# ==========================================================================
+   Workspace overview — the layout from the design handoff:
+   page head + health pill · metric strip (delta + sparkline) ·
+   recent runs beside a coverage card and the MCP card.
+   Numbers come from App\Service\WorkspaceStats.
+   ========================================================================== #}
 {% extends 'app/_layout.html.twig' %}
 {% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ workspace.name }} · Signal{% endblock %}
 
 {% block panel %}
-<div class="hero">
-    <div class="dots"></div>
-    <p class="eyebrow">Workspace</p>
-    <h1>{{ workspace.name }}</h1>
-    <p class="lead">{{ workspace.description ?: ('Send requests, chain flows, verify the result from the database — all in one place.'|trans) }}</p>
+<div class="pagehead" style="align-items:flex-start;">
+    <div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:5px;">
+            <span class="eyebrow">{{ 'Workspace'|trans }}</span>
+            {% set health_label = {'healthy': 'healthy'|trans, 'degraded': 'needs attention'|trans, 'quiet': 'never run'|trans} %}
+            <span class="livepill {{ health }}"><i></i>{{ health_label[health] }}</span>
+        </div>
+        <h1 style="font-size:25px;">{{ workspace.name }}</h1>
+        <p class="subtitle" style="max-width:520px;">{{ workspace.description ?: ('Send requests, chain flows, verify the result from the database — all in one place.'|trans) }}</p>
+    </div>
     <div class="actions">
-        <a class="btn" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">{{ ic.i('flows', 13) }}{{ 'Test flows'|trans }}</a>
-        <a class="btn ghost" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">{{ ic.i('import', 13) }}{{ 'Import Postman'|trans }}</a>
+        <a class="btn ghost" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">{{ ic.i('import', 14) }}{{ 'Import Postman'|trans }}</a>
+        <a class="btn" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">{{ ic.i('flows', 13) }}{{ 'Run a test'|trans }}</a>
     </div>
 </div>
 
-<div class="metric-grid stagger" style="grid-template-columns:repeat(auto-fit,minmax(158px,1fr));">
-    {% set cards = [
-        {icon:'collections',  n: collection_count,  label:'Collection', route:'app_collection_index'},
-        {icon:'environments', n: environment_count, label:'Environment', route:'app_environment_index'},
-        {icon:'flows',        n: flow_count,        label:'Test Flow'|trans, route:'app_flow_index'},
-        {icon:'db',           n: dbconn_count,      label:'DB Connection'|trans, route:'app_dbconn_index'},
-        {icon:'token',        n: token_count,       label:'API Token', route:'app_apitoken_index'},
-    ] %}
-    {% for c in cards %}
-        <a class="metric" href="{{ path(c.route, {workspace: workspace.id}) }}">
+{# ---- metric strip: value + delta + 12-day sparkline ---- #}
+<div class="metric-grid stagger">
+    {% for m in metrics %}
+        <div class="metric">
             <div class="cap">
-                <span class="l">{{ c.label }}</span>
-                {{ ic.i(c.icon, 14) }}
+                <span class="l">{{ m.label|trans }}</span>
+                {% if m.delta is null or m.delta == 0 %}
+                    <span class="delta flat">—</span>
+                {% else %}
+                    {% set improving = m.deltaGood ? m.delta > 0 : m.delta < 0 %}
+                    <span class="delta {{ improving ? 'up' : 'down' }}">{{ m.delta > 0 ? '+' }}{{ m.delta }}</span>
+                {% endif %}
             </div>
             <div class="row">
-                <span class="num">{{ c.n }}</span>
+                <span class="num">{{ m.value }}</span>
+                {% if m.unit %}<span class="unit">{{ m.unit }}</span>{% endif %}
                 <div class="grow"></div>
-                <span style="color:var(--faint)">{{ ic.i('chevron-r', 13) }}</span>
+                <span class="spark {{ m.tone }}" aria-hidden="true">
+                    {# 3px floor so an empty day still reads as a bar, not a gap #}
+                    {% for v in m.spark %}<i style="height:{{ (3 + v * 23)|round }}px;{{ v == 0 ? 'opacity:.35' }}"></i>{% endfor %}
+                </span>
             </div>
-        </a>
+        </div>
     {% endfor %}
 </div>
 
-<div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:18px;align-items:start;">
-    {# ---- Recent runs ---- #}
-    <div>
-        <div class="toolbar" style="margin-bottom:12px;">
-            <div class="section-title" style="margin:0;">{{ 'Recent runs'|trans }}</div>
-            <a href="{{ path('app_trends', {workspace: workspace.id}) }}" class="eyebrow" style="color:var(--pri)">{{ 'All trends'|trans }} →</a>
+<div style="display:grid;grid-template-columns:minmax(0,1.55fr) minmax(0,1fr);gap:14px;align-items:start;">
+    {# ---- recent runs ---- #}
+    <div class="card">
+        <div class="card-head">
+            <span class="t">{{ 'Recent runs'|trans }}</span>
+            <span class="eyebrow">{{ 'last 24h'|trans }}</span>
+            <div class="grow"></div>
+            <a href="{{ path('app_history_index', {workspace: workspace.id}) }}" class="eyebrow" style="color:var(--pri)">{{ 'View all'|trans }} →</a>
         </div>
         {% if recent_runs is empty %}
-            <div class="empty">{{ 'No runs yet. Create a test flow and run it.'|trans }}</div>
+            <div class="card-body"><div class="empty">{{ 'No runs yet. Create a test flow and run it.'|trans }}</div></div>
         {% else %}
             {% for run in recent_runs %}
                 <a class="hi-row" href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: run.flow.id, run: run.id}) }}">
                     <span class="hi-dot {{ run.status }}"></span>
                     <span class="hi-flow">
                         <span class="nm">{{ run.flow.name }}</span>
-                        {% if run.batchId %}<span class="tags"><span class="hi-tag">data #{{ run.iteration + 1 }}</span></span>{% endif %}
+                        {% if run.batchId %}<span class="tags"><span class="hi-tag">{{ 'data'|trans }} #{{ run.iteration + 1 }}</span></span>{% endif %}
                     </span>
                     <span class="strip">
                         {% for sr in run.stepResults %}<i class="{{ sr.status }}" title="{{ sr.label }}"></i>{% endfor %}
@@ -66,22 +82,41 @@
         {% endif %}
     </div>
 
-    {# ---- Quick actions ---- #}
-    <div>
-        <div class="section-title">{{ 'Quick actions'|trans }}</div>
-        <div class="quick-grid" style="grid-template-columns:1fr;">
-            <a class="quick" href="{{ path('app_collection_index', {workspace: workspace.id}) }}">
-                <div class="ic">{{ ic.i('collections', 15) }}</div><div><div class="t">Collection workbench</div><div class="s">{{ 'Send and edit requests'|trans }}</div></div>
-            </a>
-            <a class="quick" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">
-                <div class="ic">{{ ic.i('git', 15) }}</div><div><div class="t">{{ 'New test flow'|trans }}</div><div class="s">{{ 'Chain steps, verify from the DB'|trans }}</div></div>
-            </a>
-            <a class="quick" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">
-                <div class="ic">{{ ic.i('db', 15) }}</div><div><div class="t">{{ 'DB connection'|trans }}</div><div class="s">Postgres · MySQL · Redis · Mongo</div></div>
-            </a>
-            <a class="quick" href="{{ path('app_apitoken_index', {workspace: workspace.id}) }}">
-                <div class="ic">{{ ic.i('token', 15) }}</div><div><div class="t">API & MCP</div><div class="s">{{ 'CI / Claude integration'|trans }}</div></div>
-            </a>
+    {# ---- coverage + MCP ---- #}
+    <div style="display:flex;flex-direction:column;gap:14px;">
+        <div class="card">
+            <div class="card-head"><span class="t">{{ 'Coverage'|trans }}</span></div>
+            <div class="card-body">
+                {% for c in coverage %}
+                    <div class="cov {{ c.pct == 100 ? 'full' : (c.pct == 0 ? 'none') }}">
+                        <div class="top">
+                            <span class="l">{{ c.label|trans }}</span>
+                            <span class="v">{{ c.done }}/{{ c.total }}</span>
+                        </div>
+                        <div class="bar"><i style="width:{{ c.total > 0 ? c.pct : 0 }}%"></i></div>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-head">
+                <span style="color:var(--vio);">{{ ic.i('bot', 14) }}</span>
+                <span class="t">MCP</span>
+                <div class="grow"></div>
+                {% if mcp_connected %}
+                    <span class="pill passed">{{ 'connected'|trans }}</span>
+                {% else %}
+                    <span class="pill">{{ 'no token'|trans }}</span>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                <p class="subtitle" style="margin:0 0 10px;">{{ 'Point Claude at this workspace: it can read collections, build flows and run them.'|trans }}</p>
+                <div class="plate">POST /mcp · {{ '%count% tool|%count% tools'|trans({'%count%': mcp_tools}) }} · {{ 'scoped to this workspace'|trans }}</div>
+                <a class="btn ghost small" style="margin-top:11px;" href="{{ path('app_apitoken_index', {workspace: workspace.id}) }}">
+                    {{ ic.i('token', 13) }}{{ mcp_connected ? 'Manage tokens'|trans : 'Create a token'|trans }}
+                </a>
+            </div>
         </div>
     </div>
 </div>

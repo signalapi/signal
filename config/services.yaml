@@ -26,3 +26,8 @@ services:
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones
+
+    # Cache-bust assets by mtime — there is no build step, so filenames never change.
+    App\Asset\FileMtimeVersionStrategy:
+        arguments:
+            $publicDir: '%kernel.project_dir%/public'

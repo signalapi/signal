@@ -5,6 +5,9 @@ framework:
     # Note that the session will be started ONLY if you read or write from it.
     session: true
 
+    assets:
+        version_strategy: App\Asset\FileMtimeVersionStrategy
+
     #esi: true
     #fragments: true
 

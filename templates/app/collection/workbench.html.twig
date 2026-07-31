@@ -79,7 +79,7 @@
         padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); }
     .wb-topbar .crumb { font-weight: 600; font-size: 13px; color: var(--ink); display: flex; align-items: center; gap: 7px; }
     .wb-env { display: flex; align-items: center; gap: 8px; }
-    .wb-env select { background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px;
+    .wb-env select { width: auto; background: var(--panel2); border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px;
         color: var(--ink); font-weight: 600; font-size: 13px; font-family: inherit; min-width: 150px; }
     .tab-n { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-left: 5px; }
     .tab.active .tab-n { color: var(--pri); }
@@ -90,7 +90,9 @@
     .wb-resizer::after { content: ""; position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%); width: 36px; height: 3px; border-radius: 3px; background: var(--line); }
     .wb-resizer:hover::after { background: var(--pri); }
     .urlbar { display: flex; gap: 8px; padding: 12px 16px; align-items: center; }
-    .urlbar select.method { background: var(--panel2); border: 1px solid var(--line); border-radius: var(--r); padding: 9px 10px; font-weight: 700; color: var(--text); font-family: var(--mono); font-size: 13px; }
+    /* width:auto — signal.css gives every <select> width:100%, which would
+       squeeze the URL field down to nothing. */
+    .urlbar select.method { width: auto; flex: 0 0 auto; background: var(--panel2); border: 1px solid var(--line); border-radius: var(--r); padding: 9px 10px; font-weight: 700; color: var(--text); font-family: var(--mono); font-size: 13px; }
     .urlbar input.url { flex: 1; background: var(--panel2); border: 1px solid var(--line); border-radius: var(--r); padding: 9px 12px; color: var(--text); font-family: var(--mono); font-size: 13px; }
     .tabs { display: flex; gap: 2px; padding: 0 16px; border-bottom: 1px solid var(--line); }
     .tab { padding: 9px 12px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); font-size: 13px; }
