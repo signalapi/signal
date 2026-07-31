@@ -10,7 +10,7 @@
 <div class="pagehead">
     <div>
         <h1>{{ schedule.id ? 'Edit schedule'|trans : 'New schedule'|trans }}</h1>
-        <p class="subtitle">{{ 'A schedule runs one flow or one suite. Add a rule per timing — a schedule can hold several.'|trans }}</p>
+        <p class="subtitle">{{ 'A schedule runs one flow or one suite on a repeating timing.'|trans }}</p>
     </div>
 </div>
 
@@ -73,7 +73,7 @@
 
     <div class="fgroup">
         <div class="fgroup-title">{{ 'When it runs'|trans }}</div>
-        <p class="fhint" style="margin-top:-4px;">{{ 'Each rule is a separate timing. “Mondays every hour” and “Tuesdays every two hours” are two rules on the same schedule.'|trans }}</p>
+        <p class="fhint" style="margin-top:-4px;">{{ 'One rule per timing — a schedule can hold several.'|trans }}</p>
 
         <div id="rules">
             {% for rule in schedule.rules %}
@@ -110,6 +110,15 @@
     var box = document.getElementById('rules');
     var tpl = document.getElementById('ruleTemplate').innerHTML;
 
+    // "every 1 hour" / "every 2 hours"
+    function syncUnits(rule) {
+        var n = rule.querySelector('[name^="rule_n"]');
+        var sel = rule.querySelector('[name^="rule_unit"]');
+        if (!n || !sel) return;
+        var one = Number(n.value) === 1;
+        [...sel.options].forEach(function (o) { o.textContent = one ? o.dataset.one : o.dataset.many; });
+    }
+
     function syncModes(scope) {
         (scope || document).querySelectorAll('.rule').forEach(function (r) {
             var mode = r.querySelector('[data-mode]').value;
@@ -119,9 +128,19 @@
             r.querySelectorAll('[data-hide-when]').forEach(function (el) {
                 el.hidden = el.dataset.hideWhen === mode;
             });
+            syncUnits(r);
         });
     }
     box.addEventListener('change', function (e) { if (e.target.matches('[data-mode]')) syncModes(); });
+    box.addEventListener('input', function (e) {
+        if (e.target.matches('[name^="rule_n"]')) syncUnits(e.target.closest('.rule'));
+    });
+    box.addEventListener('click', function (e) {
+        var more = e.target.closest('[data-more]');
+        if (!more) return;
+        var panel = more.closest('.rule').querySelector('[data-more-panel]');
+        panel.hidden = !panel.hidden;
+    });
     box.addEventListener('click', function (e) {
         var rm = e.target.closest('[data-remove-rule]');
         if (!rm) return;

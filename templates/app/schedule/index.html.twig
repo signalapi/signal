@@ -24,9 +24,10 @@
     <div class="card">
         {% for row in rows %}
             {% set s = row.schedule %}
-            <div class="hi-row" style="grid-template-columns:10px minmax(0,1fr) auto auto auto;gap:14px;">
+            <div class="sched-row">
                 <span class="hi-dot {{ s.enabled ? 'passed' : '' }}" title="{{ s.enabled ? 'Active'|trans : 'Paused'|trans }}"></span>
-                <span class="hi-flow">
+
+                <span class="sched-what">
                     <span class="nm">{{ s.name }}</span>
                     <span class="tags">
                         <span class="hi-tag">{{ ic.i(s.suite ? 'suites' : 'flows', 11) }}{{ s.targetName }}</span>
@@ -34,15 +35,21 @@
                         {% for r in row.rules %}<span class="hi-tag suite">{{ r }}</span>{% endfor %}
                     </span>
                 </span>
-                <span class="hi-date" title="{{ 'Timezone'|trans }}: {{ s.timezone }}">
-                    {%- if row.next -%}
-                        {{ 'next'|trans }} {{ row.next|date('d.m H:i', s.timezone) }}
-                    {%- elseif not s.enabled -%}
-                        {{ 'paused'|trans }}
-                    {%- else -%}—{%- endif -%}
+
+                <span class="sched-when" title="{{ 'Timezone'|trans }}: {{ s.timezone }}">
+                    <span class="l">{{ 'Next run'|trans }}</span>
+                    <span class="v">
+                        {%- if row.next -%}{{ row.next|date('d.m H:i', s.timezone) }}
+                        {%- elseif not s.enabled -%}{{ 'paused'|trans }}
+                        {%- else -%}—{%- endif -%}
+                    </span>
                 </span>
-                <span class="hi-num">{{ s.lastRunAt ? s.lastRunAt|date('d.m H:i', s.timezone) : ('never'|trans) }}</span>
-                <span style="display:flex;gap:6px;align-items:center;">
+                <span class="sched-when">
+                    <span class="l">{{ 'Last run'|trans }}</span>
+                    <span class="v">{{ s.lastRunAt ? s.lastRunAt|date('d.m H:i', s.timezone) : '—' }}</span>
+                </span>
+
+                <span class="sched-actions">
                     <form method="post" action="{{ path('app_schedule_toggle', {workspace: workspace.id, schedule: s.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('schedule-toggle' ~ s.id) }}">
                         <button class="btn ghost small" type="submit">{{ s.enabled ? 'Pause'|trans : 'Resume'|trans }}</button>

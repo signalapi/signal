@@ -1,74 +1,70 @@
-{# One timing rule. `i` is the row index; the editor clones this with i="__I__". #}
+{# One timing rule, laid out as a sentence you read left to right:
+     Run [every] [2] [hours]  on [M][T][W][T][F][S][S]
+   Everything that does not apply to the chosen mode is hidden, and the two
+   rarely-used fields (time window, days of the month) sit behind "⋯".
+   `i` is the row index; the editor clones this with i="__I__". #}
 {% import '_icons.html.twig' as ic %}
 {% set mode = rule ? (rule.mode|default('at')) : 'at' %}
+{% set has_more = rule and (rule.from is defined or (rule.monthDays is defined and rule.monthDays)) %}
 <div class="rule">
-    <div class="rule-head">
-        <select name="rule_mode[{{ i }}]" data-mode>
-            <option value="at" {{ mode == 'at' ? 'selected' }}>{{ 'At these times'|trans }}</option>
-            <option value="every" {{ mode == 'every' ? 'selected' }}>{{ 'Every…'|trans }}</option>
-            <option value="cron" {{ mode == 'cron' ? 'selected' }}>{{ 'Cron expression'|trans }}</option>
+    <div class="rule-line">
+        <span class="rule-lead">{{ 'Run'|trans }}</span>
+
+        <select name="rule_mode[{{ i }}]" data-mode aria-label="{{ 'Timing'|trans }}">
+            <option value="at" {{ mode == 'at' ? 'selected' }}>{{ 'at'|trans }}</option>
+            <option value="every" {{ mode == 'every' ? 'selected' }}>{{ 'every'|trans }}</option>
+            <option value="cron" {{ mode == 'cron' ? 'selected' }}>{{ 'cron'|trans }}</option>
         </select>
-        <div class="grow"></div>
-        <button type="button" class="icon-btn" style="width:26px;height:26px;" data-remove-rule title="{{ 'Remove rule'|trans }}">{{ ic.i('trash', 12) }}</button>
-    </div>
 
-    {# --- days: shared by "at" and "every" --- #}
-    <div data-when="at" {{ mode != 'at' ? 'hidden' }}>
-        <div class="field">
-            <label>{{ 'Times'|trans }}</label>
-            <input type="text" name="rule_at[{{ i }}]" class="input-mono"
-                   value="{{ rule and rule.at is defined ? rule.at|join(', ') : '' }}"
-                   placeholder="09:00, 14:00, 20:30">
-            <p class="fhint">{{ 'One or more times of day, comma separated.'|trans }}</p>
-        </div>
-    </div>
+        <input type="text" name="rule_at[{{ i }}]" class="input-mono" data-when="at" {{ mode != 'at' ? 'hidden' }}
+               style="width:170px;" value="{{ rule and rule.at is defined ? rule.at|join(', ') : '' }}"
+               placeholder="09:00, 14:00" aria-label="{{ 'Times'|trans }}">
 
-    <div data-when="every" {{ mode != 'every' ? 'hidden' }}>
-        <div class="rule-every">
-            <span>{{ 'every'|trans }}</span>
-            <input type="number" name="rule_n[{{ i }}]" min="1" max="59" value="{{ rule.n|default(1) }}" style="width:74px;">
-            <select name="rule_unit[{{ i }}]" style="width:auto;">
-                <option value="minute" {{ rule and rule.unit|default('') == 'minute' ? 'selected' }}>{{ 'minutes'|trans }}</option>
-                <option value="hour" {{ not rule or rule.unit|default('hour') == 'hour' ? 'selected' }}>{{ 'hours'|trans }}</option>
-            </select>
-            <span class="subtitle">{{ 'between'|trans }}</span>
-            <input type="text" name="rule_from[{{ i }}]" class="input-mono" style="width:88px;"
-                   value="{{ rule.from|default('') }}" placeholder="09:00">
-            <span class="subtitle">{{ 'and'|trans }}</span>
-            <input type="text" name="rule_to[{{ i }}]" class="input-mono" style="width:88px;"
-                   value="{{ rule.to|default('') }}" placeholder="18:00">
-        </div>
-        <p class="fhint">{{ 'Leave the two times empty to run around the clock.'|trans }}</p>
-    </div>
+        <input type="number" name="rule_n[{{ i }}]" data-when="every" {{ mode != 'every' ? 'hidden' }}
+               min="1" max="59" value="{{ rule.n|default(1) }}" style="width:70px;" aria-label="{{ 'Interval'|trans }}">
+        <select name="rule_unit[{{ i }}]" data-when="every" {{ mode != 'every' ? 'hidden' }} aria-label="{{ 'Unit'|trans }}">
+            {# the label follows the number: "every 1 hour", "every 2 hours" #}
+            <option value="minute" data-one="{{ 'minute'|trans }}" data-many="{{ 'minutes'|trans }}"
+                    {{ rule and rule.unit|default('') == 'minute' ? 'selected' }}>{{ 'minutes'|trans }}</option>
+            <option value="hour" data-one="{{ 'hour'|trans }}" data-many="{{ 'hours'|trans }}"
+                    {{ not rule or rule.unit|default('hour') == 'hour' ? 'selected' }}>{{ 'hours'|trans }}</option>
+        </select>
 
-    <div data-when="cron" {{ mode != 'cron' ? 'hidden' }}>
-        <div class="field">
-            <label>{{ 'Cron expression'|trans }}</label>
-            <input type="text" name="rule_expr[{{ i }}]" class="input-mono"
-                   value="{{ rule.expr|default('') }}" placeholder="*/5 * * * *">
-            <p class="fhint">{{ 'Five fields: minute hour day-of-month month day-of-week.'|trans }}</p>
-        </div>
-    </div>
+        <input type="text" name="rule_expr[{{ i }}]" class="input-mono" data-when="cron" {{ mode != 'cron' ? 'hidden' }}
+               style="width:170px;" value="{{ rule.expr|default('') }}" placeholder="*/5 * * * *"
+               aria-label="{{ 'Cron expression'|trans }}">
 
-    {# days-of-week and days-of-month do not apply to a raw cron expression #}
-    <div class="rule-days" data-hide-when="cron" {{ mode == 'cron' ? 'hidden' }}>
-        <span class="eyebrow">{{ 'On'|trans }}</span>
-        <div class="daypick">
+        <span class="rule-lead" data-hide-when="cron" {{ mode == 'cron' ? 'hidden' }}>{{ 'on'|trans }}</span>
+        <div class="daypick" data-hide-when="cron" {{ mode == 'cron' ? 'hidden' }}>
             {% for n, label in days %}
-                <label class="daybtn">
+                <label class="daybtn" title="{{ label }}">
                     <input type="checkbox" name="rule_days[{{ i }}][]" value="{{ n }}"
                            {{ rule and rule.days is defined and n in rule.days ? 'checked' }}>
                     <span>{{ label }}</span>
                 </label>
             {% endfor %}
         </div>
-        <span class="fhint">{{ 'none selected = every day'|trans }}</span>
+
+        <div class="grow"></div>
+        <button type="button" class="icon-btn" style="width:26px;height:26px;" data-more
+                data-hide-when="cron" {{ mode == 'cron' ? 'hidden' }}
+                title="{{ 'Time window and days of the month'|trans }}">{{ ic.i('dots', 13) }}</button>
+        <button type="button" class="icon-btn" style="width:26px;height:26px;" data-remove-rule
+                title="{{ 'Remove rule'|trans }}">{{ ic.i('trash', 12) }}</button>
     </div>
-    <div class="field" data-hide-when="cron" {{ mode == 'cron' ? 'hidden' }}>
-        <label>{{ 'Days of the month'|trans }}</label>
-        <input type="text" name="rule_month_days[{{ i }}]" class="input-mono" style="max-width:220px;"
+
+    <div class="rule-more" data-more-panel {{ has_more ? '' : 'hidden' }}>
+        <span class="rule-lead" data-when="every" {{ mode != 'every' ? 'hidden' }}>{{ 'between'|trans }}</span>
+        <input type="text" name="rule_from[{{ i }}]" class="input-mono" data-when="every" {{ mode != 'every' ? 'hidden' }}
+               style="width:82px;" value="{{ rule.from|default('') }}" placeholder="09:00" aria-label="{{ 'From'|trans }}">
+        <span class="rule-lead" data-when="every" {{ mode != 'every' ? 'hidden' }}>{{ 'and'|trans }}</span>
+        <input type="text" name="rule_to[{{ i }}]" class="input-mono" data-when="every" {{ mode != 'every' ? 'hidden' }}
+               style="width:82px;" value="{{ rule.to|default('') }}" placeholder="18:00" aria-label="{{ 'To'|trans }}">
+
+        <span class="rule-lead">{{ 'on days'|trans }}</span>
+        <input type="text" name="rule_month_days[{{ i }}]" class="input-mono" style="width:110px;"
                value="{{ rule and rule.monthDays is defined ? rule.monthDays|join(', ') : '' }}"
-               placeholder="1, 15">
-        <p class="fhint">{{ 'Empty = every day of the month.'|trans }}</p>
+               placeholder="1, 15" aria-label="{{ 'Days of the month'|trans }}">
+        <span class="rule-lead">{{ 'of the month'|trans }}</span>
     </div>
 </div>

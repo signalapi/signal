@@ -70,7 +70,20 @@ class RunDueSchedulesCommand extends Command
             }
 
             $last = $schedule->getLastRunAt();
-            if (null !== $last && $last >= $due) {
+
+            if (null === $last) {
+                // A schedule that has never run must not backfill the occurrence
+                // that happened before it existed: create "every day 09:00" at
+                // 14:00 and it waits for tomorrow, it does not fire on the spot.
+                // The first tick just starts the clock.
+                if (!$dryRun) {
+                    $schedule->setLastRunAt($now);
+                    $this->em->flush();
+                }
+                continue;
+            }
+
+            if ($last >= $due) {
                 continue;   // this occurrence already ran
             }
 
