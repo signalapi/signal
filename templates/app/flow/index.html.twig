@@ -29,12 +29,12 @@
         <a href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}" style="flex:1;min-width:0;color:inherit">
             <span class="name">{{ flow.name }}</span>
             <span class="meta">
-                <span>{{ '%count% steps'|trans({'%count%': flow.steps|length}) }}</span>
+                <span>{{ '%count% step|%count% steps'|trans({'%count%': flow.steps|length}) }}</span>
                 <span>·</span>
                 <span>{{ flow.defaultEnvironment ? flow.defaultEnvironment.name : 'no env'|trans }}</span>
                 {% if flow.scheduleEnabled %}<span class="cron">{{ flow.cronExpression }}</span>{% endif %}
                 {% set subs = flow.steps|filter(s => s.isCall)|length %}
-                {% if subs %}<span class="sub">{{ '%count% sub-flows'|trans({'%count%': subs}) }}</span>{% endif %}
+                {% if subs %}<span class="sub">{{ '%count% sub-flow|%count% sub-flows'|trans({'%count%': subs}) }}</span>{% endif %}
             </span>
         </a>
         <span class="strip">

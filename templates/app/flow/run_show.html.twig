@@ -190,7 +190,7 @@
                 <div class="detail" style="white-space:normal;word-break:break-all;">
                     <b style="color:var(--ink);">{{ r.requestMethod }}</b> {{ r.requestUrl }}
                     {% if r.responseStatus %}→ <b style="color:var(--ink);">{{ r.responseStatus }}</b>{% endif %}
-                    {% if r.attempts > 1 %}· <span class="chip retry">{{ '%count% attempts'|trans({'%count%': r.attempts}) }}</span>{% endif %}
+                    {% if r.attempts > 1 %}· <span class="chip retry">{{ '%count% attempt|%count% attempts'|trans({'%count%': r.attempts}) }}</span>{% endif %}
                 </div>
 
                 {% if r.error %}<div class="flash error" style="margin:10px 0 0;">{{ r.error }}</div>{% endif %}

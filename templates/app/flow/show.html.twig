@@ -77,7 +77,7 @@
                                 </div>
                             </div>
                             <div class="detail">
-                                {% if step.isCall %}{% if step.calledFlow %}{{ step.calledFlow.name }} ({{ '%count% steps'|trans({'%count%': step.calledFlow.steps|length}) }}){% else %}<span style="color:var(--fail);">{{ 'sub-flow deleted'|trans }}</span>{% endif %}
+                                {% if step.isCall %}{% if step.calledFlow %}{{ step.calledFlow.name }} ({{ '%count% step|%count% steps'|trans({'%count%': step.calledFlow.steps|length}) }}){% else %}<span style="color:var(--fail);">{{ 'sub-flow deleted'|trans }}</span>{% endif %}
                                 {% elseif step.isDelay %}{{ 'wait %ms% ms'|trans({'%ms%': step.query ?: 0}) }}
                                 {% elseif step.isSetvar %}{{ (step.query ?: '(no assignment)'|trans)|slice(0, 90) }}
                                 {% elseif step.isDb %}{% if step.dbConnection %}{{ step.dbConnection.type }} · {{ (step.query ?: '(no query)'|trans)|slice(0, 80) }}{% else %}<span style="color:var(--fail);">{{ 'connection deleted'|trans }}</span>{% endif %}

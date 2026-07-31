@@ -152,7 +152,7 @@
                                    {{ step.calledFlow and step.calledFlow.id == cf.id ? 'checked' }}>
                             <span class="kind m-flow">FLOW</span>
                             <span class="name">{{ cf.name }}<br>
-                                <span class="sub">{{ '%count% steps'|trans({'%count%': cf.steps|length}) }}</span></span>
+                                <span class="sub">{{ '%count% step|%count% steps'|trans({'%count%': cf.steps|length}) }}</span></span>
                         </label>
                     {% endfor %}
                 </div>

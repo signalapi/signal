@@ -10,7 +10,7 @@
     <div>
         <h1>{{ collection.name }}</h1>
         <p class="subtitle">
-            {{ '%count% requests'|trans({'%count%': collection.requests|length}) }} · {{ workspace.name }}
+            {{ '%count% request|%count% requests'|trans({'%count%': collection.requests|length}) }} · {{ workspace.name }}
             {% if collection.sourceVersion %} · {{ 'catalog'|trans }}: {{ collection.sourceVersion.catalogApi.name }} <span class="pill">{{ collection.sourceVersion.label }}</span>{% endif %}
             {% if collection.sourceCollection %} · {{ 'forked from'|trans }} <span class="pill">{{ collection.sourceCollection.name }}</span>{% endif %}
         </p>

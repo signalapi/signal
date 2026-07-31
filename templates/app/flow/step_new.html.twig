@@ -104,7 +104,7 @@
                             <button type="button" class="picker-row" data-callflow="{{ cf.id }}">
                                 <span class="kind m-call">{{ 'FLOW'|trans }}</span>
                                 <span class="name">{{ cf.name }}</span>
-                                <span class="sub" style="min-width:0;">{{ '%count% steps'|trans({'%count%': cf.steps|length}) }}</span>
+                                <span class="sub" style="min-width:0;">{{ '%count% step|%count% steps'|trans({'%count%': cf.steps|length}) }}</span>
                             </button>
                         {% endfor %}
                     </div>

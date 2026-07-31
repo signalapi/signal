@@ -70,7 +70,7 @@
                 {% else %}
                     <select name="collection_id">
                         {% for c in collections %}
-                            <option value="{{ c.id }}">{{ c.workspace.name }} · {{ c.name }} ({{ '%count% requests'|trans({'%count%': c.requests|length}) }})</option>
+                            <option value="{{ c.id }}">{{ c.workspace.name }} · {{ c.name }} ({{ '%count% request|%count% requests'|trans({'%count%': c.requests|length}) }})</option>
                         {% endfor %}
                     </select>
                 {% endif %}

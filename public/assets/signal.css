@@ -146,7 +146,7 @@ h2 { margin:0 0 4px; font-size:16px; font-weight:700; letter-spacing:-.025em; co
 /* ---------- buttons ---------- */
 .btn { display:inline-flex; align-items:center; gap:7px; padding:8px 13px; border-radius:var(--r);
   border:none; background:var(--pri); color:#fff; font-family:inherit; font-size:12.5px;
-  font-weight:700; cursor:pointer; box-shadow:0 4px 14px -6px var(--pri);
+  font-weight:700; cursor:pointer; box-shadow:0 4px 14px -6px var(--pri); white-space:nowrap;
   transition:background .14s, transform .08s, border-color .14s, color .14s; }
 .btn:hover { background:var(--pri-ink); color:#fff; transform:translateY(-1px); }
 .btn:active { transform:translateY(1px); }
@@ -709,8 +709,15 @@ table.data tbody tr:hover { background:var(--panel2); }
 .res-card .rc-name { min-width:0; }
 .res-card .rc-name a, .res-card .rc-name > span { font-size:13.5px; font-weight:700; color:var(--ink); }
 .res-card .rc-name .s { color:var(--muted); font-size:11.5px; margin-top:2px; }
-.res-card .rc-foot { display:flex; align-items:center; gap:8px; margin-top:auto; padding-top:13px; }
+.res-card .rc-foot { display:flex; align-items:center; flex-wrap:wrap; gap:8px;
+  margin-top:auto; padding-top:13px; }
 .res-card .rc-foot .grow { flex:1; }
+/* a <select> here inherits width:100% and would swallow the whole row */
+.res-card .rc-foot select { width:auto; max-width:150px; }
+/* the card body is the link to the resource; the footer holds the rest */
+.res-card .rc-open { position:absolute; inset:0; z-index:1; border-radius:inherit; }
+.res-card { position:relative; }
+.res-card .rc-foot, .res-card .rc-name a { position:relative; z-index:2; }
 /* "create another" tile */
 .res-new { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:5px;
   min-height:132px; border:1.5px dashed var(--line); border-radius:var(--r-lg); color:var(--muted);

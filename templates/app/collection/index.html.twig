@@ -8,7 +8,7 @@
 <div class="pagehead">
     <div>
         <h1>{{ 'Collections'|trans }}</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ '%count% collections'|trans({'%count%': collections|length}) }}</p>
+        <p class="subtitle">{{ workspace.name }} · {{ '%count% collection|%count% collections'|trans({'%count%': collections|length}) }}</p>
     </div>
     <div class="actions">
         <a class="btn" href="{{ path('app_collection_import', {workspace: workspace.id}) }}">{{ ic.i('import', 13) }}{{ 'Import (Postman / OpenAPI)'|trans }}</a>
@@ -19,12 +19,15 @@
 <div class="res-grid stagger">
     {% for c in collections %}
         <div class="res-card">
+            {# the card opens the collection; the footer keeps the secondary actions #}
+            <a class="rc-open" href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}"
+               aria-label="{{ c.name }}"></a>
             <div class="rc-top">
                 <div class="ic">{{ ic.i('collections', 16) }}</div>
                 <div class="rc-name">
                     <a href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">{{ c.name }}</a>
                     <div class="s">
-                        {{ '%count% requests'|trans({'%count%': c.requests|length}) }} · {{ c.createdAt|date('d.m.Y') }}
+                        {{ '%count% request|%count% requests'|trans({'%count%': c.requests|length}) }} · {{ c.createdAt|date('d.m.Y') }}
                         {% if c.sourceCollection %}
                             · {{ 'forked from'|trans }} {{ c.sourceCollection.name }}
                         {% endif %}
@@ -38,7 +41,6 @@
                 </div>
             </div>
             <div class="rc-foot">
-                <a class="btn grow" style="justify-content:center;" href="{{ path('app_collection_show', {workspace: workspace.id, collection: c.id}) }}">{{ 'Open workbench'|trans }} →</a>
                 {% if fork_targets is not empty %}
                     <form method="post" action="{{ path('app_collection_fork', {workspace: workspace.id, collection: c.id}) }}" style="display:flex;gap:6px;">
                         <select name="target_workspace" title="{{ 'Fork into…'|trans }}">
