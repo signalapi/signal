@@ -36,7 +36,7 @@
                     <span class="delta flat">—</span>
                 {% else %}
                     {% set improving = m.deltaGood ? m.delta > 0 : m.delta < 0 %}
-                    <span class="delta {{ improving ? 'up' : 'down' }}">{{ m.delta > 0 ? '+' }}{{ m.delta }}</span>
+                    <span class="delta {{ improving ? 'up' : 'down' }}">{{ m.deltaText }}</span>
                 {% endif %}
             </div>
             <div class="row">
@@ -44,8 +44,11 @@
                 {% if m.unit %}<span class="unit">{{ m.unit }}</span>{% endif %}
                 <div class="grow"></div>
                 <span class="spark {{ m.tone }}" aria-hidden="true">
-                    {# 3px floor so an empty day still reads as a bar, not a gap #}
-                    {% for v in m.spark %}<i style="height:{{ (3 + v * 23)|round }}px;{{ v == 0 ? 'opacity:.35' }}"></i>{% endfor %}
+                    {# null = no runs that day: a faint baseline tick, not a zero bar #}
+                    {% for v in m.spark %}
+                        {% if v is null %}<i class="nil"></i>
+                        {% else %}<i style="height:{{ (3 + v * 23)|round }}px"></i>{% endif %}
+                    {% endfor %}
                 </span>
             </div>
         </div>

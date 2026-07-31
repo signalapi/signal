@@ -126,7 +126,9 @@
         </div>
     </aside>
 
-    <main class="content">
+    {# content_class="flush": full-bleed, viewport-height content for the workbench,
+       which brings its own panes and scrolls inside them. #}
+    <main class="content {% block content_class %}{% endblock %}">
         {% for label, messages in app.flashes %}
             {% for message in messages %}
                 <div class="flash {{ label }}">{{ ic.i(label == 'success' ? 'check' : 'x', 14, 2.6) }}{{ message }}</div>

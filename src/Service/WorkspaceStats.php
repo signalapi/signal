@@ -48,6 +48,7 @@ final class WorkspaceStats
                 'value' => null === $passNow ? '—' : (string) $passNow,
                 'unit' => null === $passNow ? '' : '%',
                 'delta' => $this->delta($passNow, $passPrev),
+                'deltaText' => $this->signed($this->delta($passNow, $passPrev)),
                 'deltaGood' => true,      // higher is better
                 'spark' => $spark['pass'],
                 'tone' => 'pass',
@@ -58,6 +59,8 @@ final class WorkspaceStats
                 'value' => null === $p95Now ? '—' : $this->humanMs($p95Now),
                 'unit' => null === $p95Now ? '' : ($p95Now >= 1000 ? 's' : 'ms'),
                 'delta' => $this->delta($p95Now, $p95Prev),
+                // a raw millisecond diff reads as noise in a 6-character chip
+                'deltaText' => $this->signedDuration($this->delta($p95Now, $p95Prev)),
                 'deltaGood' => false,     // lower is better
                 'spark' => $spark['p95'],
                 'tone' => 'teal',
@@ -68,6 +71,7 @@ final class WorkspaceStats
                 'value' => (string) $runsNow,
                 'unit' => '',
                 'delta' => $this->delta($runsNow, $runsPrev),
+                'deltaText' => $this->signed($this->delta($runsNow, $runsPrev)),
                 'deltaGood' => true,
                 'spark' => $spark['runs'],
                 'tone' => '',
@@ -78,6 +82,7 @@ final class WorkspaceStats
                 'value' => (string) $failing,
                 'unit' => '',
                 'delta' => null,          // a point-in-time count; no meaningful trend
+                'deltaText' => null,
                 'deltaGood' => null,
                 'spark' => $spark['fail'],
                 'tone' => 'fail',
@@ -192,20 +197,24 @@ final class WorkspaceStats
     }
 
     /**
-     * Turns the daily rows into 0..1 normalised bar heights per series.
+     * Turns the daily rows into bar heights per series.
+     *
+     * A day with no runs is null, not 0 — "we did not test" and "nothing
+     * passed" are different facts and the chart must not conflate them.
      *
      * @param  list<array<string, mixed>> $daily
-     * @return array{pass:list<float>, p95:list<float>, runs:list<float>, fail:list<float>}
+     * @return array{pass:list<?float>, p95:list<?float>, runs:list<?float>, fail:list<?float>}
      */
     private function sparkSeries(array $daily): array
     {
         $pass = $p95 = $runs = $fail = [];
         foreach ($daily as $row) {
             $finished = (int) $row['finished'];
-            $pass[] = $finished > 0 ? (int) $row['passed'] / $finished : 0.0;
-            $p95[] = null === $row['p95'] ? 0.0 : (float) $row['p95'];
-            $runs[] = (float) (int) $row['runs'];
-            $fail[] = (float) (int) $row['failed'];
+            $total = (int) $row['runs'];
+            $pass[] = $finished > 0 ? (int) $row['passed'] / $finished : null;
+            $p95[] = null === $row['p95'] ? null : (float) $row['p95'];
+            $runs[] = $total > 0 ? (float) $total : null;
+            $fail[] = $total > 0 ? (float) (int) $row['failed'] : null;
         }
 
         return [
@@ -217,17 +226,21 @@ final class WorkspaceStats
     }
 
     /**
-     * @param  list<float> $values
-     * @return list<float> 0..1
+     * @param  list<?float> $values
+     * @return list<?float> 0..1, null preserved as "no data"
      */
     private function normalise(array $values, ?float $max = null): array
     {
-        $max ??= max([0.0, ...$values]);
+        $present = array_filter($values, static fn (?float $v): bool => null !== $v);
+        $max ??= $present ? max($present) : 0.0;
         if ($max <= 0) {
-            return array_fill(0, count($values), 0.0);
+            return array_map(static fn (?float $v): ?float => null === $v ? null : 0.0, $values);
         }
 
-        return array_map(static fn (float $v): float => min(1.0, $v / $max), $values);
+        return array_map(
+            static fn (?float $v): ?float => null === $v ? null : min(1.0, $v / $max),
+            $values,
+        );
     }
 
     /** @return array{0:?int, 1:?int} current and previous window, in percent */
@@ -321,5 +334,24 @@ final class WorkspaceStats
     private function humanMs(int $ms): string
     {
         return $ms >= 1000 ? number_format($ms / 1000, 1) : (string) $ms;
+    }
+
+    private function signed(?int $n): ?string
+    {
+        return null === $n ? null : ($n > 0 ? '+' : '') . $n;
+    }
+
+    /** -28150 ms is unreadable in a chip; show "-28.2s". */
+    private function signedDuration(?int $ms): ?string
+    {
+        if (null === $ms) {
+            return null;
+        }
+        $sign = $ms > 0 ? '+' : '-';
+        $abs = abs($ms);
+
+        return $abs >= 1000
+            ? $sign . number_format($abs / 1000, 1) . 's'
+            : $sign . $abs . 'ms';
     }
 }

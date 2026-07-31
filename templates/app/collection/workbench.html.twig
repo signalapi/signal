@@ -1,4 +1,4 @@
-{% extends 'app/workbench_layout.html.twig' %}
+{% extends 'app/_layout.html.twig' %}
 {% import '_icons.html.twig' as ic %}
 
 {% block title %}{{ collection.name }} · Workbench{% endblock %}
@@ -30,13 +30,15 @@
     </div>
 {% endmacro %}
 
-{% block workbench %}
+{% block content_class %}flush{% endblock %}
+
+{% block panel %}
 {% import _self as t %}
 <style>
     /* Workbench-only shell. Anything with a signal.css primitive uses the primitive;
        what is left here is the request bench itself: tree column, url bar, the
        highlighted body editor and the response pane. */
-    .wb-tree { width: 290px; border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
+    .wb-tree { width: 258px; border-right: 1px solid var(--line); background: var(--panel); display: flex; flex-direction: column; overflow: hidden; }
     .wb-tree-head { padding: 12px 14px 11px; border-bottom: 1px solid var(--line); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
     .wb-tree-head .nm { font-weight: 700; font-size: 13.5px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
     .wb-search { padding: 10px 12px; border-bottom: 1px solid var(--line); }

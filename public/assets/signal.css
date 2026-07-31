@@ -191,6 +191,8 @@ h2 { margin:0 0 4px; font-size:16px; font-weight:700; letter-spacing:-.025em; co
 .spark.teal i { background:var(--teal); }
 .spark.vio i { background:var(--vio); }
 .spark.fail i { background:var(--fail); }
+/* a day with no runs — a baseline tick, visibly not a zero-height bar */
+.spark i.nil { height:2px; background:var(--line); }
 .delta.flat { background:var(--panel2); color:var(--faint); }
 
 /* live pill next to a page eyebrow: <span class="livepill healthy"><i></i>healthy</span> */
@@ -829,12 +831,11 @@ table.data tbody tr:hover { background:var(--panel2); }
 .hi-row { color:inherit; }
 
 /* ---------- workbench shell (icon-only rail, editor takes the rest) ---------- */
-.wb { display:flex; height:100vh; overflow:hidden; }
-.wb-rail { width:56px; flex-shrink:0; background:var(--panel); border-right:1px solid var(--line);
-  display:flex; flex-direction:column; align-items:center; gap:4px; padding:12px 0; }
-.wb-rail .brand-mark { margin-bottom:10px; }
-.wb-rail .icon-btn { width:38px; height:38px; }
-.wb-rail .icon-btn.on { background:var(--pri-soft); color:var(--pri); }
+/* Workbench content area: the sidebar stays, this pane fills the rest of the
+   viewport and every scroll happens inside it. */
+.content.flush { padding:0; max-width:none; height:100vh; overflow:hidden; display:flex; }
+/* a flash would otherwise land in the flex row beside the tree */
+.content.flush > .flash { position:fixed; top:14px; left:50%; transform:translateX(-50%); z-index:50; box-shadow:var(--sh-lg); }
 .wb-main { flex:1; min-width:0; display:flex; flex-direction:column; }
 
 /* ---------- gaps the migration surfaced ---------- */
