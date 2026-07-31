@@ -88,10 +88,12 @@
         {% if environment.variables is empty %}
             <div class="empty">{{ 'This environment has no variables yet.'|trans }}</div>
         {% else %}
+            {# One column. The shared value is the placeholder, not a second
+               column — that is what a placeholder means, and repeating the
+               shared table here is what made the two scopes feel tangled. #}
             <table class="data">
                 <thead><tr>
-                    <th style="width:30%;">{{ 'Name'|trans }}</th>
-                    <th style="width:35%;">{{ 'Shared value'|trans }}</th>
+                    <th style="width:34%;">{{ 'Name'|trans }}</th>
                     <th>{{ 'My value'|trans }}</th>
                 </tr></thead>
                 <tbody>
@@ -103,24 +105,17 @@
                             {%- if v.secret %} <span class="pill">{{ ic.i('shield', 11) }}{{ 'secret'|trans }}</span>{% endif -%}
                             {%- if overridden %} <span class="pill info">{{ 'yours'|trans }}</span>{% endif -%}
                         </td>
-                        <td class="mono" style="color:var(--muted);">
-                            {%- if v.secret -%}
-                                {{ v.value ? '••••••••' : '—' }}
-                            {%- else -%}
-                                {{ v.value|default('—') }}
-                            {%- endif -%}
-                        </td>
                         <td>
                             <input type="{{ v.secret ? 'password' : 'text' }}" name="my[{{ v.name }}]"
                                    value="{{ my_values[v.name]|default('') }}" class="input-mono"
-                                   placeholder="{{ 'empty = use the shared value'|trans }}"
+                                   placeholder="{{ v.secret ? '••••••••' : (v.value ?: ('no shared value'|trans)) }}"
                                    autocomplete="off">
                         </td>
                     </tr>
                 {% endfor %}
                 </tbody>
             </table>
-            <p class="fhint">{{ 'Only you see these. Clear a field to fall back to the shared value.'|trans }}</p>
+            <p class="fhint">{{ 'Only you see these. The greyed-out text is the shared value you fall back to when the field is empty.'|trans }}</p>
             <div class="form-actions">
                 <button class="btn" type="submit">{{ 'Save my values'|trans }}</button>
             </div>
