@@ -383,6 +383,21 @@ textarea.input-mono { background:var(--panel2); border-radius:var(--r-md); paddi
   line-height:1.7; tab-size:2; min-height:96px; resize:vertical; white-space:pre;
   overflow-x:auto; overscroll-behavior:contain; }
 textarea.input-mono:focus { background:var(--panel); }
+
+/* code editor — the dark, line-numbered box from the design prototype.
+   Deliberately dark in BOTH themes: code reads as code. */
+.code-ed { display:flex; align-items:stretch; background:#0A0D14; border:1px solid var(--line);
+  border-radius:12px; overflow:hidden; transition:border-color .15s, box-shadow .15s; }
+.code-ed:focus-within { border-color:var(--pri); box-shadow:0 0 0 3px var(--pri-soft); }
+.code-ed .cb-gutter { flex-shrink:0; min-width:30px; padding:12px 8px; font-family:var(--mono);
+  font-size:11.5px; line-height:1.7; color:#3F4A63; text-align:right; user-select:none;
+  border-right:1px solid rgba(255,255,255,.06); overflow:hidden; white-space:pre; }
+.code-ed textarea { flex:1; min-width:0; margin:0; background:transparent; border:none;
+  border-radius:0; padding:12px; color:#C9D2E4; caret-color:#8FA7FF; font-family:var(--mono);
+  font-size:11.5px; line-height:1.7; tab-size:2; white-space:pre; overflow:auto;
+  resize:vertical; min-height:120px; }
+.code-ed textarea:focus { outline:none; border:none; box-shadow:none; }
+.code-ed textarea::placeholder { color:#3F4A63; }
 .var-card { background:var(--panel2); border:1px solid var(--line); border-radius:var(--r);
   padding:8px 9px; margin-bottom:7px; }
 .var-card .top { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
@@ -705,9 +720,9 @@ table.data tbody tr:hover { background:var(--panel2); }
 .mini.extract { color:var(--vio); }
 
 /* rules + transfers */
-.rule-row { display:flex; align-items:center; gap:7px; background:var(--panel2);
-  border:1px solid var(--line); border-radius:10px; padding:7px 9px; margin-bottom:6px; }
-.rule-row.failed { border-color:var(--fail); }
+.rule-row { display:flex; align-items:center; gap:7px; padding:2px 0; margin-bottom:6px; }
+.rule-row .status-ic:empty { visibility:hidden; }
+.rule-row.failed input, .rule-row.failed select { border-color:var(--fail); }
 .rule-row input, .rule-row select { background:var(--panel); border:1px solid var(--line);
   border-radius:8px; padding:7px 9px; font-family:var(--mono); font-size:11px; color:var(--text); }
 .rule-row input:focus, .rule-row select:focus { outline:none; border-color:var(--pri);
@@ -978,9 +993,11 @@ table.data.tight th, table.data.tight td { padding:6px 8px; }
 .brand-txt .t, .brand, .no-caps { text-transform:none; }
 
 /* ---------- {{variable}} autocomplete popup (app/_var_autocomplete.html.twig) ---------- */
-.vc-pop { position:absolute; z-index:9999; display:none; min-width:240px; max-height:260px; overflow-y:auto;
-  padding:4px; background:var(--panel); border:1px solid var(--line); border-radius:var(--r-md);
+.vc-pop { position:absolute; z-index:9999; display:none; min-width:240px; max-height:280px; overflow-y:auto;
+  padding:6px; background:var(--panel); border:1px solid var(--pri); border-radius:11px;
   box-shadow:var(--sh-lg); }
+.vc-pop::before { content:'insert variable'; display:block; font-family:var(--mono); font-size:9.5px;
+  font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--faint); padding:5px 8px 6px; }
 .vc-item { display:flex; align-items:baseline; gap:8px; padding:6px 9px; border-radius:7px; cursor:pointer; }
 .vc-item.sel, .vc-item:hover { background:var(--pri-soft); }
 .vc-tok { font-family:var(--mono); font-size:12px; font-weight:600; color:var(--pri); white-space:nowrap; }

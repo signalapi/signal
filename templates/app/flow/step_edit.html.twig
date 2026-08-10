@@ -141,7 +141,10 @@
             {% elseif step.isSetvar %}
                 <label>{{ 'Assignments'|trans }}</label>
                 <p class="subtitle" style="margin:0 0 8px">{{ 'One <code>name = value</code> per line. {{variable}} and {{$generator}} are resolved in the value.'|trans|raw }}</p>
-                <textarea name="query" rows="6" class="input-mono" placeholder="planId = plan_pro_monthly">{{ step.query }}</textarea>
+                <div class="code-ed">
+                    <div class="cb-gutter" aria-hidden="true">1</div>
+                    <textarea name="query" rows="6" data-vc spellcheck="false" placeholder="planId = plan_pro_monthly">{{ step.query }}</textarea>
+                </div>
 
             {% elseif step.isCall %}
                 <label>{{ 'Called flow'|trans }}</label>
@@ -177,7 +180,10 @@
                     <label style="margin:0">{{ 'Query'|trans }}</label><div class="grow"></div>
                     <span class="mono subtitle" style="font-size:10.5px">sql · redis · mongo</span>
                 </div>
-                <textarea name="query" rows="5" class="input-mono" placeholder="SELECT status FROM subscriptions WHERE id = {{ '{{' }}subId{{ '}}' }}">{{ step.query }}</textarea>
+                <div class="code-ed">
+                    <div class="cb-gutter" aria-hidden="true">1</div>
+                    <textarea name="query" rows="5" data-vc spellcheck="false" placeholder="SELECT status FROM subscriptions WHERE id = {{ '{{' }}subId{{ '}}' }}">{{ step.query }}</textarea>
+                </div>
                 <div class="hintbox" style="background:var(--teal-soft);color:var(--teal)">
                     {{ ic.i('shield', 15) }}{{ 'Variables from earlier steps work here.'|trans }}
                 </div>
@@ -212,7 +218,10 @@
                         <div class="grow"></div>
                         <span class="mono" id="jsonState" style="font-size:10.5px;color:var(--pass)"></span>
                     </div>
-                    <textarea name="body" rows="10" class="input-mono" data-vc>{{ step.reqBody }}</textarea>
+                    <div class="code-ed">
+                        <div class="cb-gutter" aria-hidden="true">1</div>
+                        <textarea name="body" rows="10" data-vc spellcheck="false">{{ step.reqBody }}</textarea>
+                    </div>
                 </div>
                 <div data-panel-tab="auth" hidden>
                     {% set auth = step.reqAuth %}
@@ -585,7 +594,25 @@
         try { body.value = JSON.stringify(JSON.parse(body.value), null, 2); checkJson(); } catch (e) {}
     });
     checkJson();
+
+    /* line-number gutters — keep count and scroll in step with the textarea */
+    document.querySelectorAll('.code-ed').forEach(function (box) {
+        var ta = box.querySelector('textarea'), gut = box.querySelector('.cb-gutter');
+        if (!ta || !gut) return;
+        function lines() {
+            var n = ta.value.split('\n').length;
+            var out = '';
+            for (var i = 1; i <= n; i++) out += i + (i < n ? '\n' : '');
+            gut.textContent = out;
+            gut.scrollTop = ta.scrollTop;
+        }
+        ta.addEventListener('input', lines);
+        ta.addEventListener('scroll', function () { gut.scrollTop = ta.scrollTop; });
+        lines();
+    });
 })();
 </script>
 {% endverbatim %}
+
+{% include 'app/_var_autocomplete.html.twig' with {catalog: vc_catalog|default([]), scope: '#stepForm'} %}
 {% endblock %}
