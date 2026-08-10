@@ -85,6 +85,26 @@
         field = e.target; start = t.open; sel = 0; render(); position(); pop.style.display = 'block';
     });
 
+    // Clicking INSIDE an existing {{token}} opens the full list to swap it —
+    // no typing needed. choose() then replaces the whole token.
+    function tokenAt(el) {
+        if (typeof el.selectionStart !== 'number') return null;
+        var pos = el.selectionStart, v = el.value;
+        var open = v.lastIndexOf(OPEN, Math.max(0, pos - 1));
+        if (open === -1) return null;
+        if (v.slice(open + 2, pos).indexOf(CLOSE) !== -1) return null;
+        if (!/^[^{}]*\}\}/.test(v.slice(pos))) return null;
+        return open;
+    }
+    root.addEventListener('click', function (e) {
+        if (!editable(e.target) || e.target.id === 'reqSearch') return;
+        var open = tokenAt(e.target);
+        if (open === null) { if (field === e.target) hide(); return; }
+        items = suggest('');
+        if (!items.length) return;
+        field = e.target; start = open; sel = 0; render(); position(); pop.style.display = 'block';
+    });
+
     root.addEventListener('keydown', function (e) {
         if (pop.style.display !== 'block' || field !== e.target) return;
         if (e.key === 'ArrowDown') { e.preventDefault(); sel = (sel + 1) % items.length; render(); }
