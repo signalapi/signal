@@ -377,10 +377,10 @@ class FlowStepController extends AbstractAppController
     {
         $out = [];
         foreach ($this->varScanner->externalVariables($flow) as $v) {
-            $out[] = ['token' => '{{' . $v['name'] . '}}', 'label' => $v['name'], 'desc' => $v['fromEnv'] ? $this->translator->trans('env variable') : $this->translator->trans('variable'), 'group' => 'var'];
+            $out[] = ['token' => '{{' . $v['name'] . '}}', 'label' => $v['name'], 'desc' => $v['fromEnv'] ? $this->translator->trans('env variable') : $this->translator->trans('variable'), 'group' => $v['fromEnv'] ? 'env' : 'var'];
         }
         foreach ($this->dataFactories->findByWorkspace($workspace) as $f) {
-            $out[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => $this->translator->trans('factory') . ' · ' . $f->getKind(), 'group' => 'gen'];
+            $out[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => $this->translator->trans('factory') . ' · ' . $f->getKind(), 'group' => 'fac'];
         }
         foreach ($this->dynamic->builtins() as $b) {
             $out[] = ['token' => $b['token'], 'label' => $b['name'], 'desc' => $b['description'], 'group' => 'gen'];
@@ -461,8 +461,15 @@ class FlowStepController extends AbstractAppController
             'ok' => $result->ok, 'kind' => 'http', 'status' => $result->statusCode,
             'json' => $parsed, 'rawBody' => null === $result->body ? null : mb_substr($result->body, 0, 20000),
             'inferredSchema' => \is_array($parsed) ? $jsonSchema->infer($parsed) : null,
+            'durationMs' => (int) round($result->durationMs),
+            'size' => null === $result->body ? null : $this->humanBytes(\strlen($result->body)),
             'error' => $result->error,
         ]);
+    }
+
+    private function humanBytes(int $n): string
+    {
+        return $n >= 1048576 ? round($n / 1048576, 1) . ' MB' : ($n >= 1024 ? round($n / 1024, 1) . ' KB' : $n . ' B');
     }
 
     #[Route('/{step}/reset-baseline', name: 'app_flow_step_reset_baseline', methods: ['POST'])]

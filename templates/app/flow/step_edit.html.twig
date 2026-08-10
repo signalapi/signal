@@ -141,9 +141,12 @@
             {% elseif step.isSetvar %}
                 <label>{{ 'Assignments'|trans }}</label>
                 <p class="subtitle" style="margin:0 0 8px">{{ 'One <code>name = value</code> per line. {{variable}} and {{$generator}} are resolved in the value.'|trans|raw }}</p>
-                <div class="code-ed">
+                <div class="code-ed hl" data-hl="setvar">
                     <div class="cb-gutter" aria-hidden="true">1</div>
-                    <textarea name="query" rows="6" data-vc spellcheck="false" placeholder="planId = plan_pro_monthly">{{ step.query }}</textarea>
+                    <div class="cb-area">
+                        <pre class="cb-hl" aria-hidden="true"></pre>
+                        <textarea name="query" rows="6" data-vc spellcheck="false" placeholder="planId = plan_pro_monthly">{{ step.query }}</textarea>
+                    </div>
                 </div>
 
             {% elseif step.isCall %}
@@ -165,14 +168,16 @@
 
             {% elseif step.isDb %}
                 <label>{{ 'Connection'|trans }}</label>
+                {% set dbtone = {postgres: ['PG', 'teal'], mysql: ['MY', 'vio'], redis: ['RD', 'fail'], mongo: ['MG', 'pass']} %}
                 <div style="display:flex;gap:7px;flex-wrap:wrap;margin-bottom:14px">
                     {% for c in connections %}
+                        {% set tb = dbtone[c.type] ?? [c.type|slice(0, 2)|upper, ''] %}
                         <label class="typebtn {{ step.dbConnection and step.dbConnection.id == c.id ? 'on' }}">
                             <input type="radio" name="connection" value="{{ c.id }}" hidden
                                    {{ step.dbConnection and step.dbConnection.id == c.id ? 'checked' }}>
-                            <span class="ic-box">{{ ic.i('db', 15) }}</span>
+                            <span class="tbadge {{ tb[1] }}">{{ tb[0] }}</span>
                             <span><span class="t">{{ c.name }}</span>
-                                <span class="s mono">{{ c.type }} · {{ c.host }}{{ c.databaseName ? ' / ' ~ c.databaseName }}</span></span>
+                                <span class="s mono">{{ c.host }}{{ c.databaseName ? ' / ' ~ c.databaseName }}</span></span>
                         </label>
                     {% endfor %}
                 </div>
@@ -180,9 +185,12 @@
                     <label style="margin:0">{{ 'Query'|trans }}</label><div class="grow"></div>
                     <span class="mono subtitle" style="font-size:10.5px">sql · redis · mongo</span>
                 </div>
-                <div class="code-ed">
+                <div class="code-ed hl" data-hl="query">
                     <div class="cb-gutter" aria-hidden="true">1</div>
-                    <textarea name="query" rows="5" data-vc spellcheck="false" placeholder="SELECT status FROM subscriptions WHERE id = {{ '{{' }}subId{{ '}}' }}">{{ step.query }}</textarea>
+                    <div class="cb-area">
+                        <pre class="cb-hl" aria-hidden="true"></pre>
+                        <textarea name="query" rows="5" data-vc spellcheck="false" placeholder="SELECT status FROM subscriptions WHERE id = {{ '{{' }}subId{{ '}}' }}">{{ step.query }}</textarea>
+                    </div>
                 </div>
                 <div class="hintbox" style="background:var(--teal-soft);color:var(--teal)">
                     {{ ic.i('shield', 15) }}{{ 'Variables from earlier steps work here.'|trans }}
@@ -190,16 +198,19 @@
 
             {% else %}
                 <div style="display:flex;gap:7px;align-items:center;margin-bottom:12px">
-                    <select name="method" class="mono" style="width:auto;font-weight:800">
+                    <select name="method" class="method-sel m-{{ step.reqMethod|lower }}" id="methodSel">
                         {% for m in constant('App\\Entity\\ApiRequest::METHODS') %}<option {{ step.reqMethod == m ? 'selected' }}>{{ m }}</option>{% endfor %}
                     </select>
-                    <input type="text" name="url" value="{{ step.reqUrl }}" class="input-mono" data-vc
-                           placeholder="{{ '{{' }}baseUrl{{ '}}' }}/v3/…">
+                    <span class="hl-wrap">
+                        <span class="hl-bd" aria-hidden="true"></span>
+                        <input type="text" name="url" value="{{ step.reqUrl }}" class="input-mono" data-vc data-hl-line
+                               placeholder="{{ '{{' }}baseUrl{{ '}}' }}/v3/…">
+                    </span>
                 </div>
 
                 <div class="tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px">
                     {% for id, lbl in {'params':'Params','headers':'Headers','body':'Body','auth':'Auth'} %}
-                        <button type="button" class="etab {{ id == 'body' ? 'on' }}" data-tab="{{ id }}">{{ lbl|trans }}</button>
+                        <button type="button" class="etab {{ id == 'body' ? 'on' }}" data-tab="{{ id }}">{{ lbl|trans }}<span class="n" data-tabn="{{ id }}"></span></button>
                     {% endfor %}
                 </div>
 
@@ -218,9 +229,12 @@
                         <div class="grow"></div>
                         <span class="mono" id="jsonState" style="font-size:10.5px;color:var(--pass)"></span>
                     </div>
-                    <div class="code-ed">
+                    <div class="code-ed hl" data-hl="json">
                         <div class="cb-gutter" aria-hidden="true">1</div>
-                        <textarea name="body" rows="10" data-vc spellcheck="false">{{ step.reqBody }}</textarea>
+                        <div class="cb-area">
+                            <pre class="cb-hl" aria-hidden="true"></pre>
+                            <textarea name="body" rows="10" data-vc spellcheck="false">{{ step.reqBody }}</textarea>
+                        </div>
                     </div>
                 </div>
                 <div data-panel-tab="auth" hidden>
@@ -233,7 +247,10 @@
                     </div>
                     <div data-auth="bearer">
                         <label>{{ 'Bearer token'|trans }}</label>
-                        <input type="text" name="authToken" value="{{ auth.token ?? '' }}" class="input-mono" data-vc placeholder="{{ '{{' }}token{{ '}}' }}">
+                        <span class="hl-wrap" style="display:block;">
+                            <span class="hl-bd" aria-hidden="true"></span>
+                            <input type="text" name="authToken" value="{{ auth.token ?? '' }}" class="input-mono" data-vc data-hl-line placeholder="{{ '{{' }}token{{ '}}' }}">
+                        </span>
                     </div>
                     <div data-auth="basic" style="display:flex;gap:8px">
                         <input type="text" name="authUser" value="{{ auth.username ?? '' }}" placeholder="{{ 'username'|trans }}">
@@ -258,7 +275,8 @@
             <div class="pane-head">
                 <span class="cap">{{ 'Verify'|trans }}</span><span class="sep"></span>
                 {% if not is_new %}
-                    <button type="button" class="btn ghost small" id="probeBtn">{{ ic.i('import', 13) }}{{ 'Run this step'|trans }}</button>
+                    <button type="button" class="btn ghost small" id="probeBtn" style="color:var(--pri);"
+                            data-again="{{ 'Run again'|trans }}">{{ ic.i('import', 13) }}<span data-lbl>{{ 'Run this step'|trans }}</span></button>
                 {% endif %}
             </div>
             <div class="pane-body">
@@ -271,8 +289,8 @@
                     </div>
                     <div id="probeResult" hidden>
                         <div class="probe-meta">
-                            <span class="pill passed" id="probeStatus"></span>
-                            <span class="mono subtitle" id="probeMeta" style="font-size:11px"></span>
+                            <span class="probe-pill" id="probeStatus"></span>
+                            <span class="mono subtitle" id="probeMeta" data-fields="{{ 'fields'|trans }}" style="font-size:11px"></span>
                             <div class="grow"></div>
                             <span class="subtitle" style="font-size:11px">{{ 'click a field to build a rule'|trans }}</span>
                         </div>
@@ -431,6 +449,9 @@
             .map(function (e) { return e.name + ' = ' + e.path; }).join('\n');
     }
 
+    var IC_OK = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    var IC_NO = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>';
+
     function renderRules() {
         var host = document.getElementById('ruleRows');
         if (!host) return;
@@ -445,16 +466,66 @@
                     return '<option' + (o === r.op ? ' selected' : '') + '>' + o + '</option>';
                 }).join('') + '</select>' +
                 '<input type="text" class="expected" placeholder="expected">' +
+                '<span class="actual" hidden></span>' +
                 '<button type="button" class="rm">×</button>';
             row.querySelector('.path').value = r.path;
             row.querySelector('.expected').value = r.expected;
-            row.querySelector('.path').addEventListener('input', function (e) { r.path = e.target.value; serialise(); });
-            row.querySelector('.expected').addEventListener('input', function (e) { r.expected = e.target.value; serialise(); });
-            row.querySelector('.op').addEventListener('change', function (e) { r.op = e.target.value; serialise(); });
+            row.querySelector('.path').addEventListener('input', function (e) { r.path = e.target.value; serialise(); evaluateRules(); });
+            row.querySelector('.expected').addEventListener('input', function (e) { r.expected = e.target.value; serialise(); evaluateRules(); });
+            row.querySelector('.op').addEventListener('change', function (e) { r.op = e.target.value; serialise(); evaluateRules(); });
             row.querySelector('.rm').addEventListener('click', function () { rules.splice(i, 1); renderRules(); serialise(); });
             host.appendChild(row);
         });
         document.getElementById('ruleCount').textContent = rules.length;
+        evaluateRules();
+    }
+
+    // ---- live rule verdicts against the probed response -----------------
+    function resolvePath(path) {
+        if (lastProbe && path === 'status' && lastProbe.status !== undefined) return lastProbe.status;
+        if (lastProbe && path === 'responseTime' && lastProbe.durationMs !== undefined) return lastProbe.durationMs;
+        if (path === 'rowCount' && Array.isArray(lastResponse)) return lastResponse.length;
+        var cur = lastResponse;
+        path.replace(/^body\./, '').split('.').forEach(function (part) {
+            if (cur !== null && typeof cur === 'object') { cur = cur[part]; } else { cur = undefined; }
+        });
+        return cur;
+    }
+    function verdict(r) {
+        if (!lastProbe || !r.path) return null;
+        if ((r.expected || '').indexOf('{' + '{') !== -1) return null;
+        var a = resolvePath(r.path), e = r.expected;
+        if (a === undefined && r.op !== 'empty' && r.op !== 'exists') return { pass: false, actual: '—' };
+        var an = parseFloat(a), en = parseFloat(e), pass;
+        switch (r.op) {
+            case '==': pass = String(a).replace(/^"|"$/g, '') === e; break;
+            case '!=': pass = String(a).replace(/^"|"$/g, '') !== e; break;
+            case 'contains': pass = String(a).indexOf(e) !== -1; break;
+            case 'matches': try { pass = new RegExp(e).test(String(a)); } catch (err) { return null; } break;
+            case '>': pass = an > en; break;
+            case '<': pass = an < en; break;
+            case '>=': pass = an >= en; break;
+            case '<=': pass = an <= en; break;
+            case 'exists': pass = a !== undefined && a !== null && a !== ''; break;
+            case 'empty': pass = a === undefined || a === null || a === '' || (Array.isArray(a) && !a.length); break;
+            case 'notEmpty': pass = !(a === undefined || a === null || a === '' || (Array.isArray(a) && !a.length)); break;
+            default: return null;
+        }
+        return { pass: pass, actual: a === undefined ? '—' : JSON.stringify(a) };
+    }
+    function evaluateRules() {
+        var host = document.getElementById('ruleRows');
+        if (!host) return;
+        host.querySelectorAll('.rule-row').forEach(function (row, i) {
+            var r = rules[i], ic = row.querySelector('.status-ic'), ac = row.querySelector('.actual');
+            var v = r ? verdict(r) : null;
+            row.classList.toggle('failed', !!(v && !v.pass));
+            if (!v) { ic.className = 'status-ic'; ic.innerHTML = ''; ac.hidden = true; return; }
+            ic.className = 'status-ic ' + (v.pass ? 'passed' : 'failed');
+            ic.innerHTML = v.pass ? IC_OK : IC_NO;
+            ac.hidden = false;
+            ac.textContent = v.actual;
+        });
     }
 
     function renderExts() {
@@ -468,15 +539,30 @@
                 '<input type="text" class="name" value="">' +
                 '<span class="mono" style="color:var(--faint)">=</span>' +
                 '<input type="text" class="path" value="">' +
+                '<span class="actual" hidden></span>' +
                 '<button type="button" class="rm">×</button>';
             row.querySelector('.name').value = x.name;
             row.querySelector('.path').value = x.path;
             row.querySelector('.name').addEventListener('input', function (e) { x.name = e.target.value; serialise(); });
-            row.querySelector('.path').addEventListener('input', function (e) { x.path = e.target.value; serialise(); });
+            row.querySelector('.path').addEventListener('input', function (e) { x.path = e.target.value; serialise(); evaluateExts(); });
             row.querySelector('.rm').addEventListener('click', function () { exts.splice(i, 1); renderExts(); serialise(); });
             host.appendChild(row);
         });
         document.getElementById('extCount').textContent = exts.length;
+        evaluateExts();
+    }
+
+    // preview chip on each transfer: the value the path resolves to right now
+    function evaluateExts() {
+        var host = document.getElementById('extRows');
+        if (!host) return;
+        host.querySelectorAll('.rule-row').forEach(function (row, i) {
+            var x = exts[i], ac = row.querySelector('.actual');
+            if (!lastProbe || !x || !x.path) { ac.hidden = true; return; }
+            var v = resolvePath(x.path);
+            ac.hidden = v === undefined;
+            if (v !== undefined) ac.textContent = typeof v === 'string' ? v : JSON.stringify(v);
+        });
     }
 
     var addRule = document.getElementById('addRule');
@@ -497,6 +583,7 @@
     // ---- probe: run the step, render the response as clickable fields --
     var probeBtn = document.getElementById('probeBtn');
     var lastResponse = null;
+    var lastProbe = null;
 
     function flatten(obj, prefix, out) {
         out = out || [];
@@ -543,19 +630,32 @@
         var url = form.dataset.probe;
         if (!url) return;
         probeBtn.disabled = true;
-        fetch(url, { method: 'POST', headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        var fd = new FormData();
+        fd.append('_token', form.querySelector('input[name=_token]').value);
+        fetch(url, { method: 'POST', body: fd, headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(function (r) { return r.json(); })
             .then(function (d) {
                 probeBtn.disabled = false;
-                lastResponse = d.body !== undefined ? d.body : d;
+                lastProbe = d;
+                // the DSL's paths are rooted at the response JSON, so flatten from there
+                lastResponse = d.json !== undefined && d.json !== null ? d.json : (d.body !== undefined ? d.body : d);
                 document.getElementById('probeEmpty').hidden = true;
                 document.getElementById('probeResult').hidden = false;
                 var st = document.getElementById('probeStatus');
-                st.textContent = d.status ? d.status : (d.rowCount !== undefined ? d.rowCount + ' row(s)' : 'ok');
-                st.className = 'pill ' + ((d.status && d.status < 400) || d.rowCount !== undefined ? 'passed' : 'failed');
-                document.getElementById('probeMeta').textContent =
-                    [d.durationMs ? d.durationMs + ' ms' : null, d.size ? d.size : null].filter(Boolean).join(' · ');
+                var dbRows = d.kind === 'db' && Array.isArray(d.json) ? d.json.length : null;
+                st.textContent = d.status ? String(d.status)
+                    : (dbRows !== null ? dbRows + ' row(s)' : (d.ok ? 'ok' : (d.error || 'error')));
+                st.className = 'probe-pill' + (((d.status && d.status < 400) || dbRows !== null || (d.ok && !d.status)) ? '' : ' failed');
+                var meta = document.getElementById('probeMeta');
+                var fields = flatten(lastResponse, '', []).length;
+                meta.textContent =
+                    [d.durationMs ? d.durationMs + ' ms' : null, d.size ? d.size : null,
+                     fields ? fields + ' ' + (meta.dataset.fields || 'fields') : null].filter(Boolean).join(' · ');
+                var lbl = probeBtn.querySelector('span[data-lbl]');
+                if (lbl) lbl.textContent = probeBtn.dataset.again || lbl.textContent;
                 renderTree(lastResponse);
+                evaluateRules();
+                evaluateExts();
             })
             .catch(function () { probeBtn.disabled = false; });
     });
@@ -595,20 +695,105 @@
     });
     checkJson();
 
-    /* line-number gutters — keep count and scroll in step with the textarea */
+    /* ---- syntax highlighting — the prototype's K/S/N/P/V palette ---------
+       A <pre class="cb-hl"> backdrop renders the colored copy; the textarea
+       above it keeps editing with transparent text. */
+    function esc(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+    function chipVars(h) {
+        return h.replace(/\{\{[^{}<]*\}\}/g, function (m) { return '<span class="tok-v">' + m + '</span>'; });
+    }
+    function hlJson(src) {
+        var h = esc(src).replace(
+            /("(?:[^"\\]|\\.)*")(\s*:)|("(?:[^"\\]|\\.)*")|(-?\b\d+\.?\d*(?:[eE][+-]?\d+)?\b)|\b(true|false|null)\b|([{}\[\],:])/g,
+            function (m, key, colon, str, num, kw, p) {
+                if (key) return '<span class="tok-k">' + key + '</span><span class="tok-p">' + colon + '</span>';
+                if (str) return '<span class="tok-s">' + str + '</span>';
+                if (num) return '<span class="tok-n">' + num + '</span>';
+                if (kw) return '<span class="tok-n">' + kw + '</span>';
+                return '<span class="tok-p">' + p + '</span>';
+            });
+        return chipVars(h);
+    }
+    function hlQuery(src) {
+        if (/^\s*[{[]/.test(src)) return hlJson(src);
+        var h = esc(src).replace(
+            /(--[^\n]*|#[^\n]*)|('(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")|(-?\b\d+\.?\d*\b)|\b(SELECT|FROM|WHERE|AND|OR|NOT|IN|ORDER|GROUP|BY|LIMIT|OFFSET|JOIN|LEFT|RIGHT|INNER|OUTER|ON|AS|COUNT|SUM|MIN|MAX|AVG|DISTINCT|LIKE|ILIKE|IS|NULL|BETWEEN|HAVING|UNION|CASE|WHEN|THEN|ELSE|END|GET|MGET|HGET|HGETALL|SMEMBERS|LRANGE|ZRANGE|KEYS|EXISTS|TTL|LLEN|SCARD|FIND|FINDONE|AGGREGATE|COUNTDOCUMENTS)\b|([=<>!+*\/(),;.])/gi,
+            function (m, cm, str, num, kw, p) {
+                if (cm) return '<span class="tok-p">' + cm + '</span>';
+                if (str) return '<span class="tok-s">' + str + '</span>';
+                if (num) return '<span class="tok-n">' + num + '</span>';
+                if (kw) return '<span class="tok-k">' + kw + '</span>';
+                return '<span class="tok-p">' + p + '</span>';
+            });
+        return chipVars(h);
+    }
+    function hlSetvar(src) {
+        return esc(src).split('\n').map(function (l) {
+            var m = l.match(/^(\s*)([\w.]+)(\s*=)(.*)$/);
+            if (!m) return chipVars(l);
+            return m[1] + '<span class="tok-k">' + m[2] + '</span><span class="tok-p">' + m[3] + '</span>' + chipVars(m[4]);
+        }).join('\n');
+    }
+    var HL = { json: hlJson, query: hlQuery, setvar: hlSetvar };
+
+    /* line-number gutters + highlight backdrop, in step with the textarea */
     document.querySelectorAll('.code-ed').forEach(function (box) {
         var ta = box.querySelector('textarea'), gut = box.querySelector('.cb-gutter');
+        var hl = box.querySelector('.cb-hl'), fn = HL[box.dataset.hl];
         if (!ta || !gut) return;
-        function lines() {
+        function paint() {
             var n = ta.value.split('\n').length;
             var out = '';
             for (var i = 1; i <= n; i++) out += i + (i < n ? '\n' : '');
             gut.textContent = out;
-            gut.scrollTop = ta.scrollTop;
+            if (hl && fn) { hl.innerHTML = fn(ta.value) + '\n'; }
+            sync();
         }
-        ta.addEventListener('input', lines);
-        ta.addEventListener('scroll', function () { gut.scrollTop = ta.scrollTop; });
-        lines();
+        function sync() {
+            gut.scrollTop = ta.scrollTop;
+            if (hl) { hl.scrollTop = ta.scrollTop; hl.scrollLeft = ta.scrollLeft; }
+        }
+        ta.addEventListener('input', paint);
+        ta.addEventListener('scroll', sync);
+        paint();
+    });
+
+    /* single-line {{var}} chips: URL and bearer token inputs */
+    document.querySelectorAll('.hl-wrap').forEach(function (w) {
+        var inp = w.querySelector('input'), bd = w.querySelector('.hl-bd');
+        if (!inp || !bd) return;
+        function paint() {
+            if (!inp.value) { inp.classList.remove('lit'); bd.innerHTML = ''; return; }
+            inp.classList.add('lit');
+            bd.innerHTML = chipVars(esc(inp.value));
+            bd.scrollLeft = inp.scrollLeft;
+        }
+        inp.addEventListener('input', paint);
+        inp.addEventListener('scroll', function () { bd.scrollLeft = inp.scrollLeft; });
+        inp.addEventListener('blur', function () { bd.scrollLeft = inp.scrollLeft; });
+        paint();
+    });
+
+    /* request tab counters: filled kv rows, body dot */
+    function tabCounts() {
+        ['params', 'headers'].forEach(function (kind) {
+            var host = form.querySelector('[data-kv="' + kind.replace(/s$/, '') + '"]');
+            var el = form.querySelector('[data-tabn="' + kind + '"]');
+            if (!host || !el) return;
+            var n = 0;
+            host.querySelectorAll('.kvrow input.k').forEach(function (i) { if (i.value.trim()) n++; });
+            el.textContent = n || '';
+        });
+        var bodyEl = form.querySelector('[data-tabn="body"]');
+        if (bodyEl && body) bodyEl.textContent = body.value.trim() ? '●' : '';
+    }
+    form.addEventListener('input', tabCounts);
+    tabCounts();
+
+    /* method color follows the selection */
+    var methodSel = document.getElementById('methodSel');
+    if (methodSel) methodSel.addEventListener('change', function () {
+        methodSel.className = 'method-sel m-' + methodSel.value.toLowerCase();
     });
 })();
 </script>

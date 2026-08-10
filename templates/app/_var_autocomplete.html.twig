@@ -30,7 +30,7 @@
     function suggest(frag) {
         var f = frag.toLowerCase(), wantGen = f.charAt(0) === '$', q = wantGen ? f.slice(1) : f;
         return CAT.filter(function (it) {
-            if (wantGen && it.group !== 'gen') return false;
+            if (wantGen && it.group !== 'gen' && it.group !== 'fac') return false;
             return it.label.toLowerCase().indexOf(q) !== -1;
         }).slice(0, 12);
     }
@@ -41,7 +41,7 @@
         pop.innerHTML = '';
         items.forEach(function (it, i) {
             var row = document.createElement('div'); row.className = 'vc-item' + (i === sel ? ' sel' : '');
-            var g = document.createElement('span'); g.className = 'vc-grp'; g.textContent = it.group === 'gen' ? 'ƒ' : 'var';
+            var g = document.createElement('span'); g.className = 'vc-grp ' + (it.group || 'var'); g.textContent = it.group || 'var';
             var t = document.createElement('span'); t.className = 'vc-tok'; t.textContent = it.token;
             var d = document.createElement('span'); d.className = 'vc-desc'; d.textContent = it.desc || '';
             row.appendChild(g); row.appendChild(t); row.appendChild(d);

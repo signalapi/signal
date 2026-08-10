@@ -1208,3 +1208,78 @@ input[type=file]::file-selector-button:hover { border-color:var(--pri); color:va
 .flagpill { font-family:var(--mono); font-size:8.5px; font-weight:700; padding:2px 5px;
   border-radius:4px; background:var(--panel2); color:var(--muted); white-space:nowrap; }
 .flagpill.on { background:var(--pri-soft); color:var(--pri); }
+
+/* ==========================================================================
+   Step editor — final design (Signal Step Editor.dc)
+   Syntax-highlighted code layers, typed variable tags, stateful rule rows.
+   ========================================================================== */
+
+/* dark editor syntax palette — the surface is #0A0D14 in both themes,
+   so these are fixed colors, exactly the prototype's K/S/N/P/V helpers */
+.tok-k { color:#A48BFF; }                       /* keys, SQL keywords   */
+.tok-s { color:#3FCF8E; }                       /* strings              */
+.tok-n { color:#F5B544; }                       /* numbers, booleans    */
+.tok-p { color:#5A6480; }                       /* punctuation, comments*/
+.tok-v { color:#6C86FF; background:rgba(108,134,255,.16); border-radius:3px; padding:0 2px; } /* {{var}} */
+
+/* highlight layer inside .code-ed: backdrop <pre> under a transparent-text textarea */
+.code-ed .cb-area { position:relative; flex:1; min-width:0; display:flex; }
+.code-ed .cb-area textarea { flex:1; position:relative; z-index:1; }
+.code-ed .cb-hl { position:absolute; inset:0; z-index:0; margin:0; padding:12px; overflow:hidden;
+  font-family:var(--mono); font-size:11.5px; line-height:1.7; tab-size:2; white-space:pre;
+  color:#C9D2E4; pointer-events:none; }
+.code-ed.hl .cb-area textarea { color:transparent; }
+.code-ed.hl .cb-area textarea::selection { background:rgba(108,134,255,.30); color:transparent; }
+
+/* single-line inputs with {{var}} chips (URL, bearer token): same backdrop trick */
+.hl-wrap { position:relative; flex:1; min-width:0; }
+.hl-wrap input { position:relative; z-index:1; width:100%; background:transparent; }
+.hl-wrap input.lit { color:transparent; caret-color:var(--ink); }
+.hl-wrap input.lit::selection { background:var(--pri-soft); color:transparent; }
+.hl-wrap .hl-bd { position:absolute; inset:1px; z-index:0; display:flex; align-items:center;
+  padding:0 11px; overflow:hidden; white-space:pre; pointer-events:none;
+  font-family:var(--mono); font-size:11.5px; color:var(--ink); border-radius:9px; background:var(--panel); }
+.rule-row .path { flex:1.3; min-width:0; }
+.rule-row .expected { flex:1; min-width:0; }
+.rule-row .name { flex:0 0 34%; min-width:0; color:var(--vio); font-weight:700; }
+.rule-row select.op { flex-shrink:0; width:auto; font-weight:700; color:var(--muted); font-size:10.5px; }
+.hl-wrap .hl-bd .tok-v { color:var(--pri); background:var(--pri-soft); }
+
+/* typed tags in the {{...}} autocomplete: var / env / gen / fac */
+.vc-grp { font-family:var(--mono); font-size:8.5px; font-weight:800; letter-spacing:.06em;
+  padding:2px 5px; border-radius:4px; min-width:0; border:none;
+  background:var(--panel2); color:var(--muted); text-transform:none; }
+.vc-grp.var { background:var(--vio-soft);  color:var(--vio); }
+.vc-grp.env { background:var(--teal-soft); color:var(--teal); }
+.vc-grp.gen { background:var(--pri-soft);  color:var(--pri); }
+.vc-grp.fac { background:var(--warn-soft); color:var(--warn); }
+
+/* rule / transfer rows: panel2 capsules with a live status icon + actual chip */
+.rule-row { display:flex; align-items:center; gap:7px; margin-bottom:6px; padding:7px 9px;
+  background:var(--panel2); border:1px solid var(--line); border-radius:10px; }
+.rule-row input, .rule-row select { background:var(--panel); border:1px solid var(--line);
+  border-radius:8px; padding:7px 9px; font-family:var(--mono); font-size:11px; color:var(--ink); }
+.rule-row.failed { border-color:var(--fail); }
+.rule-row.failed input, .rule-row.failed select { border-color:var(--line); }
+.rule-row .status-ic { width:20px; height:20px; border-radius:6px; background:var(--panel2); }
+.rule-row .status-ic:empty { visibility:visible; background:var(--panel); border:1px solid var(--line2); }
+.rule-row .actual { font-family:var(--mono); font-size:10px; padding:2px 6px; border-radius:5px;
+  flex-shrink:0; max-width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  background:var(--pass-soft); color:var(--pass); }
+.rule-row.failed .actual { background:var(--fail-soft); color:var(--fail); }
+
+/* request tab counters: Params 2 · Headers 3 · Body ● */
+.etab .n { font-family:var(--mono); font-size:9.5px; margin-left:5px; color:var(--faint); }
+.etab.on .n { color:var(--pri); }
+.etab .n:empty { display:none; }
+
+/* probe status pill + method chip */
+.probe-pill { display:inline-flex; align-items:center; gap:6px; font-family:var(--mono);
+  font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px;
+  background:var(--pass-soft); color:var(--pass); }
+.probe-pill.failed { background:var(--fail-soft); color:var(--fail); }
+.method-sel { width:auto; font-family:var(--mono); font-size:12px; font-weight:800;
+  background:var(--panel2); color:var(--warn); }
+.method-sel.m-get { color:var(--pass); } .method-sel.m-post { color:var(--warn); }
+.method-sel.m-put { color:var(--pri); } .method-sel.m-patch { color:var(--vio); }
+.method-sel.m-delete { color:var(--fail); }
