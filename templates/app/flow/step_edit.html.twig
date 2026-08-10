@@ -140,14 +140,11 @@
 
             {% elseif step.isSetvar %}
                 <label>{{ 'Assignments'|trans }}</label>
-                <p class="subtitle" style="margin:0 0 8px">{{ 'One <code>name = value</code> per line. {{variable}} and {{$generator}} are resolved in the value.'|trans|raw }}</p>
-                <div class="code-ed hl" data-hl="setvar">
-                    <div class="cb-gutter" aria-hidden="true">1</div>
-                    <div class="cb-area">
-                        <pre class="cb-hl" aria-hidden="true"></pre>
-                        <textarea name="query" rows="6" data-vc spellcheck="false" placeholder="planId = plan_pro_monthly">{{ step.query }}</textarea>
-                    </div>
-                </div>
+                <p class="subtitle" style="margin:0 0 8px">{{ '{{variable}} and {{$generator}} are resolved in the value.'|trans }}</p>
+                {# rows are a JS model, serialised into the hidden query field the controller reads #}
+                <textarea name="query" id="setvarText" hidden>{{ step.query }}</textarea>
+                <div class="setvar-card" id="setvarRows"></div>
+                <button type="button" class="add-dashed" id="addAssign">+ {{ 'assignment'|trans }}</button>
 
             {% elseif step.isCall %}
                 <label>{{ 'Called flow'|trans }}</label>
@@ -192,6 +189,7 @@
                         <textarea name="query" rows="5" data-vc spellcheck="false" placeholder="SELECT status FROM subscriptions WHERE id = {{ '{{' }}subId{{ '}}' }}">{{ step.query }}</textarea>
                     </div>
                 </div>
+                <div class="vi-panel" hidden></div>
                 <div class="hintbox" style="background:var(--teal-soft);color:var(--teal)">
                     {{ ic.i('shield', 15) }}{{ 'Variables from earlier steps work here.'|trans }}
                 </div>
@@ -236,6 +234,7 @@
                             <textarea name="body" rows="10" data-vc spellcheck="false">{{ step.reqBody }}</textarea>
                         </div>
                     </div>
+                    <div class="vi-panel" hidden></div>
                 </div>
                 <div data-panel-tab="auth" hidden>
                     {% set auth = step.reqAuth %}
@@ -679,8 +678,68 @@
     var clr = document.getElementById('clearSchemaBtn');
     if (clr) clr.addEventListener('click', function () { document.getElementById('schemaBox').value = ''; });
 
+    // ---- setvar assignments as rows, serialised into the query field ---
+    var svText = document.getElementById('setvarText');
+    if (svText) {
+        var svHost = document.getElementById('setvarRows');
+        var assigns = (svText.value || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean).map(function (l) {
+            var i = l.indexOf('=');
+            return i === -1 ? { name: l, value: '' } : { name: l.slice(0, i).trim(), value: l.slice(i + 1).trim() };
+        });
+        if (!assigns.length) assigns.push({ name: '', value: '' });
+
+        function svSerialise() {
+            svText.value = assigns.filter(function (a) { return a.name; })
+                .map(function (a) { return a.name + ' = ' + a.value; }).join('\n');
+        }
+        function svTag(v) {
+            if (/\{\{\s*\$/.test(v)) return ['generator', 'gen'];
+            if (v.indexOf('{' + '{') !== -1) return ['template', 'vio'];
+            return ['literal', ''];
+        }
+        function svRender() {
+            svHost.innerHTML = '';
+            assigns.forEach(function (a, i) {
+                var row = document.createElement('div');
+                row.className = 'setvar-row';
+                row.innerHTML =
+                    '<input type="text" class="name" placeholder="name">' +
+                    '<span class="eq">=</span>' +
+                    '<input type="text" class="value" data-vc placeholder="value">' +
+                    '<span class="mpill tag"></span>' +
+                    '<button type="button" class="rm" aria-label="remove">×</button>';
+                var name = row.querySelector('.name'), val = row.querySelector('.value'), tag = row.querySelector('.tag');
+                name.value = a.name; val.value = a.value;
+                function retag() {
+                    var t = svTag(val.value);
+                    tag.textContent = t[0];
+                    tag.className = 'mpill tag ' + (t[1] === 'gen' ? 'pri' : t[1]);
+                }
+                name.addEventListener('input', function () { a.name = name.value; svSerialise(); });
+                val.addEventListener('input', function () { a.value = val.value; svSerialise(); retag(); });
+                row.querySelector('.rm').addEventListener('click', function () { assigns.splice(i, 1); svRender(); svSerialise(); });
+                retag();
+                svHost.appendChild(row);
+            });
+        }
+        document.getElementById('addAssign').addEventListener('click', function () {
+            assigns.push({ name: '', value: '' }); svRender();
+            var last = svHost.querySelector('.setvar-row:last-child .name');
+            if (last) last.focus();
+        });
+        svRender();
+        form.addEventListener('submit', svSerialise);
+    }
+
     // ---- json body validity + format ----------------------------------
     var body = form.querySelector('textarea[name=body]'), state = document.getElementById('jsonState');
+
+    // the design shows the body pretty-printed: format valid JSON on load
+    (function () {
+        var mode = form.querySelector('select[name=bodyMode]');
+        if (!body || !mode || mode.value !== 'json' || !body.value.trim()) return;
+        try { body.value = JSON.stringify(JSON.parse(body.value), null, 2); } catch (e) {}
+    })();
     function checkJson() {
         if (!body || !state) return;
         var mode = form.querySelector('select[name=bodyMode]');
@@ -795,6 +854,50 @@
     if (methodSel) methodSel.addEventListener('change', function () {
         methodSel.className = 'method-sel m-' + methodSel.value.toLowerCase();
     });
+
+    /* ---- persistent INSERT VARIABLE panel under the code editors --------
+       Opens when the editor gets focus; a click inserts the token at the
+       caret. The {{ trigger popup still works for filtered search. */
+    (function () {
+        var catEl = document.getElementById('vcCatalog');
+        if (!catEl) return;
+        var CAT = [];
+        try { CAT = JSON.parse(catEl.textContent || '[]'); } catch (e) { return; }
+        if (!CAT.length) return;
+
+        document.querySelectorAll('.vi-panel').forEach(function (panel) {
+            var ed = panel.previousElementSibling;
+            var ta = ed ? ed.querySelector('textarea') : null;
+            if (!ta) return;
+
+            var cap = document.createElement('div');
+            cap.className = 'vi-cap';
+            cap.textContent = 'insert variable';
+            panel.appendChild(cap);
+            CAT.slice(0, 8).forEach(function (it) {
+                var row = document.createElement('div');
+                row.className = 'vi-row';
+                var g = document.createElement('span'); g.className = 'vc-grp ' + (it.group || 'var'); g.textContent = it.group || 'var';
+                var t = document.createElement('span'); t.className = 'tok'; t.textContent = it.token;
+                var d = document.createElement('span'); d.className = 'desc'; d.textContent = it.desc || '';
+                row.appendChild(g); row.appendChild(t); row.appendChild(d);
+                row.addEventListener('mousedown', function (e) {
+                    e.preventDefault();
+                    var pos = typeof ta.selectionStart === 'number' ? ta.selectionStart : ta.value.length;
+                    ta.value = ta.value.slice(0, pos) + it.token + ta.value.slice(ta.selectionEnd || pos);
+                    var caret = pos + it.token.length;
+                    ta.focus(); ta.setSelectionRange(caret, caret);
+                    ta.dispatchEvent(new Event('input', { bubbles: true }));
+                });
+                panel.appendChild(row);
+            });
+
+            ta.addEventListener('focus', function () { panel.hidden = false; });
+            document.addEventListener('mousedown', function (e) {
+                if (!panel.hidden && !panel.contains(e.target) && e.target !== ta) panel.hidden = true;
+            });
+        });
+    })();
 })();
 </script>
 {% endverbatim %}

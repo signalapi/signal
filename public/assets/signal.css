@@ -1283,3 +1283,33 @@ input[type=file]::file-selector-button:hover { border-color:var(--pri); color:va
 .method-sel.m-get { color:var(--pass); } .method-sel.m-post { color:var(--warn); }
 .method-sel.m-put { color:var(--pri); } .method-sel.m-patch { color:var(--vio); }
 .method-sel.m-delete { color:var(--fail); }
+
+/* persistent insert-variable panel under a code editor (design: open panel) */
+.vi-panel { margin-top:8px; background:var(--panel); border:1px solid var(--pri); border-radius:11px;
+  box-shadow:var(--sh-lg); padding:6px; max-width:330px; }
+.vi-cap { font-family:var(--mono); font-size:9.5px; font-weight:700; letter-spacing:.12em;
+  text-transform:uppercase; color:var(--faint); padding:5px 8px 6px; }
+.vi-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:8px; cursor:pointer; }
+.vi-row:hover { background:var(--pri-soft); }
+.vi-row .tok { font-family:var(--mono); font-size:11.5px; color:var(--ink); flex-shrink:0; }
+.vi-row .desc { font-size:10.5px; color:var(--faint); min-width:0; overflow:hidden;
+  text-overflow:ellipsis; white-space:nowrap; text-align:right; flex:1; }
+
+/* setvar assignments as rows (design: name = value + kind tag) */
+.setvar-card { border:1px solid var(--line); border-radius:11px; overflow:hidden; margin-bottom:9px; }
+.setvar-row { display:flex; align-items:center; background:var(--panel); }
+.setvar-row + .setvar-row { border-top:1px solid var(--line2); }
+.setvar-row input { background:transparent; border:none; border-radius:0; padding:9px 11px;
+  font-family:var(--mono); font-size:11.5px; color:var(--ink); }
+.setvar-row input:focus { box-shadow:none; background:var(--pri-soft); }
+.setvar-row .name { flex:0 0 34%; min-width:0; font-weight:700; color:var(--vio);
+  border-right:1px solid var(--line2); }
+.setvar-row .value { flex:1; min-width:0; }
+.setvar-row .eq { padding:0 2px 0 9px; font-family:var(--mono); font-size:11.5px; color:var(--faint); }
+.setvar-row .tag { margin-right:4px; text-transform:none; }
+.setvar-row .rm { width:32px; align-self:stretch; display:flex; align-items:center; justify-content:center;
+  background:none; border:none; cursor:pointer; color:var(--faint); flex-shrink:0; font-size:14px; }
+.setvar-row .rm:hover { color:var(--fail); }
+
+/* call-step picker: selected row reads as selected (design: pri-soft + check) */
+.picker-row:has(input:checked) { background:var(--pri-soft); }

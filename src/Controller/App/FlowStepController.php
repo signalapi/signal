@@ -376,8 +376,35 @@ class FlowStepController extends AbstractAppController
     private function vcCatalog(Workspace $workspace, TestFlow $flow): array
     {
         $out = [];
+        $seen = [];
+
+        // Variables produced inside the flow, with their provenance ("step 2 · extracted").
+        foreach ($flow->getSteps() as $s) {
+            $n = $s->getPosition() + 1;
+            foreach ($s->getExtractions() as $ex) {
+                if (!empty($ex['var']) && !isset($seen[$ex['var']])) {
+                    $seen[$ex['var']] = true;
+                    $out[] = ['token' => '{{' . $ex['var'] . '}}', 'label' => $ex['var'], 'desc' => $this->translator->trans('step %n%', ['%n%' => $n]) . ' · ' . ($s->isCall() ? $this->translator->trans('sub-flow') : $this->translator->trans('extracted')), 'group' => 'var'];
+                }
+            }
+            if ($s->isSetvar()) {
+                foreach (preg_split('/\r\n|\r|\n/', (string) $s->getQuery()) ?: [] as $line) {
+                    if (str_contains($line, '=')) {
+                        $name = trim(explode('=', $line, 2)[0]);
+                        if ('' !== $name && !isset($seen[$name])) {
+                            $seen[$name] = true;
+                            $out[] = ['token' => '{{' . $name . '}}', 'label' => $name, 'desc' => $this->translator->trans('step %n%', ['%n%' => $n]) . ' · ' . $this->translator->trans('set'), 'group' => 'var'];
+                        }
+                    }
+                }
+            }
+        }
+
         foreach ($this->varScanner->externalVariables($flow) as $v) {
-            $out[] = ['token' => '{{' . $v['name'] . '}}', 'label' => $v['name'], 'desc' => $v['fromEnv'] ? $this->translator->trans('env variable') : $this->translator->trans('variable'), 'group' => $v['fromEnv'] ? 'env' : 'var'];
+            if (isset($seen[$v['name']])) {
+                continue;
+            }
+            $out[] = ['token' => '{{' . $v['name'] . '}}', 'label' => $v['name'], 'desc' => $v['fromEnv'] ? $this->translator->trans('environment') : $this->translator->trans('variable'), 'group' => $v['fromEnv'] ? 'env' : 'var'];
         }
         foreach ($this->dataFactories->findByWorkspace($workspace) as $f) {
             $out[] = ['token' => '{{$' . $f->getName() . '}}', 'label' => $f->getName(), 'desc' => $this->translator->trans('factory') . ' · ' . $f->getKind(), 'group' => 'fac'];
