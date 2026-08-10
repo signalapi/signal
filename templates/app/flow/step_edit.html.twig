@@ -188,7 +188,6 @@
                         <pre class="cb-hl" aria-hidden="true"></pre>
                         <textarea name="query" rows="5" data-vc spellcheck="false" placeholder="SELECT status FROM subscriptions WHERE id = {{ '{{' }}subId{{ '}}' }}">{{ step.query }}</textarea>
                     </div>
-                    <div class="vi-panel" hidden></div>
                 </div>
                 <div class="hintbox" style="background:var(--teal-soft);color:var(--teal)">
                     {{ ic.i('shield', 15) }}{{ 'Variables from earlier steps work here.'|trans }}
@@ -233,7 +232,6 @@
                             <pre class="cb-hl" aria-hidden="true"></pre>
                             <textarea name="body" rows="10" data-vc spellcheck="false">{{ step.reqBody }}</textarea>
                         </div>
-                        <div class="vi-panel" hidden></div>
                     </div>
                 </div>
                 <div data-panel-tab="auth" hidden>
@@ -855,49 +853,6 @@
         methodSel.className = 'method-sel m-' + methodSel.value.toLowerCase();
     });
 
-    /* ---- persistent INSERT VARIABLE panel under the code editors --------
-       Opens when the editor gets focus; a click inserts the token at the
-       caret. The {{ trigger popup still works for filtered search. */
-    (function () {
-        var catEl = document.getElementById('vcCatalog');
-        if (!catEl) return;
-        var CAT = [];
-        try { CAT = JSON.parse(catEl.textContent || '[]'); } catch (e) { return; }
-        if (!CAT.length) return;
-
-        document.querySelectorAll('.vi-panel').forEach(function (panel) {
-            var ed = panel.closest('.code-ed');
-            var ta = ed ? ed.querySelector('textarea') : null;
-            if (!ta) return;
-
-            var cap = document.createElement('div');
-            cap.className = 'vi-cap';
-            cap.textContent = 'insert variable';
-            panel.appendChild(cap);
-            CAT.slice(0, 8).forEach(function (it) {
-                var row = document.createElement('div');
-                row.className = 'vi-row';
-                var g = document.createElement('span'); g.className = 'vc-grp ' + (it.group || 'var'); g.textContent = it.group || 'var';
-                var t = document.createElement('span'); t.className = 'tok'; t.textContent = it.token;
-                var d = document.createElement('span'); d.className = 'desc'; d.textContent = it.desc || '';
-                row.appendChild(g); row.appendChild(t); row.appendChild(d);
-                row.addEventListener('mousedown', function (e) {
-                    e.preventDefault();
-                    var pos = typeof ta.selectionStart === 'number' ? ta.selectionStart : ta.value.length;
-                    ta.value = ta.value.slice(0, pos) + it.token + ta.value.slice(ta.selectionEnd || pos);
-                    var caret = pos + it.token.length;
-                    ta.focus(); ta.setSelectionRange(caret, caret);
-                    ta.dispatchEvent(new Event('input', { bubbles: true }));
-                });
-                panel.appendChild(row);
-            });
-
-            ta.addEventListener('focus', function () { panel.hidden = false; });
-            document.addEventListener('mousedown', function (e) {
-                if (!panel.hidden && !panel.contains(e.target) && e.target !== ta) panel.hidden = true;
-            });
-        });
-    })();
 })();
 </script>
 {% endverbatim %}

@@ -60,10 +60,17 @@
     function choose(i) {
         var it = items[i]; if (!it || !field) return;
         var pos = field.selectionStart, v = field.value;
-        field.value = v.slice(0, start) + it.token + v.slice(pos);
+        // If the caret sits inside an existing {{token}}, replace the WHOLE
+        // token: swallow the leftover tail (e.g. "ditCard}}") after the caret
+        // instead of leaving it behind. Only variable-name characters count,
+        // so a JSON-closing "}}"" is never eaten by accident.
+        var tail = v.slice(pos).match(/^[\w.$-]*\}\}/);
+        var end = pos + (tail ? tail[0].length : 0);
+        field.value = v.slice(0, start) + it.token + v.slice(end);
         var caret = start + it.token.length;
-        hide(); field.focus(); field.setSelectionRange(caret, caret);
-        field.dispatchEvent(new Event('input', { bubbles: true }));
+        var f = field; // hide() clears `field` — keep the ref for the caret restore
+        hide(); f.focus(); f.setSelectionRange(caret, caret);
+        f.dispatchEvent(new Event('input', { bubbles: true }));
     }
 
     root.addEventListener('input', function (e) {
