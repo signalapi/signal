@@ -152,6 +152,7 @@ class EnvironmentController extends AbstractAppController
         return $this->render('app/environment/edit.html.twig', [
             'workspace' => $workspace,
             'environment' => $environment,
+            'environments' => $environments->findByWorkspace($workspace),
             'my_values' => $userValues->mapFor($environment, $this->currentUser()),
         ]);
     }

@@ -6,52 +6,173 @@
 {% block panel %}
 <div class="pagehead">
     <div>
-        <h1>{{ 'Run history'|trans }}</h1>
-        <p class="subtitle">{{ 'Suite runs on a single line, single-flow runs on separate lines'|trans }} · {{ 'last %count% records'|trans({'%count%': items|length}) }}</p>
+        <h1>{{ 'History'|trans }}</h1>
+        <p class="subtitle">{{ 'Every flow run and suite batch in this workspace'|trans }}</p>
+    </div>
+    <div class="actions">
+        <span class="seg" id="rangeSeg">
+            <button type="button" data-h="1">1h</button>
+            <button type="button" data-h="24">24h</button>
+            <button type="button" data-h="168">7d</button>
+            <button type="button" class="on" data-h="720">30d</button>
+        </span>
     </div>
 </div>
 
 {% if items is empty %}
     <div class="empty">{{ 'No runs yet.'|trans }}</div>
 {% else %}
-    {% set trig = {'manual': 'manual'|trans, 'async': 'background'|trans, 'schedule': 'scheduled'|trans, 'api': 'API', 'mcp': 'MCP'} %}
+
+<div class="card" style="margin-bottom:14px;">
+    <div class="card-body" style="padding:12px 15px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;">
+            <span class="eyebrow" style="margin:0;">{{ 'Last 48 hours'|trans }}</span>
+            <div style="flex:1 1 0;"></div>
+            <span class="legend">
+                <span><i style="background:var(--pass);"></i>{{ 'passed'|trans }}</span>
+                <span><i style="background:var(--fail);"></i>{{ 'failed'|trans }}</span>
+                <span><i style="background:var(--warn);"></i>{{ 'cancelled'|trans }}</span>
+            </span>
+        </div>
+        <div class="heat" id="heatBar" style="height:44px;gap:3px;"></div>
+    </div>
+</div>
+
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;row-gap:8px;">
+    <label class="searchbar">
+        <span class="sic">{{ ic.i('search', 14) }}</span>
+        <input type="text" id="hisSearch" placeholder="{{ 'Search flow, suite, trigger…'|trans }}">
+    </label>
+    <button type="button" class="fchip on" data-f="all">{{ 'All'|trans }}</button>
+    <button type="button" class="fchip" data-f="failed"><span class="dot failed" style="display:inline-block;margin-right:5px;"></span>{{ 'Failed'|trans }}</button>
+    <button type="button" class="fchip" data-f="passed"><span class="dot passed" style="display:inline-block;margin-right:5px;"></span>{{ 'Passed'|trans }}</button>
+    <button type="button" class="fchip" data-f="running"><span class="dot running" style="display:inline-block;margin-right:5px;"></span>{{ 'Running'|trans }}</button>
+    <button type="button" class="fchip" data-f="suite">{{ 'Suites'|trans }}</button>
+</div>
+
+{% set trig = {'manual': 'manual', 'async': 'async', 'schedule': 'cron', 'api': 'ci', 'mcp': 'mcp'} %}
+{% set trigtone = {'schedule': 'teal', 'api': 'pri', 'mcp': 'vio'} %}
+<div class="list-card" id="hisList">
     {% for it in items %}
         {% if it.kind == 'suite' %}
-            <a class="hi-row" href="{{ it.url }}">
-                <span class="hi-dot {{ it.status }}"></span>
-                <span class="hi-flow">
-                    <span class="nm" style="display:inline-flex;align-items:center;gap:6px;">{{ ic.i('suites', 13) }}{{ it.name }}</span>
-                    <span class="tags"><span class="hi-tag suite">suite</span></span>
-                </span>
-                <span class="hi-num">{{ '%passed%/%total% flows'|trans({'%passed%': it.passed, '%total%': it.total}) }}</span>
-                <span class="hi-num">—</span>
-                <span class="hi-date">{{ it.createdAt|date('d.m.Y H:i:s') }}</span>
-                <span style="display:inline-flex;align-items:center;gap:4px;color:var(--muted);">{{ 'Details'|trans }}{{ ic.i('chevron-r', 12) }}</span>
-            </a>
+            {% set status = it.status %}
+            {% set ok = it.passed %}{% set total = it.total %}
+            {% set dur = null %}{% set trigger = null %}
+            {% set name = it.name %}{% set sub = '%count% flows'|trans({'%count%': it.total}) %}
+            {% set ts = it.createdAt %}
         {% else %}
             {% set run = it.run %}
-            {% set failed = null %}
-            {% for sr in run.stepResults %}{% if failed is null and sr.status in ['failed','error'] %}{% set failed = sr %}{% endif %}{% endfor %}
-            <a class="hi-row" href="{{ it.url }}">
-                <span class="hi-dot {{ run.status }}"></span>
-                <span class="hi-flow">
-                    <span class="nm">{{ run.flow.name }}</span>
-                    <span class="tags">
-                        <span class="hi-tag">{{ trig[run.trigger] ?? run.trigger }}</span>
-                        {% if run.triggeredBy %}<span class="hi-tag" style="display:inline-flex;align-items:center;gap:4px;">{{ ic.i('members', 11) }}{{ run.triggeredBy.name }}</span>{% endif %}
-                        {% for g in run.flow.groups %}<span class="hi-tag suite" style="display:inline-flex;align-items:center;gap:4px;">{{ ic.i('suites', 11) }}{{ g.name }}</span>{% endfor %}
-                        {% if run.environmentName %}<span class="hi-tag">{{ run.environmentName }}</span>{% endif %}
-                    </span>
-                </span>
-                <span class="hi-num">{{ '%passed%/%total% steps'|trans({'%passed%': run.passedSteps, '%total%': run.totalSteps}) }}</span>
-                <span class="hi-num">{{ run.durationMs is not null ? run.durationMs ~ ' ms' : '—' }}</span>
-                <span class="hi-date">{{ run.createdAt|date('d.m.Y H:i:s') }}</span>
-                <span style="display:inline-flex;align-items:center;gap:4px;color:var(--muted);">{{ 'Details'|trans }}{{ ic.i('chevron-r', 12) }}</span>
-                {% if failed %}
-                    <span class="hi-err">↳ <b>{{ failed.label }}</b>{% if failed.requestMethod %} ({{ failed.requestMethod }}{% if failed.responseStatus %} → {{ failed.responseStatus }}{% endif %}){% endif %} — {{ failed.error ?: 'assertion failed'|trans }}</span>
-                {% endif %}
-            </a>
+            {% set status = run.status %}
+            {% set ok = run.passedSteps %}{% set total = run.totalSteps %}
+            {% set dur = run.durationMs %}{% set trigger = run.trigger %}
+            {% set name = run.flow.name %}
+            {% set sub = (run.environmentName ?: '—') ~ ' · ' ~ ('%count% steps'|trans({'%count%': run.totalSteps})) %}
+            {% set ts = run.createdAt %}
         {% endif %}
+        {% set bad = status in ['failed', 'error'] %}
+        <a class="lrow his-row" href="{{ it.url }}"
+           data-status="{{ status }}" data-kind="{{ it.kind }}" data-ts="{{ ts|date('U') }}"
+           data-text="{{ (name ~ ' ' ~ sub ~ ' ' ~ (trigger ?? ''))|lower|e('html_attr') }}"
+           {% if bad %}style="background:color-mix(in srgb, var(--fail-soft) 55%, var(--panel));"{% endif %}>
+            <span class="sq {{ bad ? 'fail' : (status == 'passed' ? 'pass' : (status == 'running' ? 'pri' : 'warn')) }}"
+                  style="width:22px;height:22px;border-radius:7px;"></span>
+            <span class="tbadge {{ it.kind == 'suite' ? 'vio' }}">{{ it.kind == 'suite' ? 'SUITE' : 'FLOW' }}</span>
+            <span style="flex:1;min-width:0;">
+                <span class="l-name">{{ name }}</span>
+                <span class="l-sub">{{ sub }}</span>
+            </span>
+            <span style="flex:0 0 170px;display:flex;align-items:center;gap:9px;">
+                <span class="ratebar" style="flex:1;">
+                    {% if total > 0 %}<i class="{{ bad ? 'failed' : (status == 'running' ? '' : (status == 'passed' ? 'passed' : 'cancelled')) }}"
+                        style="width:{{ (ok / total * 100)|round }}%;{{ status == 'running' ? 'background:var(--pri);' }}"></i>{% endif %}
+                </span>
+                <span class="l-meta" style="flex:0 0 38px;text-align:right;">{{ ok }}/{{ total }}</span>
+            </span>
+            <span class="l-meta" style="flex:0 0 64px;text-align:right;">
+                {%- if dur is not null -%}{{ dur >= 60000 ? ((dur // 60000) ~ ' m ' ~ ((dur % 60000) // 1000) ~ ' s') : (dur >= 1000 ? ((dur / 1000)|round(1) ~ ' s') : (dur ~ ' ms')) }}{%- else -%}—{%- endif -%}
+            </span>
+            <span class="l-meta his-when" style="flex:0 0 56px;text-align:right;" title="{{ ts|date('d.m.Y H:i:s') }}"></span>
+            <span style="flex:0 0 62px;display:flex;justify-content:flex-end;">
+                {% if trigger %}<span class="mpill {{ trigtone[trigger] ?? '' }}">{{ trig[trigger] ?? trigger }}</span>
+                {% else %}<span class="mpill vio">suite</span>{% endif %}
+            </span>
+        </a>
     {% endfor %}
+    <div class="lrow" id="hisEmpty" hidden><span class="subtitle">{{ 'Nothing matches the filter.'|trans }}</span></div>
+</div>
+
+<script>
+(function () {
+    var rows = Array.prototype.slice.call(document.querySelectorAll('.his-row'));
+    var now = Math.floor(Date.now() / 1000);
+
+    // relative "when" labels
+    rows.forEach(function (r) {
+        var d = now - parseInt(r.dataset.ts, 10);
+        var el = r.querySelector('.his-when');
+        el.textContent = d < 60 ? '{{ 'now'|trans|e('js') }}'
+            : d < 3600 ? Math.floor(d / 60) + ' min'
+            : d < 86400 ? Math.floor(d / 3600) + ' h'
+            : Math.floor(d / 86400) + ' d';
+    });
+
+    // 48h heat bar: one bucket per hour, newest on the right
+    var heat = document.getElementById('heatBar');
+    var buckets = [];
+    for (var i = 0; i < 48; i++) buckets.push({ n: 0, fail: 0, canc: 0 });
+    rows.forEach(function (r) {
+        var age = now - parseInt(r.dataset.ts, 10);
+        var idx = 47 - Math.floor(age / 3600);
+        if (idx < 0 || idx > 47) return;
+        buckets[idx].n++;
+        var s = r.dataset.status;
+        if (s === 'failed' || s === 'error') buckets[idx].fail++;
+        if (s === 'cancelled' || s === 'skipped') buckets[idx].canc++;
+    });
+    var max = Math.max.apply(null, buckets.map(function (b) { return b.n; }).concat([1]));
+    buckets.forEach(function (b) {
+        var i = document.createElement('i');
+        i.style.maxWidth = 'none';
+        if (b.n === 0) { i.style.height = '4px'; }
+        else {
+            i.style.height = Math.max(18, Math.round(b.n / max * 100)) + '%';
+            i.style.background = b.fail ? 'var(--fail)' : (b.canc ? 'var(--warn)' : 'var(--pass)');
+        }
+        heat.appendChild(i);
+    });
+
+    // search + status chips + time range, combined
+    var q = '', f = 'all', h = 720;
+    function apply() {
+        var shown = 0;
+        rows.forEach(function (r) {
+            var okQ = !q || r.dataset.text.indexOf(q) !== -1;
+            var okF = f === 'all'
+                || (f === 'suite' && r.dataset.kind === 'suite')
+                || (f === 'failed' && (r.dataset.status === 'failed' || r.dataset.status === 'error'))
+                || (f === r.dataset.status);
+            var okH = (now - parseInt(r.dataset.ts, 10)) <= h * 3600;
+            var on = okQ && okF && okH;
+            r.style.display = on ? '' : 'none';
+            if (on) shown++;
+        });
+        document.getElementById('hisEmpty').hidden = shown > 0;
+    }
+    document.getElementById('hisSearch').addEventListener('input', function () { q = this.value.toLowerCase().trim(); apply(); });
+    document.querySelectorAll('.fchip[data-f]').forEach(function (c) {
+        c.addEventListener('click', function () {
+            document.querySelectorAll('.fchip[data-f]').forEach(function (x) { x.classList.remove('on'); });
+            c.classList.add('on'); f = c.dataset.f; apply();
+        });
+    });
+    document.querySelectorAll('#rangeSeg button').forEach(function (b) {
+        b.addEventListener('click', function () {
+            document.querySelectorAll('#rangeSeg button').forEach(function (x) { x.classList.remove('on'); });
+            b.classList.add('on'); h = parseInt(b.dataset.h, 10); apply();
+        });
+    });
+    apply();
+})();
+</script>
 {% endif %}
 {% endblock %}

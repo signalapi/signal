@@ -6,6 +6,7 @@
 {% block panel %}
 {% set action = connection ? path('app_dbconn_edit', {workspace: workspace.id, connection: connection.id}) : path('app_dbconn_new', {workspace: workspace.id}) %}
 {% set csrf_id = connection ? 'dbconn-edit' ~ connection.id : 'dbconn-new' %}
+{% set curtype = connection ? connection.type : 'postgres' %}
 
 <a class="backlink" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Connections'|trans }}</a>
 <div class="pagehead">
@@ -18,15 +19,21 @@
 <div class="formcard" style="max-width:600px;">
     <form method="post" action="{{ action }}">
         <input type="hidden" name="_token" value="{{ csrf_token(csrf_id) }}">
-        <div class="grid2">
-            <div class="field"><label>{{ 'Name'|trans }}</label><input type="text" name="name" value="{{ connection ? connection.name }}" placeholder="{{ 'e.g. pg-staging'|trans }}" required></div>
-            <div class="field">
-                <label>{{ 'Type'|trans }}</label>
-                <select name="type" id="type" onchange="syncPort()">
-                    {% for t in ['postgres','mysql','redis','mongo'] %}<option value="{{ t }}" {{ connection and connection.type == t ? 'selected' }}>{{ t }}</option>{% endfor %}
-                </select>
+        <input type="hidden" name="type" id="type" value="{{ curtype }}">
+
+        <div class="field">
+            <label>{{ 'Type'|trans }}</label>
+            <div class="kind-grid" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-bottom:2px;">
+                {% for t, meta in {postgres: 'PostgreSQL', mysql: 'MySQL', redis: 'Redis', mongo: 'MongoDB'} %}
+                    <button type="button" class="kbtn dbtype {{ curtype == t ? 'on' }}" data-type="{{ t }}" style="text-align:center;">
+                        <span style="display:flex;justify-content:center;margin-bottom:4px;">{{ ic.i('db', 15) }}</span>
+                        <span class="t">{{ meta }}</span>
+                    </button>
+                {% endfor %}
             </div>
         </div>
+
+        <div class="field"><label>{{ 'Name'|trans }}</label><input type="text" name="name" value="{{ connection ? connection.name }}" placeholder="{{ 'e.g. pg-staging'|trans }}" required></div>
         <div class="grid2" style="grid-template-columns:2fr 1fr;">
             <div class="field"><label>Host</label><input type="text" id="host" name="host" value="{{ connection ? connection.host }}" placeholder="database / redis / mongo" required></div>
             <div class="field"><label>Port</label><input type="number" id="port" name="port" value="{{ connection ? connection.port : 5432 }}"></div>
@@ -40,24 +47,43 @@
             <div class="field"><label>authSource (mongo)</label><input type="text" name="authSource" value="{{ connection ? connection.options.authSource ?? '' }}" placeholder="admin"></div>
             <div class="field"><label>DB index (redis)</label><input type="number" name="redisDb" value="{{ connection ? connection.options.db ?? '' }}" placeholder="0"></div>
         </div>
+
+        <div style="display:flex;align-items:center;gap:9px;padding:11px 12px;background:var(--warn-soft);border:1px solid var(--line);border-radius:11px;margin:4px 0 14px;">
+            {{ ic.i('shield', 15) }}
+            <span style="font-size:11.5px;color:var(--warn);line-height:1.5;">{{ 'Recommended: use a read-only user — DB steps only run assertions, they never need to write.'|trans }}</span>
+        </div>
+
         <div class="form-actions">
             <button class="btn" type="submit">{{ 'Save'|trans }}</button>
             <a class="btn ghost" href="{{ path('app_dbconn_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
         </div>
     </form>
+
+    {% if connection %}
+        <form method="post" action="{{ path('app_dbconn_delete', {workspace: workspace.id, connection: connection.id}) }}"
+              onsubmit="return confirm('{{ 'The connection will be deleted.'|trans|e('js') }}');"
+              style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);">
+            <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ connection.id) }}">
+            <button class="btn danger" type="submit">{{ ic.i('trash', 13) }}{{ 'Delete connection'|trans }}</button>
+        </form>
+    {% endif %}
 </div>
 
 <div class="hintbox" style="max-width:600px;align-items:flex-start;">
     {{ ic.i('shield', 15) }}
-    <span>{{ 'Passwords are stored in the database encrypted with libsodium; they are never returned to the UI in plain text.'|trans }} {{ 'Recommended: use a <strong>read-only</strong> user on the target database.'|trans|raw }}</span>
+    <span>{{ 'Passwords are stored in the database encrypted with libsodium; they are never returned to the UI in plain text.'|trans }}</span>
 </div>
 
 <script>
 const DEFAULT_PORTS = {postgres:5432, mysql:3306, redis:6379, mongo:27017};
-function syncPort() {
-    const t = document.getElementById('type').value;
-    const p = document.getElementById('port');
-    if (!p.value || Object.values(DEFAULT_PORTS).includes(parseInt(p.value))) { p.value = DEFAULT_PORTS[t]; }
-}
+document.querySelectorAll('.dbtype').forEach(function (b) {
+    b.addEventListener('click', function () {
+        document.querySelectorAll('.dbtype').forEach(function (x) { x.classList.remove('on'); });
+        b.classList.add('on');
+        document.getElementById('type').value = b.dataset.type;
+        const p = document.getElementById('port');
+        if (!p.value || Object.values(DEFAULT_PORTS).includes(parseInt(p.value))) { p.value = DEFAULT_PORTS[b.dataset.type]; }
+    });
+});
 </script>
 {% endblock %}

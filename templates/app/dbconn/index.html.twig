@@ -4,48 +4,64 @@
 {% block title %}{{ 'DB Connections'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Workspace'|trans }}</a>
+{% set typemap = {
+    postgres: {label: 'PostgreSQL', badge: 'PG', tone: 'teal'},
+    mysql:    {label: 'MySQL',      badge: 'MY', tone: 'vio'},
+    redis:    {label: 'Redis',      badge: 'RD', tone: 'fail'},
+    mongo:    {label: 'MongoDB',    badge: 'MG', tone: 'pass'},
+} %}
 <div class="pagehead">
     <div>
         <h1>{{ 'Database connections'|trans }}</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ 'for query assertions in test flows'|trans }}</p>
+        <p class="subtitle">{{ 'Read-only credentials the DB assertion steps use'|trans }}</p>
     </div>
     <div class="actions">
-        <a class="btn" href="{{ path('app_dbconn_new', {workspace: workspace.id}) }}">{{ ic.i('plus', 13, 2.2) }}{{ 'New connection'|trans }}</a>
+        <a class="btn" href="{{ path('app_dbconn_new', {workspace: workspace.id}) }}">{{ ic.i('plus', 13, 2.2) }}{{ 'Connection'|trans }}</a>
     </div>
 </div>
 
-<div class="res-grid stagger">
-    {% for c in connections %}
-        <div class="res-card">
-            <div class="rc-top">
-                <div class="ic">{{ ic.i('db', 17) }}</div>
-                <div class="rc-name">
-                    <span class="t">{{ c.name }}</span>
-                    <div class="s"><span class="pill">{{ c.type }}</span></div>
-                </div>
-            </div>
-            <div class="mono" style="font-size:11.5px;color:var(--muted);margin-top:12px;line-height:1.6;">
-                {{ c.host }}:{{ c.port }}<br>
-                <span style="color:var(--ink);">{{ c.databaseName ?: '— no database —'|trans }}</span>
-            </div>
-            <div class="rc-foot">
-                <form method="post" action="{{ path('app_dbconn_test', {workspace: workspace.id, connection: c.id}) }}" class="grow">
-                    <input type="hidden" name="_token" value="{{ csrf_token('dbconn-test' ~ c.id) }}">
-                    <button class="btn ghost block" type="submit">{{ ic.i('check', 13, 2.2) }}{{ 'Test connection'|trans }}</button>
-                </form>
-                <a class="btn ghost small" href="{{ path('app_dbconn_edit', {workspace: workspace.id, connection: c.id}) }}">{{ ic.i('pencil', 12) }}{{ 'Edit'|trans }}</a>
-                <form method="post" action="{{ path('app_dbconn_delete', {workspace: workspace.id, connection: c.id}) }}" onsubmit="return confirm('{{ 'The connection will be deleted.'|trans|e('js') }}');">
-                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ c.id) }}">
-                    <button class="btn danger" type="submit" title="{{ 'Delete'|trans }}" aria-label="{{ 'Delete'|trans }}">{{ ic.i('trash', 13) }}</button>
-                </form>
-            </div>
+<div class="stat-grid">
+    {% for key, t in typemap %}
+        <div class="stat-card">
+            <span class="sq {{ t.tone }}">{{ ic.i('db', 15) }}</span>
+            <span style="min-width:0;">
+                <span class="n">{{ t.label }}</span>
+                <span class="s">{{ connections|filter(c => c.type == key)|length }} {{ 'connections'|trans }}</span>
+            </span>
         </div>
     {% endfor %}
-    <a class="res-new" href="{{ path('app_dbconn_new', {workspace: workspace.id}) }}">
-        <span class="plus">+</span>
-        <span style="font-weight:600;">{{ 'New connection'|trans }}</span>
-        <span class="mono" style="font-size:10.5px;">Postgres · MySQL · Redis · Mongo</span>
-    </a>
+</div>
+
+{% if connections is empty %}
+    <div class="empty">{{ 'No connections yet. Add one and DB steps in your flows can assert against it.'|trans }}</div>
+{% else %}
+<div class="list-card">
+    {% for c in connections %}
+        {% set t = typemap[c.type] ?? {label: c.type, badge: c.type|slice(0, 2), tone: ''} %}
+        <div class="lrow">
+            <span class="tbadge {{ t.tone }}">{{ t.badge }}</span>
+            <span style="flex:1.4; min-width:0;">
+                <span class="l-name">{{ c.name }}</span>
+                <span class="l-sub">{{ c.host }}:{{ c.port }}{% if c.databaseName %} / {{ c.databaseName }}{% endif %}</span>
+            </span>
+            <span style="flex:0 0 130px; display:inline-flex; align-items:center; gap:6px; min-width:0;">
+                <span class="sq pass" style="width:16px;height:16px;border-radius:5px;">{{ ic.i('check', 10, 3) }}</span>
+                <span class="l-meta" style="overflow:hidden;text-overflow:ellipsis;">{{ c.username ?: '—' }}</span>
+            </span>
+            <span class="l-meta" style="flex:0 0 70px;">{{ '%count% steps'|trans({'%count%': step_counts[c.id ~ ''] ?? 0}) }}</span>
+            <div style="flex:1 1 0;min-width:0;"></div>
+            <form method="post" action="{{ path('app_dbconn_test', {workspace: workspace.id, connection: c.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('dbconn-test' ~ c.id) }}">
+                <button class="gbtn" type="submit">{{ 'Test'|trans }}</button>
+            </form>
+            <a class="gbtn" href="{{ path('app_dbconn_edit', {workspace: workspace.id, connection: c.id}) }}">{{ 'Edit'|trans }}</a>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<div class="foot-note">
+    {{ ic.i('shield', 14) }}
+    <span>{{ 'Passwords are sealed with libsodium and never returned to the browser.'|trans }}</span>
 </div>
 {% endblock %}

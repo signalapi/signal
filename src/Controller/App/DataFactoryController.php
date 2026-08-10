@@ -114,9 +114,20 @@ class DataFactoryController extends AbstractAppController
             $catalog[] = ['token' => $b['token'], 'label' => $b['name'], 'desc' => $b['description'], 'group' => 'gen'];
         }
 
+        // Sidebar list (master–detail): every factory with a sample value.
+        $all = $factories->findByWorkspace($workspace);
+        $samples = [];
+        foreach ($all as $f) {
+            $gen->setFactories([$f->getName() => ['kind' => $f->getKind(), 'config' => $f->getConfig()]]);
+            $samples[(string) $f->getId()] = $gen->generate('$' . $f->getName());
+        }
+        $gen->setFactories([]);
+
         return $this->render('app/data_factory/edit.html.twig', [
             'workspace' => $workspace,
             'factory' => $factory,
+            'factories' => $all,
+            'samples' => $samples,
             'vc_catalog' => $catalog,
         ]);
     }

@@ -1,159 +1,163 @@
 {% extends 'app/_layout.html.twig' %}
 {% import '_icons.html.twig' as ic %}
 
-{% block title %}{{ merchant.personal ? 'Invite your team'|trans : 'Company users'|trans }} · {{ merchant.name }}{% endblock %}
+{% block title %}{{ merchant.personal ? 'Invite your team'|trans : 'Users'|trans }} · {{ merchant.name }}{% endblock %}
 
 {% block panel %}
+{% set tones = ['pri', 'vio', 'teal', 'warn', 'pass'] %}
+{% set cur_ws = current_workspace() %}
 <div class="pagehead">
     <div>
-        <h1>{{ merchant.personal ? 'Invite your team'|trans : 'Company users'|trans }}</h1>
-        <p class="subtitle">
-            {%- if merchant.personal -%}
-                {{ 'This is a personal account. Invite someone and it becomes a team account — shared workspaces, roles and per-workspace access.'|trans }}
-            {%- else -%}
-                {{ merchant.name }} · {{ "Company-wide accounts and their roles. To grant access to a single workspace, use that workspace's own <strong>Members</strong> page."|trans|raw }}
-            {%- endif -%}
-        </p>
+        <h1>{{ merchant.personal ? 'Invite your team'|trans : 'Users'|trans }}</h1>
+        <p class="subtitle">{{ 'Company members and their workspace access'|trans }}</p>
     </div>
+    {% if cur_ws and is_granted('WORKSPACE_ADMIN', cur_ws) %}
+    <div class="actions">
+        <span class="seg">
+            <a class="on" href="{{ path('app_member_index') }}">{{ 'Company'|trans }}</a>
+            <a href="{{ path('app_ws_member_index', {workspace: cur_ws.id}) }}">Workspace</a>
+        </span>
+    </div>
+    {% endif %}
 </div>
 
-{% if merchant.personal %}
-    <form class="formcard" method="post" action="{{ path('app_member_convert') }}" style="margin-bottom:18px;">
-        <div class="fgroup">
-            <div class="fgroup-title">{{ 'Give your account a company name'|trans }}</div>
-            <p class="fhint" style="margin:0 0 10px;">{{ 'Optional — inviting someone does this automatically. Useful if you want the company identity up front.'|trans }}</p>
-            <div class="addbar" style="margin:0;">
-                <input type="text" name="company_name" required placeholder="Acme Ltd.">
-                <button class="btn small" type="submit">{{ ic.i('company', 13) }}{{ 'Convert to a team account'|trans }}</button>
-            </div>
-        </div>
-        <input type="hidden" name="_token" value="{{ csrf_token('member-convert') }}">
-    </form>
-{% endif %}
-
 {% for link in app.flashes('invite_link') %}
-    <div class="flash success" style="align-items:flex-start;word-break:break-all;">
-        {{ ic.i('check', 15, 2.6) }}
-        <span>
-            <strong>{{ 'Invite link — shown only now, forward it to the invited person:'|trans }}</strong><br>
-            <code id="inviteLink" class="mono" style="font-size:12px;">{{ link }}</code>
-            <button class="btn small ghost" type="button" style="margin-left:8px;" onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').textContent)">{{ 'Copy'|trans }}</button>
-        </span>
+    <div class="reveal-card">
+        <div class="t">
+            <span class="sq pass" style="width:20px;height:20px;border-radius:6px;">{{ ic.i('check', 11, 3) }}</span>
+            {{ 'Invite link — shown only now, forward it to the invited person:'|trans }}
+        </div>
+        <div class="tok">
+            <code id="inviteLink">{{ link }}</code>
+            <button class="btn" type="button" style="padding:6px 12px;font-size:11.5px;"
+                    onclick="navigator.clipboard.writeText(document.getElementById('inviteLink').textContent);this.textContent='{{ 'Copied'|trans|e('js') }}';">{{ 'Copy'|trans }}</button>
+        </div>
     </div>
 {% endfor %}
 
-<form class="formcard" method="post" action="{{ path('app_member_invite') }}" style="margin-bottom:18px;">
-    <div class="fgroup">
-        <div class="fgroup-title">{{ merchant.personal ? 'Invite someone'|trans : 'Company-wide invite'|trans }}</div>
-        <p class="fhint" style="margin:0 0 12px;">{{ "For inviting admins or granting access to multiple workspaces at once. For single-workspace invites, that workspace's Members page is more practical."|trans }}</p>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
-            <div class="field" style="flex:2;min-width:220px;margin:0;">
-                <label>{{ 'Email'|trans }}</label>
-                <input type="email" name="email" required placeholder="kisi@sirket.com">
-            </div>
-            <div class="field" style="flex:1;min-width:140px;margin:0;">
-                <label>{{ 'Company role'|trans }}</label>
-                <select name="merchant_role" onchange="document.getElementById('wsGrants').style.display = this.value == 'member' ? '' : 'none';">
-                    <option value="member" selected>{{ 'Member'|trans }}</option>
-                    <option value="admin">{{ 'Company Admin'|trans }}</option>
-                </select>
-            </div>
-            <button class="btn small" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Create invite link'|trans }}</button>
-        </div>
+{# ---- invite bar ---- #}
+<form method="post" action="{{ path('app_member_invite') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('member-invite') }}">
+    <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+        <input type="email" name="email" required placeholder="name@company.com"
+               style="flex:1 1 240px;min-width:200px;max-width:340px;">
+        <select name="merchant_role" style="width:auto;" onchange="var g=document.getElementById('wsGrants'); if(g) g.style.display = this.value == 'member' ? '' : 'none';">
+            <option value="member" selected>{{ 'Member'|trans }}</option>
+            <option value="admin">{{ 'Company Admin'|trans }}</option>
+        </select>
+        <button class="btn" type="submit">{{ 'Send Invite'|trans }}</button>
     </div>
-
-    <div class="fgroup" id="wsGrants">
-        <div class="fgroup-title">{{ 'Workspace access (members only see the selected ones)'|trans }}</div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
+    {% if workspaces is not empty %}
+        <div id="wsGrants" style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin-bottom:14px;font-size:11.5px;color:var(--muted);">
+            <span class="eyebrow" style="margin:0;">{{ 'Workspace access'|trans }}</span>
             {% for w in workspaces %}
-                <label style="display:inline-flex;gap:6px;align-items:center;font-size:12.5px;color:var(--text);">
+                <label style="display:inline-flex;gap:5px;align-items:center;color:var(--text);cursor:pointer;">
                     <input type="checkbox" name="workspace_ids[]" value="{{ w.id }}" style="width:auto;"> {{ w.name }}
                 </label>
-            {% else %}
-                <span class="subtitle">{{ 'No workspaces yet.'|trans }}</span>
             {% endfor %}
-            {% if workspaces is not empty %}
-                <select name="workspace_role" style="width:auto;">
-                    <option value="editor" selected>editor</option>
-                    <option value="viewer">viewer</option>
-                    <option value="admin">admin</option>
-                </select>
-            {% endif %}
+            <select name="workspace_role" style="width:auto;">
+                <option value="editor" selected>editor</option>
+                <option value="viewer">viewer</option>
+                <option value="admin">admin</option>
+            </select>
         </div>
-    </div>
-    <input type="hidden" name="_token" value="{{ csrf_token('member-invite') }}">
+    {% endif %}
 </form>
 
-<table class="data" style="margin-bottom:22px;">
-    <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Email'|trans }}</th><th>{{ 'Company role'|trans }}</th><th>{{ 'Workspace access'|trans }}</th><th>{{ 'Joined'|trans }}</th><th></th></tr></thead>
-    <tbody>
+{# ---- members + pending invitations, one list ---- #}
+<div class="list-card">
     {% for m in members %}
-        <tr>
-            <td style="font-weight:600;">{{ m.user.name }}</td>
-            <td class="mono" style="color:var(--muted);">{{ m.user.email }}</td>
-            <td>
-                {% if m.owner %}
-                    <span class="pill running">{{ 'Owner'|trans }}</span>
-                {% else %}
-                    <form method="post" action="{{ path('app_member_role', {id: m.id}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('member-role' ~ m.id) }}">
-                        <select name="role" onchange="this.form.submit()" style="width:auto;">
-                            <option value="admin" {{ m.role == 'admin' ? 'selected' }}>{{ 'Company Admin'|trans }}</option>
-                            <option value="member" {{ m.role == 'member' ? 'selected' }}>{{ 'Member'|trans }}</option>
-                        </select>
-                    </form>
-                {% endif %}
-            </td>
-            <td>
+        <div class="lrow" style="padding:10px 15px;">
+            <span class="av {{ tones[loop.index0 % 5] }}">{{ m.user.name|slice(0, 1)|upper }}</span>
+            <span style="flex:1.3;min-width:0;">
+                <span class="l-name">{{ m.user.name }}</span>
+                <span class="l-sub" style="font-family:var(--font);">{{ m.user.email }}</span>
+            </span>
+            <span style="flex:0 0 190px;min-width:0;display:flex;gap:4px;flex-wrap:wrap;">
                 {% if m.canManage %}
-                    <span class="pill running">{{ 'all workspaces'|trans }}</span>
+                    <span class="chip">{{ 'all workspaces'|trans }}</span>
                 {% else %}
                     {% for a in workspace_access[m.user.id ~ ''] ?? [] %}
                         <span class="chip">{{ a }}</span>
                     {% else %}
-                        <span class="subtitle">{{ 'no access'|trans }}</span>
+                        <span class="l-meta">{{ 'no access'|trans }}</span>
                     {% endfor %}
                 {% endif %}
-            </td>
-            <td class="mono" style="color:var(--muted);">{{ m.createdAt|date('d.m.Y') }}</td>
-            <td style="text-align:right;">
-                {% if not m.owner %}
-                <form method="post" action="{{ path('app_member_remove', {id: m.id}) }}" onsubmit="return confirm('{{ '%name% will be removed from membership.'|trans({'%name%': m.user.name})|e('js') }}');">
-                    <input type="hidden" name="_token" value="{{ csrf_token('member-remove' ~ m.id) }}">
-                    <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}{{ 'Remove'|trans }}</button>
-                </form>
+            </span>
+            <span style="flex:0 0 120px;">
+                {% if m.owner %}
+                    <span class="mpill vio">{{ 'Owner'|trans }}</span>
+                {% else %}
+                    <form method="post" action="{{ path('app_member_role', {id: m.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('member-role' ~ m.id) }}">
+                        <select name="role" onchange="this.form.submit()"
+                                style="width:auto;font-family:var(--mono);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;padding:4px 7px;border-radius:6px;">
+                            <option value="admin" {{ m.role == 'admin' ? 'selected' }}>{{ 'Admin'|trans }}</option>
+                            <option value="member" {{ m.role == 'member' ? 'selected' }}>{{ 'Member'|trans }}</option>
+                        </select>
+                    </form>
                 {% endif %}
-            </td>
-        </tr>
+            </span>
+            <span class="l-meta" style="flex:0 0 84px;">{{ m.createdAt|date('d.m.Y') }}</span>
+            <span style="flex:0 0 76px;display:flex;justify-content:center;"><span class="pill passed">{{ 'active'|trans }}</span></span>
+            <span style="flex:0 0 30px;display:flex;justify-content:flex-end;">
+                {% if not m.owner %}
+                    <form method="post" action="{{ path('app_member_remove', {id: m.id}) }}" onsubmit="return confirm('{{ '%name% will be removed from membership.'|trans({'%name%': m.user.name})|e('js') }}');" style="display:flex;">
+                        <input type="hidden" name="_token" value="{{ csrf_token('member-remove' ~ m.id) }}">
+                        <button type="submit" title="{{ 'Remove'|trans }}" aria-label="{{ 'Remove'|trans }}"
+                                style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--faint);">{{ ic.i('trash', 13) }}</button>
+                    </form>
+                {% endif %}
+            </span>
+        </div>
     {% endfor %}
-    </tbody>
-</table>
 
-{% if invitations is not empty %}
-    <div class="eyebrow" style="margin:0 0 10px;">{{ 'Pending invitations'|trans }}</div>
-    <table class="data">
-        <thead><tr><th>{{ 'Email'|trans }}</th><th>{{ 'Role'|trans }}</th><th>{{ 'Expires'|trans }}</th><th></th></tr></thead>
-        <tbody>
-        {% for inv in invitations %}
-            <tr>
-                <td class="mono">{{ inv.email }}</td>
-                <td><span class="pill">{{ inv.merchantRole == 'admin' ? 'Company Admin'|trans : 'Member'|trans }}</span></td>
-                <td class="mono" style="color:var(--muted);">{{ inv.expiresAt|date('d.m.Y H:i') }}</td>
-                <td style="text-align:right;white-space:nowrap;">
-                    <div style="display:inline-flex;gap:7px;justify-content:flex-end;">
-                        <form method="post" action="{{ path('app_invitation_rotate', {id: inv.id}) }}">
-                            <input type="hidden" name="_token" value="{{ csrf_token('invite-rotate' ~ inv.id) }}">
-                            <button class="btn ghost small" type="submit">{{ ic.i('rerun', 12) }}{{ 'Generate new link'|trans }}</button>
-                        </form>
-                        <form method="post" action="{{ path('app_invitation_cancel', {id: inv.id}) }}" onsubmit="return confirm('{{ 'The invitation will be cancelled.'|trans|e('js') }}');">
-                            <input type="hidden" name="_token" value="{{ csrf_token('invite-cancel' ~ inv.id) }}">
-                            <button class="btn danger small" type="submit">{{ ic.i('x', 12, 2.4) }}{{ 'Cancel invitation'|trans }}</button>
-                        </form>
-                    </div>
-                </td>
-            </tr>
-        {% endfor %}
-        </tbody>
-    </table>
+    {% for inv in invitations %}
+        <div class="lrow" style="padding:10px 15px;">
+            <span class="av warn">{{ inv.email|slice(0, 1)|upper }}</span>
+            <span style="flex:1.3;min-width:0;">
+                <span class="l-name mono" style="font-family:var(--mono);font-size:11.5px;">{{ inv.email }}</span>
+                <span class="l-sub" style="font-family:var(--font);">{{ 'invitation sent'|trans }} · {{ 'expires'|trans }} {{ inv.expiresAt|date('d.m.Y H:i') }}</span>
+            </span>
+            <span style="flex:0 0 190px;"></span>
+            <span style="flex:0 0 120px;"><span class="mpill teal">{{ inv.merchantRole == 'admin' ? 'Admin'|trans : 'Member'|trans }}</span></span>
+            <span class="l-meta" style="flex:0 0 84px;">—</span>
+            <span style="flex:0 0 76px;display:flex;justify-content:center;"><span class="pill cancelled">{{ 'invited'|trans }}</span></span>
+            <span style="flex:0 0 66px;display:flex;justify-content:flex-end;gap:4px;">
+                <form method="post" action="{{ path('app_invitation_rotate', {id: inv.id}) }}" style="display:flex;">
+                    <input type="hidden" name="_token" value="{{ csrf_token('invite-rotate' ~ inv.id) }}">
+                    <button type="submit" title="{{ 'Generate new link'|trans }}" aria-label="{{ 'Generate new link'|trans }}"
+                            style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--faint);">{{ ic.i('rerun', 12) }}</button>
+                </form>
+                <form method="post" action="{{ path('app_invitation_cancel', {id: inv.id}) }}" onsubmit="return confirm('{{ 'The invitation will be cancelled.'|trans|e('js') }}');" style="display:flex;">
+                    <input type="hidden" name="_token" value="{{ csrf_token('invite-cancel' ~ inv.id) }}">
+                    <button type="submit" title="{{ 'Cancel invitation'|trans }}" aria-label="{{ 'Cancel invitation'|trans }}"
+                            style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--faint);">{{ ic.i('x', 12, 2.4) }}</button>
+                </form>
+            </span>
+        </div>
+    {% endfor %}
+</div>
+
+{# ---- convert-to-team banner (personal accounts) ---- #}
+{% if merchant.personal %}
+    <form class="vio-banner" method="post" action="{{ path('app_member_convert') }}" id="convertForm">
+        <span class="sq">{{ ic.i('company', 15) }}</span>
+        <span style="flex:1;min-width:0;">
+            <span class="t">{{ 'Convert to a team account'|trans }}</span>
+            <span class="s">{{ 'Your personal account becomes a company: shared workspaces, roles and invitations.'|trans }}</span>
+        </span>
+        <input type="hidden" name="company_name" id="companyName">
+        <input type="hidden" name="_token" value="{{ csrf_token('member-convert') }}">
+        <button class="btn vio" type="button" id="convertBtn" style="flex-shrink:0;">{{ 'Convert'|trans }}</button>
+    </form>
+    <script>
+    document.getElementById('convertBtn').addEventListener('click', function () {
+        var n = prompt('{{ 'Give your account a company name'|trans|e('js') }}', 'Acme Ltd.');
+        if (!n) return;
+        document.getElementById('companyName').value = n;
+        document.getElementById('convertForm').submit();
+    });
+    </script>
 {% endif %}
 {% endblock %}

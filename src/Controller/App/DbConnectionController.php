@@ -26,6 +26,7 @@ class DbConnectionController extends AbstractAppController
         return $this->render('app/dbconn/index.html.twig', [
             'workspace' => $workspace,
             'connections' => $connections->findByWorkspace($workspace),
+            'step_counts' => $connections->stepUsageCounts($workspace),
         ]);
     }
 

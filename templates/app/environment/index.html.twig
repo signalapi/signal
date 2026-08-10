@@ -4,55 +4,64 @@
 {% block title %}{{ 'Environments'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Workspace'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ 'Environments'|trans }}</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ '%count% environment|%count% environments'|trans({'%count%': environments|length}) }}</p>
+        <p class="subtitle">{{ 'Variables per environment, with your own values on top'|trans }}</p>
+    </div>
+    <div class="actions">
+        <form method="post" action="{{ path('app_environment_new', {workspace: workspace.id}) }}" id="envNewForm">
+            <input type="hidden" name="name" id="envNewName">
+            <input type="hidden" name="_token" value="{{ csrf_token('new-environment') }}">
+            <button class="btn" type="button" id="envNewBtn">{{ ic.i('plus', 13, 2.2) }}{{ 'Environment'|trans }}</button>
+        </form>
     </div>
 </div>
 
-<form class="addbar" method="post" action="{{ path('app_environment_new', {workspace: workspace.id}) }}">
-    <input type="text" name="name" placeholder="{{ 'New environment name (e.g. staging)'|trans }}">
-    <input type="hidden" name="_token" value="{{ csrf_token('new-environment') }}">
-    <button class="btn small" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Create empty'|trans }}</button>
-</form>
-<form class="addbar" method="post" action="{{ path('app_environment_import', {workspace: workspace.id}) }}" enctype="multipart/form-data">
-    <span class="subtitle" style="display:inline-flex;align-items:center;gap:6px;flex-shrink:0;">
-        {{ ic.i('import', 13) }}{{ 'Upload a Postman environment'|trans }}
-    </span>
-    <input type="file" name="environment" accept="application/json,.json">
-    <input type="hidden" name="_token" value="{{ csrf_token('env-import') }}">
-    <button class="btn small ghost" type="submit">{{ 'Import'|trans }}</button>
-</form>
-<p class="subtitle" style="margin:0 0 18px;">{{ 'In Postman:'|trans }} Environments → ⋯ → <em>Export</em>. {{ 'You can add the environment here even if the collection came first.'|trans }}</p>
-
 {% if environments is empty %}
-    <div class="empty">{{ 'No environments yet. Create one above or import from Postman.'|trans }}</div>
+    <div class="empty" style="margin-bottom:14px;">{{ 'No environments yet. Create one above or import from Postman.'|trans }}</div>
 {% else %}
-<div class="res-grid stagger">
-    {% for env in environments %}
-        <div class="res-card">
-            <div class="rc-top">
-                <div class="ic">{{ ic.i('environments', 17) }}</div>
-                <div class="rc-name">
-                    <a href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ env.name }}</a>
-                    <div class="s">
-                        {{ '%count% variable|%count% variables'|trans({'%count%': env.variables|length}) }}
-                        {% set mine = mine_counts[env.id]|default(0) %}
-                        {% if mine %} · <span class="pill info">{{ '%count% yours'|trans({'%count%': mine}) }}</span>{% endif %}
-                    </div>
-                </div>
-            </div>
-            <div class="rc-foot">
-                <a class="btn grow ghost" style="justify-content:center;" href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ 'Edit'|trans }}</a>
+    <div class="list-card">
+        {% for env in environments %}
+            {% set mine = mine_counts[env.id]|default(0) %}
+            <div class="lrow">
+                <span class="sq pri" style="width:28px;height:28px;">{{ ic.i('environments', 14) }}</span>
+                <span style="flex:1;min-width:0;">
+                    <a class="l-name" href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ env.name }}</a>
+                    <span class="l-sub" style="font-family:var(--font);">{{ '%count% variable|%count% variables'|trans({'%count%': env.variables|length}) }}</span>
+                </span>
+                {% if mine %}<span class="mpill vio">{{ '%count% yours'|trans({'%count%': mine}) }}</span>{% endif %}
+                <a class="gbtn" href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ 'Open'|trans }}</a>
                 <form method="post" action="{{ path('app_environment_delete', {workspace: workspace.id, environment: env.id}) }}" onsubmit="return confirm('{{ 'The environment will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ env.id) }}">
-                    <button class="btn danger" type="submit">{{ ic.i('trash', 13) }}{{ 'Delete'|trans }}</button>
+                    <button class="gbtn danger" type="submit">{{ 'Delete'|trans }}</button>
                 </form>
             </div>
-        </div>
-    {% endfor %}
-</div>
+        {% endfor %}
+    </div>
 {% endif %}
+
+<div class="card" style="max-width:560px;">
+    <div class="card-head" style="border-bottom:none;padding-bottom:0;">
+        <span class="sq" style="width:26px;height:26px;border-radius:8px;">{{ ic.i('import', 13) }}</span>
+        <span class="t">{{ 'Import from Postman'|trans }}</span>
+    </div>
+    <div class="card-body">
+        <p class="fhint" style="margin:0 0 10px;">{{ 'In Postman:'|trans }} Environments → ⋯ → <em>Export</em>. {{ 'You can add the environment here even if the collection came first.'|trans }}</p>
+        <form method="post" action="{{ path('app_environment_import', {workspace: workspace.id}) }}" enctype="multipart/form-data" style="display:flex;gap:9px;align-items:center;">
+            <input type="file" name="environment" accept="application/json,.json">
+            <input type="hidden" name="_token" value="{{ csrf_token('env-import') }}">
+            <button class="gbtn" type="submit">{{ 'Import'|trans }}</button>
+        </form>
+    </div>
+</div>
+
+<script>
+document.getElementById('envNewBtn').addEventListener('click', function () {
+    var n = prompt('{{ 'New environment name (e.g. staging)'|trans|e('js') }}');
+    if (!n) return;
+    document.getElementById('envNewName').value = n;
+    document.getElementById('envNewForm').submit();
+});
+</script>
 {% endblock %}

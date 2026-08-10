@@ -4,84 +4,105 @@
 {% block title %}{{ 'API Tokens'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
-<a class="backlink" href="{{ path('app_workspace_show', {id: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Workspace'|trans }}</a>
 <div class="pagehead">
     <div>
         <h1>{{ 'API & MCP tokens'|trans }}</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ 'for CI, webhooks and the Claude integration'|trans }}</p>
+        <p class="subtitle">{{ 'For CI, webhooks and the Claude integration'|trans }}</p>
+    </div>
+    <div class="actions">
+        <form method="post" action="{{ path('app_apitoken_new', {workspace: workspace.id}) }}" id="tokNewForm">
+            <input type="hidden" name="name" id="tokNewName">
+            <input type="hidden" name="_token" value="{{ csrf_token('apitoken-new') }}">
+            <button class="btn" type="button" id="tokNewBtn">{{ ic.i('plus', 13, 2.2) }}Token</button>
+        </form>
     </div>
 </div>
 
 {% if new_token %}
-    <div class="flash success" style="align-items:flex-start;word-break:break-all;">
-        {{ ic.i('shield', 15, 2.4) }}
-        <span>
-            <strong>{{ 'New token — shown only once, save it somewhere:'|trans }}</strong><br>
-            <code class="mono" style="font-size:13px;">{{ new_token }}</code>
-        </span>
+    <div class="reveal-card" id="revealCard">
+        <div class="t">
+            <span class="sq pass" style="width:20px;height:20px;border-radius:6px;">{{ ic.i('check', 11, 3) }}</span>
+            {{ 'New token — shown only once'|trans }}
+            <button type="button" onclick="document.getElementById('revealCard').remove()" aria-label="{{ 'Close'|trans }}"
+                    style="margin-left:auto;width:24px;height:24px;display:flex;align-items:center;justify-content:center;background:none;border:1px solid var(--line);border-radius:7px;cursor:pointer;color:var(--muted);">{{ ic.i('x', 12, 2.4) }}</button>
+        </div>
+        <div class="tok">
+            <code id="newTok">{{ new_token }}</code>
+            <button class="btn" type="button" style="padding:6px 12px;font-size:11.5px;"
+                    onclick="navigator.clipboard.writeText(document.getElementById('newTok').textContent);this.textContent='{{ 'Copied'|trans|e('js') }}';">{{ 'Copy'|trans }}</button>
+        </div>
+        <p style="margin:9px 0 0;font-size:11.5px;color:var(--muted);">{{ 'Store it in your secret manager now. Signal keeps only a hash and the prefix.'|trans }}</p>
     </div>
 {% endif %}
 
-<form class="addbar" method="post" action="{{ path('app_apitoken_new', {workspace: workspace.id}) }}">
-    <input type="text" name="name" placeholder="{{ 'Token name (e.g. ci-pipeline, claude-mcp)'|trans }}">
-    <input type="hidden" name="_token" value="{{ csrf_token('apitoken-new') }}">
-    <button class="btn small" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Create token'|trans }}</button>
-</form>
-
 {% if tokens is empty %}
-    <div class="empty" style="margin-bottom:18px;">{{ 'No tokens yet. Create a token for CI, webhook or MCP integration.'|trans }}</div>
+    <div class="empty" style="margin-bottom:14px;">{{ 'No tokens yet. Create a token for CI, webhook or MCP integration.'|trans }}</div>
 {% else %}
-    <table class="data" style="margin-bottom:22px;">
-        <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Prefix'|trans }}</th><th>{{ 'Last used'|trans }}</th><th>{{ 'Status'|trans }}</th><th></th></tr></thead>
-        <tbody>
+    <div class="list-card">
+        <div class="lc-head">
+            <span style="flex:1.4;">{{ 'Name'|trans }}</span>
+            <span style="flex:0 0 140px;">{{ 'Prefix'|trans }}</span>
+            <span style="flex:0 0 130px;">{{ 'Last used'|trans }}</span>
+            <span style="flex:0 0 90px;">{{ 'Status'|trans }}</span>
+            <span style="flex:0 0 76px;"></span>
+        </div>
         {% for t in tokens %}
-            <tr>
-                <td style="font-weight:600;">{{ t.name }}</td>
-                <td><code class="mono">{{ t.tokenPrefix }}…</code></td>
-                <td class="mono" style="color:var(--muted);">{{ t.lastUsedAt ? t.lastUsedAt|date('d.m.Y H:i') : '—' }}</td>
-                <td>
+            <div class="lrow" {% if t.revoked %}style="opacity:.55;"{% endif %}>
+                <span style="flex:1.4;min-width:0;font-size:12.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ t.name }}</span>
+                <span class="l-meta" style="flex:0 0 140px;">{{ t.tokenPrefix }}…</span>
+                <span class="l-meta" style="flex:0 0 130px;">{{ t.lastUsedAt ? t.lastUsedAt|date('d.m.Y H:i') : '—' }}</span>
+                <span style="flex:0 0 90px;">
                     {%- if t.revoked -%}
                         <span class="pill failed">{{ 'revoked'|trans }}</span>
                     {%- else -%}
-                        <span class="pill passed"><span class="dot passed"></span>{{ 'active'|trans }}</span>
+                        <span class="pill passed">{{ 'active'|trans }}</span>
                     {%- endif -%}
-                </td>
-                <td style="text-align:right;">
+                </span>
+                <span style="flex:0 0 76px;display:flex;justify-content:flex-end;">
                     {% if not t.revoked %}
-                    <form method="post" action="{{ path('app_apitoken_revoke', {workspace: workspace.id, token: t.id}) }}" onsubmit="return confirm('{{ 'The token will be revoked.'|trans|e('js') }}');">
-                        <input type="hidden" name="_token" value="{{ csrf_token('revoke' ~ t.id) }}">
-                        <button class="btn danger small" type="submit">{{ ic.i('x', 12, 2.4) }}{{ 'Revoke'|trans }}</button>
-                    </form>
+                        <form method="post" action="{{ path('app_apitoken_revoke', {workspace: workspace.id, token: t.id}) }}" onsubmit="return confirm('{{ 'The token will be revoked.'|trans|e('js') }}');">
+                            <input type="hidden" name="_token" value="{{ csrf_token('revoke' ~ t.id) }}">
+                            <button class="gbtn danger" type="submit">{{ 'Revoke'|trans }}</button>
+                        </form>
                     {% endif %}
-                </td>
-            </tr>
+                </span>
+            </div>
         {% endfor %}
-        </tbody>
-    </table>
+    </div>
 {% endif %}
 
 <div class="grid2">
     <div class="card">
-        <div class="card-head">
-            {{ ic.i('rerun', 14) }}<span class="t">{{ 'Run via CI / Webhook'|trans }}</span>
+        <div class="card-head" style="border-bottom:none;padding-bottom:0;">
+            <span class="sq pri" style="width:26px;height:26px;border-radius:8px;">{{ ic.i('rerun', 13) }}</span>
+            <span class="t">{{ 'Run via CI / webhook'|trans }}</span>
         </div>
         <div class="card-body">
-            <pre class="codebox">curl -X POST http://localhost:8080/api/v1/flows/&lt;FLOW_ID&gt;/run \
-  -H "Authorization: Bearer &lt;TOKEN&gt;"
-<span class="c"># {{ 'for a JUnit report: ?format=junit'|trans }}</span>
-<span class="c"># {{ 'returns HTTP 422 on failure'|trans }}</span></pre>
+            <p class="fhint" style="margin:0 0 10px;">{{ 'Returns 422 on failure so the pipeline breaks. Add ?format=junit for a report.'|trans }}</p>
+            <pre class="snip">curl -X POST http://localhost:8080/api/v1/flows/&lt;FLOW_ID&gt;/run \
+  -H "Authorization: Bearer &lt;TOKEN&gt;"</pre>
         </div>
     </div>
     <div class="card">
-        <div class="card-head">
-            {{ ic.i('bot', 14) }}<span class="t">{{ 'Claude / MCP connection'|trans }}</span>
+        <div class="card-head" style="border-bottom:none;padding-bottom:0;">
+            <span class="sq vio" style="width:26px;height:26px;border-radius:8px;">{{ ic.i('bot', 13) }}</span>
+            <span class="t">{{ 'Claude / MCP connection'|trans }}</span>
         </div>
         <div class="card-body">
-            <p class="fhint" style="margin:0 0 10px;">{{ 'With this token, Claude can build and run test flows in this workspace from natural language.'|trans }} Endpoint: <code class="mono">http://localhost:8080/mcp</code></p>
-            <pre class="codebox">claude mcp add --transport http api-test \
+            <p class="fhint" style="margin:0 0 10px;">{{ 'With this token Claude can build and run flows in this workspace.'|trans }}</p>
+            <pre class="snip">claude mcp add --transport http api-test \
   http://localhost:8080/mcp \
   --header "Authorization: Bearer &lt;TOKEN&gt;"</pre>
         </div>
     </div>
 </div>
+
+<script>
+document.getElementById('tokNewBtn').addEventListener('click', function () {
+    var n = prompt('{{ 'Token name (e.g. ci-pipeline, claude-mcp)'|trans|e('js') }}');
+    if (!n) return;
+    document.getElementById('tokNewName').value = n;
+    document.getElementById('tokNewForm').submit();
+});
+</script>
 {% endblock %}

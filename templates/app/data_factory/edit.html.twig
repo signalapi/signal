@@ -5,91 +5,133 @@
 
 {% block panel %}
 {% set cfg = factory.config %}
-<a class="backlink" href="{{ path('app_factory_index', {workspace: workspace.id}) }}"><span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Data Factories'|trans }}</a>
 <div class="pagehead">
     <div>
-        <h1>{{ 'Edit factory'|trans }}</h1>
-        <p class="subtitle">{{ 'Used in flows as %token% — a fresh value every time.'|trans({'%token%': '<code>' ~ ('{{$' ~ factory.name ~ '}}')|e ~ '</code>'})|raw }}</p>
+        <h1>{{ 'Data factories'|trans }}</h1>
+        <p class="subtitle">{{ 'Generators for the values a flow needs — usable as %token% anywhere'|trans({'%token%': ('{{$token}}') }) }}</p>
+    </div>
+    <div class="actions">
+        <a class="btn ghost" href="{{ path('app_factory_index', {workspace: workspace.id}) }}">{{ ic.i('arrow-left', 12, 2.2) }}{{ 'All factories'|trans }}</a>
     </div>
 </div>
 
-<form method="post" id="facForm" data-preview="{{ path('app_factory_preview', {workspace: workspace.id, factory: factory.id}) }}">
-    <input type="hidden" name="_token" value="{{ csrf_token('factory-edit' ~ factory.id) }}">
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:14px;align-items:start;">
+    {% include 'app/data_factory/_list.html.twig' with {selected: factory.id ~ ''} %}
 
-    <div class="grid2" style="max-width:640px;">
-        <div class="field">
-            <label>{{ 'Name (token)'|trans }}</label>
-            <input type="text" name="name" value="{{ factory.name }}" class="input-mono">
-            <p class="fhint">{{ 'Letters, digits,'|trans }} <code>_</code>, <code>.</code></p>
+    <div class="card" style="border-color:var(--pri);">
+        <div class="card-head">
+            <span class="t">{{ 'Editor'|trans }}</span>
+            <span class="chip var mono">{{ '{{$' ~ factory.name ~ '}}' }}</span>
         </div>
-        <div class="field">
-            <label>{{ 'Kind'|trans }}</label>
-            <select name="kind" id="kind">
-                <option value="oneOf"    {{ factory.kind == 'oneOf' ? 'selected' }}>{{ 'One of a list (oneOf)'|trans }}</option>
-                <option value="template" {{ factory.kind == 'template' ? 'selected' }}>{{ 'Template (template)'|trans }}</option>
-                <option value="intRange" {{ factory.kind == 'intRange' ? 'selected' }}>{{ 'Number range (intRange)'|trans }}</option>
-                <option value="pattern"  {{ factory.kind == 'pattern' ? 'selected' }}>{{ 'Pattern (pattern)'|trans }}</option>
-            </select>
-        </div>
-    </div>
-    <div class="field" style="max-width:640px;">
-        <label>{{ 'Description (optional)'|trans }}</label>
-        <input type="text" name="description" value="{{ factory.description }}" placeholder="{{ 'what does it generate?'|trans }}">
-    </div>
+        <div class="card-body">
+            <form method="post" id="facForm" data-preview="{{ path('app_factory_preview', {workspace: workspace.id, factory: factory.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('factory-edit' ~ factory.id) }}">
+                <input type="hidden" name="kind" id="kind" value="{{ factory.kind }}">
 
-    {# ---- kind-specific config ---- #}
-    <div class="fgroup kcfg" data-kind="oneOf" style="max-width:640px;">
-        <div class="fgroup-title">{{ 'Values — one option per line'|trans }}</div>
-        <textarea name="values" rows="6" class="input-mono" placeholder="Yuno&#10;Payrails">{{ (cfg.values ?? [])|join('\n') }}</textarea>
-        <p class="fhint">{{ 'A random line is picked.'|trans }}</p>
-    </div>
-    <div class="fgroup kcfg" data-kind="template" style="max-width:640px;">
-        <div class="fgroup-title">{{ 'Template'|trans }}</div>
-        <input type="text" name="template" value="{{ cfg.template ?? '' }}" class="input-mono" placeholder="test+{{ '{{$guid}}' }}@zotlo.com">
-        <p class="fhint">{{ 'The %token% generators inside it (built-in or another factory) are resolved.'|trans({'%token%': '<code>' ~ ('{{$...}}')|e ~ '</code>'})|raw }}</p>
-    </div>
-    <div class="fgroup kcfg" data-kind="intRange" style="max-width:640px;">
-        <div class="fgroup-title">{{ 'Number range'|trans }}</div>
-        <div style="display:flex;gap:12px;">
-            <div class="field" style="margin:0;">
-                <label>min</label>
-                <input type="number" name="min" value="{{ cfg.min ?? 1 }}" style="width:110px;">
-            </div>
-            <div class="field" style="margin:0;">
-                <label>max</label>
-                <input type="number" name="max" value="{{ cfg.max ?? 100 }}" style="width:110px;">
-            </div>
+                <div class="grid2">
+                    <div class="field">
+                        <label>{{ 'Name (token)'|trans }}</label>
+                        <input type="text" name="name" value="{{ factory.name }}" class="input-mono">
+                    </div>
+                    <div class="field">
+                        <label>{{ 'Description (optional)'|trans }}</label>
+                        <input type="text" name="description" value="{{ factory.description }}" placeholder="{{ 'what does it generate?'|trans }}">
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>{{ 'Kind'|trans }}</label>
+                    <div class="kind-grid">
+                        {% for k, meta in {
+                            oneOf:    'one of a list'|trans,
+                            template: 'template with placeholders'|trans,
+                            intRange: 'integer range'|trans,
+                            pattern:  'regex-like pattern'|trans,
+                        } %}
+                            <button type="button" class="kbtn kindbtn {{ factory.kind == k ? 'on' }}" data-kind="{{ k }}">
+                                <span class="t mono" style="font-family:var(--mono);">{{ k }}</span>
+                                <span class="s">{{ meta }}</span>
+                            </button>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="field">
+                    <label>{{ 'Configuration'|trans }}</label>
+
+                    <div class="kcfg" data-kind="oneOf">
+                        <div class="code-ed"><div class="cb-gutter"></div><textarea name="values" rows="5" spellcheck="false" placeholder="Yuno&#10;Payrails">{{ (cfg.values ?? [])|join('\n') }}</textarea></div>
+                        <p class="fhint">{{ 'One option per line — a random line is picked.'|trans }}</p>
+                    </div>
+                    <div class="kcfg" data-kind="template">
+                        <input type="text" name="template" value="{{ cfg.template ?? '' }}" class="input-mono" placeholder="test+{{ '{{$guid}}' }}@zotlo.com">
+                        <p class="fhint">{{ 'The %token% generators inside it (built-in or another factory) are resolved.'|trans({'%token%': '<code>' ~ ('{{$...}}')|e ~ '</code>'})|raw }}</p>
+                    </div>
+                    <div class="kcfg" data-kind="intRange">
+                        <div style="display:flex;gap:12px;">
+                            <div class="field" style="margin:0;"><label>min</label><input type="number" name="min" value="{{ cfg.min ?? 1 }}" style="width:110px;"></div>
+                            <div class="field" style="margin:0;"><label>max</label><input type="number" name="max" value="{{ cfg.max ?? 100 }}" style="width:110px;"></div>
+                        </div>
+                    </div>
+                    <div class="kcfg" data-kind="pattern">
+                        <input type="text" name="pattern" value="{{ cfg.pattern ?? '' }}" class="input-mono" placeholder="#### #### #### ####">
+                        <p class="fhint"><code>#</code> {{ 'digit'|trans }} · <code>A</code> A-Z · <code>a</code> a-z · <code>*</code> {{ 'letter+digit'|trans }} · {{ 'others as-is.'|trans }}</p>
+                    </div>
+                </div>
+
+                <div class="preview-bar" style="margin-bottom:14px;">
+                    <span class="cap">Preview</span>
+                    <span class="val" id="previewOut">{{ samples[factory.id ~ ''] ?? '—' }}</span>
+                    <button type="button" class="gbtn" id="previewBtn">{{ ic.i('rerun', 12) }} {{ 'Re-roll'|trans }}</button>
+                </div>
+
+                <div class="form-actions" style="margin:0;">
+                    <button class="btn" type="submit">{{ 'Save'|trans }}</button>
+                    <a class="btn ghost" href="{{ path('app_factory_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
+                </div>
+            </form>
+
+            <form method="post" action="{{ path('app_factory_delete', {workspace: workspace.id, factory: factory.id}) }}"
+                  onsubmit="return confirm('{{ 'The factory will be deleted. Are you sure?'|trans|e('js') }}');"
+                  style="margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);">
+                <input type="hidden" name="_token" value="{{ csrf_token('factory-delete' ~ factory.id) }}">
+                <button class="btn danger" type="submit">{{ ic.i('trash', 13) }}{{ 'Delete factory'|trans }}</button>
+            </form>
         </div>
     </div>
-    <div class="fgroup kcfg" data-kind="pattern" style="max-width:640px;">
-        <div class="fgroup-title">{{ 'Pattern'|trans }}</div>
-        <input type="text" name="pattern" value="{{ cfg.pattern ?? '' }}" class="input-mono" placeholder="#### #### #### ####">
-        <p class="fhint"><code>#</code> {{ 'digit'|trans }} · <code>A</code> A-Z · <code>a</code> a-z · <code>*</code> {{ 'letter+digit'|trans }} · {{ 'others as-is.'|trans }}</p>
-    </div>
-
-    <div class="fgroup" style="max-width:640px;">
-        <div style="display:flex;align-items:center;gap:10px;">
-            <button type="button" class="btn ghost small" id="previewBtn">{{ ic.i('factory', 12) }}{{ 'Preview'|trans }}</button>
-            <span id="previewOut" class="mono" style="font-size:11.5px;color:var(--pri);"></span>
-        </div>
-    </div>
-
-    <div class="form-actions">
-        <button class="btn" type="submit">{{ 'Save'|trans }}</button>
-        <a class="btn ghost" href="{{ path('app_factory_index', {workspace: workspace.id}) }}">{{ 'Cancel'|trans }}</a>
-    </div>
-</form>
+</div>
 
 <script>
 (function () {
     var form = document.getElementById('facForm');
-    var kind = document.getElementById('kind');
+    var kindInput = document.getElementById('kind');
+
     function sync() {
         document.querySelectorAll('.kcfg').forEach(function (el) {
-            el.style.display = el.dataset.kind === kind.value ? '' : 'none';
+            el.style.display = el.dataset.kind === kindInput.value ? '' : 'none';
+        });
+        document.querySelectorAll('.kindbtn').forEach(function (b) {
+            b.classList.toggle('on', b.dataset.kind === kindInput.value);
         });
     }
-    kind.addEventListener('change', sync); sync();
+    document.querySelectorAll('.kindbtn').forEach(function (b) {
+        b.addEventListener('click', function () { kindInput.value = b.dataset.kind; sync(); });
+    });
+    sync();
+
+    // line-number gutter for the oneOf editor
+    document.querySelectorAll('.code-ed').forEach(function (ed) {
+        var ta = ed.querySelector('textarea'), gut = ed.querySelector('.cb-gutter');
+        function renum() {
+            var n = ta.value.split('\n').length;
+            var out = ''; for (var i = 1; i <= n; i++) out += i + '\n';
+            gut.textContent = out;
+            gut.scrollTop = ta.scrollTop;
+        }
+        ta.addEventListener('input', renum);
+        ta.addEventListener('scroll', function () { gut.scrollTop = ta.scrollTop; });
+        renum();
+    });
 
     document.getElementById('previewBtn').addEventListener('click', function () {
         var out = document.getElementById('previewOut');

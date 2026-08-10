@@ -20,10 +20,31 @@ use Symfony\Component\Validator\Constraints as Assert;
 class WorkspaceController extends AbstractAppController
 {
     #[Route('', name: 'app_workspace_index', methods: ['GET'])]
-    public function index(WorkspaceContext $context): Response
-    {
+    public function index(
+        WorkspaceContext $context,
+        \App\Repository\TestFlowRepository $flows,
+        \App\Repository\ApiCollectionRepository $collections,
+        \App\Repository\EnvironmentRepository $environments,
+        \App\Repository\WorkspaceMemberRepository $workspaceMembers,
+        \App\Repository\FlowRunRepository $runs,
+    ): Response {
+        // Card stats per workspace: counts, member roster and a recent-run strip.
+        $stats = [];
+        foreach ($context->list() as $w) {
+            $membership = $workspaceMembers->findOneByUserAndWorkspace($this->currentUser(), $w);
+            $stats[(string) $w->getId()] = [
+                'flows' => $flows->count(['workspace' => $w]),
+                'collections' => $collections->count(['workspace' => $w]),
+                'envs' => $environments->count(['workspace' => $w]),
+                'members' => $workspaceMembers->findByWorkspace($w),
+                'role' => $membership?->getRole(),
+                'spark' => array_reverse($runs->recentForWorkspace($w, 14)),
+            ];
+        }
+
         return $this->render('app/workspace/index.html.twig', [
             'workspaces' => $context->list(),
+            'ws_stats' => $stats,
         ]);
     }
 

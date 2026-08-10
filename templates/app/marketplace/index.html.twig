@@ -3,28 +3,16 @@
 
 {% block title %}API Marketplace{% endblock %}
 
-{% macro visibility_pill(api) %}
-{# the icon alias cannot be passed in, so the macro imports it itself #}
-{% import '_icons.html.twig' as ic %}
-    {% if api.visibility == 'public' %}
-        <span class="pill">{{ 'Public'|trans }}</span>
-        {% if api.verified %}<span class="pill passed">{{ ic.i('check', 11, 2.8) }}{{ 'Verified'|trans }}</span>{% endif %}
-    {% elseif api.visibility == 'merchant' %}
-        <span class="pill">{{ ic.i('company', 11) }}{{ 'Company only'|trans }}</span>
-    {% else %}
-        <span class="pill">{{ ic.i('shield', 11) }}{{ 'Workspace only'|trans }}</span>
-    {% endif %}
-{% endmacro %}
-
 {% block panel %}
+{% set tones = ['pri', 'vio', 'teal', 'warn', 'pass'] %}
 <div class="pagehead">
     <div>
         <h1>API Marketplace</h1>
-        <p class="subtitle">{{ 'A platform-wide catalog: add ready-made API definitions to your workspace with one click, or publish your own.'|trans }}</p>
+        <p class="subtitle">{{ 'Published collections you can import into a workspace in one click'|trans }}</p>
     </div>
     {% if can_publish %}
         <div class="actions">
-            <a class="btn" href="{{ path('app_marketplace_publish') }}">{{ ic.i('plus', 13, 2.2) }}{{ 'Publish an API'|trans }}</a>
+            <a class="btn ghost" href="{{ path('app_marketplace_publish') }}">{{ 'Publish an API'|trans }}</a>
         </div>
     {% endif %}
 </div>
@@ -35,77 +23,132 @@
     <div class="flash error">{{ ic.i('x', 14, 2.6) }}{{ 'You have no workspace you can import into (editor+ permission).'|trans }}</div>
 {% endif %}
 
-<div class="res-grid stagger">
+{% if apis is not empty %}
+{% set cats = [] %}
+{% for a in apis %}{% if a.category and a.category not in cats %}{% set cats = cats|merge([a.category]) %}{% endif %}{% endfor %}
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;flex-wrap:wrap;row-gap:8px;">
+    <label class="searchbar">
+        <span class="sic">{{ ic.i('search', 14) }}</span>
+        <input type="text" id="mktSearch" placeholder="{{ 'Search API, provider, endpoint…'|trans }}">
+    </label>
+    <button type="button" class="fchip on" data-c="all">{{ 'All'|trans }}</button>
+    {% for c in cats %}
+        <button type="button" class="fchip" data-c="{{ c|lower|e('html_attr') }}">{{ c }}</button>
+    {% endfor %}
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;">
     {% for a in apis %}
-        <div class="res-card">
-            <div class="rc-top">
-                <div class="ic">{% if a.logo %}{{ a.logo }}{% else %}{{ ic.i('marketplace', 16) }}{% endif %}</div>
-                <div class="rc-name">
-                    <span>{{ a.name }}</span>
-                    <div class="s">{{ a.publisher ?? '' }}{{ a.category ? (a.publisher ? ' · ' : '') ~ a.category }}</div>
+        <div class="ws-card mkt-card" data-cat="{{ (a.category ?? '')|lower|e('html_attr') }}"
+             data-text="{{ (a.name ~ ' ' ~ (a.publisher ?? '') ~ ' ' ~ (a.description ?? '') ~ ' ' ~ (a.category ?? ''))|lower|e('html_attr') }}"
+             style="display:flex;flex-direction:column;">
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;">
+                <span class="av {{ tones[loop.index0 % 5] }}" style="border-radius:9px;font-size:13px;">{{ a.logo ?: a.name|slice(0, 1)|upper }}</span>
+                <span style="flex:1;min-width:0;">
+                    <span style="display:block;font-size:13px;font-weight:700;color:var(--ink);letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.name }}</span>
+                    <span style="display:block;font-family:var(--mono);font-size:10px;color:var(--faint);">{{ a.latestVersion ? 'v' ~ a.latestVersion.label : '—' }}{{ a.publisher ? ' · ' ~ a.publisher }}</span>
+                </span>
+                {% if a.visibility == 'public' and a.verified %}
+                    <span class="sq pass" style="width:18px;height:18px;border-radius:5px;" title="verified">{{ ic.i('check', 11, 3) }}</span>
+                {% elseif a.visibility == 'merchant' %}
+                    <span class="sq" style="width:18px;height:18px;border-radius:5px;" title="{{ 'Company only'|trans }}">{{ ic.i('company', 11) }}</span>
+                {% elseif a.visibility == 'workspace' %}
+                    <span class="sq" style="width:18px;height:18px;border-radius:5px;" title="{{ 'Workspace only'|trans }}">{{ ic.i('shield', 11) }}</span>
+                {% endif %}
+            </div>
+            <p style="margin:0 0 11px;font-size:11.5px;color:var(--muted);line-height:1.5;min-height:34px;">{{ a.description }}</p>
+            <div style="display:flex;align-items:center;gap:12px;font-family:var(--mono);font-size:10px;color:var(--faint);margin-bottom:11px;">
+                <span>{{ a.latestVersion ? a.latestVersion.spec.paths|length : 0 }} endpoints</span><span>·</span><span>{{ a.latestVersion ? a.latestVersion.createdAt|date('d.m.Y') }}</span>
+            </div>
+            {% if a.category %}
+                <div style="display:flex;gap:5px;flex-wrap:wrap;margin-bottom:12px;">
+                    <span class="chip">{{ a.category|lower }}</span>
                 </div>
-            </div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;">{{ _self.visibility_pill(a) }}</div>
-            {% if a.description %}<p class="subtitle" style="margin-top:10px;">{{ a.description }}</p>{% endif %}
-            <p class="subtitle" style="margin-top:8px;font-size:11.5px;">
-                {{ 'Version'|trans }} <strong class="mono">{{ a.latestVersion.label }}</strong> · {{ '%count% endpoint|%count% endpoints'|trans({'%count%': a.latestVersion.spec.paths|length}) }} · {{ a.latestVersion.createdAt|date('d.m.Y') }}
-            </p>
+            {% endif %}
+            <div style="flex:1 1 0;"></div>
             {% if workspaces is not empty %}
-            <div class="rc-foot">
-                <form method="post" action="{{ path('app_marketplace_add', {slug: a.slug}) }}" style="display:flex;gap:8px;width:100%;">
-                    <select name="workspace_id" class="grow">
-                        {% for w in workspaces %}
-                            <option value="{{ w.id }}">{{ w.name }}</option>
-                        {% endfor %}
-                    </select>
+                <form method="post" action="{{ path('app_marketplace_add', {slug: a.slug}) }}" style="display:flex;gap:7px;">
                     <input type="hidden" name="_token" value="{{ csrf_token('marketplace-add') }}">
-                    <button class="btn" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Add'|trans }}</button>
+                    {% if workspaces|length == 1 %}
+                        <input type="hidden" name="workspace_id" value="{{ workspaces|first.id }}">
+                    {% else %}
+                        <select name="workspace_id" style="flex:1;min-width:0;font-size:11.5px;">
+                            {% for w in workspaces %}<option value="{{ w.id }}">{{ w.name }}</option>{% endfor %}
+                        </select>
+                    {% endif %}
+                    <button class="btn" type="submit" style="{{ workspaces|length == 1 ? 'width:100%;justify-content:center;' : 'flex-shrink:0;' }}padding:8px;font-size:12px;">{{ 'Import'|trans }}</button>
                 </form>
-            </div>
             {% endif %}
         </div>
     {% endfor %}
 </div>
 
+<script>
+(function () {
+    var cards = Array.prototype.slice.call(document.querySelectorAll('.mkt-card'));
+    var q = '', c = 'all';
+    function apply() {
+        cards.forEach(function (x) {
+            var ok = (!q || x.dataset.text.indexOf(q) !== -1) && (c === 'all' || x.dataset.cat === c);
+            x.style.display = ok ? '' : 'none';
+        });
+    }
+    document.getElementById('mktSearch').addEventListener('input', function () { q = this.value.toLowerCase().trim(); apply(); });
+    document.querySelectorAll('.fchip[data-c]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            document.querySelectorAll('.fchip[data-c]').forEach(function (x) { x.classList.remove('on'); });
+            b.classList.add('on'); c = b.dataset.c; apply();
+        });
+    });
+})();
+</script>
+{% endif %}
+
 {% if my_published is not empty %}
-    <div class="pagehead" style="margin-top:30px;">
+    <div class="pagehead" style="margin-top:26px;">
         <div>
             <div class="eyebrow" style="margin-bottom:5px;">{{ 'Published by your company'|trans }}</div>
             <p class="subtitle">{{ 'Entries your company offers in the marketplace.'|trans }}</p>
         </div>
     </div>
-    <table class="data">
-        <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Reach'|trans }}</th><th>{{ 'Scope'|trans }}</th><th>{{ 'Version'|trans }}</th><th></th></tr></thead>
-        <tbody>
+    <div class="list-card">
+        <div class="lc-head">
+            <span style="flex:1.2;">{{ 'Name'|trans }}</span>
+            <span style="flex:0 0 110px;">{{ 'Reach'|trans }}</span>
+            <span style="flex:0 0 140px;">{{ 'Scope'|trans }}</span>
+            <span style="flex:0 0 90px;">{{ 'Version'|trans }}</span>
+            <span style="flex:1;"></span>
+        </div>
         {% for a in my_published %}
-            <tr>
-                <td style="font-weight:600;">{{ a.logo }} {{ a.name }}</td>
-                <td style="white-space:nowrap;">{{ _self.visibility_pill(a) }}</td>
-                <td>{{ a.ownerWorkspace ? a.ownerWorkspace.name : '—' }}</td>
-                <td class="mono">{{ a.latestVersion ? a.latestVersion.label : 'not published'|trans }}</td>
-                <td style="text-align:right;white-space:nowrap;">
-                    <div style="display:inline-flex;gap:7px;justify-content:flex-end;">
-                        {% if publishable is not empty %}
-                            <form method="post" action="{{ path('app_marketplace_new_version', {slug: a.slug}) }}" style="display:flex;gap:7px;">
-                                <input type="hidden" name="_token" value="{{ csrf_token('marketplace-version' ~ a.id) }}">
-                                <input type="hidden" name="source" value="collection">
-                                <select name="collection_id" title="{{ 'Publish a new version from…'|trans }}" style="width:auto;">
-                                    {% for c in publishable %}
-                                        <option value="{{ c.id }}">{{ c.workspace.name }} · {{ c.name }}</option>
-                                    {% endfor %}
-                                </select>
-                                <button class="btn ghost small" type="submit">{{ ic.i('import', 12) }}{{ 'New version'|trans }}</button>
-                            </form>
-                        {% endif %}
-                        <form method="post" action="{{ path('app_marketplace_unpublish', {slug: a.slug}) }}" onsubmit="return confirm('{{ 'The entry and all its versions will be removed from the marketplace.'|trans|e('js') }}');">
-                            <input type="hidden" name="_token" value="{{ csrf_token('marketplace-unpublish' ~ a.id) }}">
-                            <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}{{ 'Remove'|trans }}</button>
+            <div class="lrow">
+                <span style="flex:1.2;min-width:0;font-size:12.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ a.logo }} {{ a.name }}</span>
+                <span style="flex:0 0 110px;">
+                    {% if a.visibility == 'public' %}<span class="mpill {{ a.verified ? 'pass' }}">{{ 'Public'|trans }}</span>
+                    {% elseif a.visibility == 'merchant' %}<span class="mpill">{{ 'Company'|trans }}</span>
+                    {% else %}<span class="mpill">Workspace</span>{% endif %}
+                </span>
+                <span class="l-meta" style="flex:0 0 140px;overflow:hidden;text-overflow:ellipsis;">{{ a.ownerWorkspace ? a.ownerWorkspace.name : '—' }}</span>
+                <span class="l-meta" style="flex:0 0 90px;">{{ a.latestVersion ? 'v' ~ a.latestVersion.label : 'not published'|trans }}</span>
+                <span style="flex:1;display:flex;justify-content:flex-end;gap:7px;flex-wrap:wrap;">
+                    {% if publishable is not empty %}
+                        <form method="post" action="{{ path('app_marketplace_new_version', {slug: a.slug}) }}" style="display:flex;gap:7px;">
+                            <input type="hidden" name="_token" value="{{ csrf_token('marketplace-version' ~ a.id) }}">
+                            <input type="hidden" name="source" value="collection">
+                            <select name="collection_id" title="{{ 'Publish a new version from…'|trans }}" style="width:auto;max-width:190px;font-size:11.5px;">
+                                {% for c in publishable %}
+                                    <option value="{{ c.id }}">{{ c.workspace.name }} · {{ c.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <button class="gbtn" type="submit">{{ 'New version'|trans }}</button>
                         </form>
-                    </div>
-                </td>
-            </tr>
+                    {% endif %}
+                    <form method="post" action="{{ path('app_marketplace_unpublish', {slug: a.slug}) }}" onsubmit="return confirm('{{ 'The entry and all its versions will be removed from the marketplace.'|trans|e('js') }}');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('marketplace-unpublish' ~ a.id) }}">
+                        <button class="gbtn danger" type="submit">{{ 'Remove'|trans }}</button>
+                    </form>
+                </span>
+            </div>
         {% endfor %}
-        </tbody>
-    </table>
+    </div>
 {% endif %}
 {% endblock %}

@@ -5,46 +5,76 @@
 
 {% block panel %}
 {% set can_manage_ws = current_merchant() and is_granted('MERCHANT_MANAGE_WORKSPACES', current_merchant()) %}
+{% set cur = current_workspace() %}
+{% set tones = ['pri', 'vio', 'teal', 'warn', 'pass'] %}
 <div class="pagehead">
     <div>
         <h1>{{ 'Workspaces'|trans }}</h1>
-        <p class="subtitle">{{ workspaces|length }} workspace · {{ can_manage_ws ? ('create as many as you like'|trans) : ('the ones you can access'|trans) }}</p>
+        <p class="subtitle">{{ 'Each workspace has its own collections, environments and flows'|trans }}</p>
     </div>
     {% if can_manage_ws %}
     <div class="actions">
-        <a class="btn" href="{{ path('app_workspace_new') }}">{{ ic.i('plus', 13, 2.2) }}{{ 'New workspace'|trans }}</a>
+        <a class="btn" href="{{ path('app_workspace_new') }}">{{ ic.i('plus', 13, 2.2) }}Workspace</a>
     </div>
     {% endif %}
 </div>
 
-<div class="res-grid stagger">
+<div class="ws-grid">
     {% for w in workspaces %}
-        <div class="res-card">
-            <div class="rc-top">
-                <div class="ic">{{ ic.i('folder', 16) }}</div>
-                <div class="rc-name">
-                    <a href="{{ path('app_workspace_show', {id: w.id}) }}">{{ w.name }}</a>
-                    <div class="s"><code class="mono">{{ w.slug }}</code></div>
-                </div>
+        {% set s = ws_stats[w.id ~ ''] ?? null %}
+        {% set active = cur and cur.id == w.id %}
+        {% set tone = tones[loop.index0 % 5] %}
+        <div class="ws-card" {% if active %}style="border-color:var(--pri);"{% endif %}>
+            <div style="display:flex;align-items:center;gap:9px;margin-bottom:11px;">
+                <span class="av lg {{ tone == 'pri' ? '' : tone }}">{{ w.name|slice(0, 1)|upper }}</span>
+                <span style="min-width:0;flex:1;">
+                    <a href="{{ path('app_workspace_show', {id: w.id}) }}"
+                       style="display:block;font-size:13.5px;font-weight:700;color:var(--ink);letter-spacing:-.02em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ w.name }}</a>
+                    <span style="display:block;font-size:11px;color:var(--faint);">{{ s and s.role ? s.role : (can_manage_ws ? 'admin' : 'member') }}</span>
+                </span>
+                {% if active %}<span class="mpill pri">{{ 'active'|trans }}</span>{% endif %}
             </div>
-            {% if w.description %}<p class="subtitle" style="margin-top:11px;">{{ w.description }}</p>{% endif %}
-            <div class="rc-foot">
-                <a class="btn grow" style="justify-content:center;" href="{{ path('app_workspace_show', {id: w.id}) }}">{{ 'Open'|trans }} →</a>
+            <div class="stats">
+                <span style="flex:0 0 auto;white-space:nowrap;"><span class="n">{{ s ? s.flows : '—' }}</span><span class="l">{{ 'flows'|trans }}</span></span>
+                <span style="flex:0 0 auto;white-space:nowrap;"><span class="n">{{ s ? s.collections : '—' }}</span><span class="l">{{ 'collections'|trans }}</span></span>
+                <span style="flex:0 0 auto;white-space:nowrap;"><span class="n">{{ s ? s.envs : '—' }}</span><span class="l">envs</span></span>
+                <div style="flex:1 1 0;min-width:0;"></div>
+                <span style="display:flex;align-items:flex-end;gap:2px;height:30px;min-width:0;overflow:hidden;">
+                    {% for r in s ? s.spark : [] %}
+                        {% set h = r.totalSteps > 0 ? (r.passedSteps / r.totalSteps) : 0 %}
+                        <span title="{{ r.status }} · {{ r.createdAt|date('d.m H:i') }}"
+                              style="width:4px;border-radius:2px;height:{{ (8 + h * 22)|round }}px;background:var(--{{ r.status == 'passed' ? 'pass' : (r.status in ['failed', 'error'] ? 'fail' : (r.status == 'running' ? 'pri' : 'warn')) }});"></span>
+                    {% endfor %}
+                </span>
+            </div>
+            <div style="display:flex;align-items:center;gap:7px;">
+                <span class="av-stack">
+                    {% for m in (s ? s.members : [])|slice(0, 3) %}
+                        <span class="av {{ tones[loop.index0 % 5] }}" title="{{ m.user.name }}">{{ m.user.name|slice(0, 1)|upper }}</span>
+                    {% endfor %}
+                </span>
+                <span style="font-size:11px;color:var(--faint);white-space:nowrap;">{{ s ? s.members|length : 0 }} {{ 'members'|trans }}</span>
+                <div style="flex:1 1 0;min-width:0;"></div>
                 {% if can_manage_ws %}
-                <form method="post" action="{{ path('app_workspace_delete', {id: w.id}) }}" onsubmit="return confirm('{{ 'The workspace will be deleted. Are you sure?'|trans|e('js') }}');">
-                    <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ w.id) }}">
-                    <button class="btn danger" type="submit">{{ 'Delete'|trans }}</button>
-                </form>
+                    <form method="post" action="{{ path('app_workspace_delete', {id: w.id}) }}" onsubmit="return confirm('{{ 'The workspace will be deleted. Are you sure?'|trans|e('js') }}');" style="display:flex;">
+                        <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ w.id) }}">
+                        <button type="submit" title="{{ 'Delete'|trans }}" aria-label="{{ 'Delete'|trans }}"
+                                style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--faint);">{{ ic.i('trash', 13) }}</button>
+                    </form>
+                {% endif %}
+                {% if active %}
+                    <a class="btn" style="padding:6px 12px;font-size:11.5px;" href="{{ path('app_workspace_show', {id: w.id}) }}">{{ 'Open'|trans }}</a>
+                {% else %}
+                    <a class="gbtn" href="{{ path('app_workspace_show', {id: w.id}) }}">{{ 'Switch'|trans }}</a>
                 {% endif %}
             </div>
         </div>
     {% endfor %}
     {% if can_manage_ws %}
-    <a class="res-new" href="{{ path('app_workspace_new') }}">
-        <span class="plus">+</span>
-        <span style="font-weight:600;">{{ 'New workspace'|trans }}</span>
-        <span style="font-size:12px;">{{ 'Separate collections, flows and DBs'|trans }}</span>
-    </a>
+        <a class="ws-new" href="{{ path('app_workspace_new') }}">
+            <span class="sq">{{ ic.i('plus', 16, 2.2) }}</span>
+            <span>Workspace</span>
+        </a>
     {% endif %}
 </div>
 {% endblock %}

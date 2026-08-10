@@ -1021,3 +1021,190 @@ input[type=file]::file-selector-button { margin-right:10px; padding:7px 12px; bo
   border:1px solid var(--line); background:var(--panel2); color:var(--text); font-family:inherit;
   font-size:12px; font-weight:600; cursor:pointer; }
 input[type=file]::file-selector-button:hover { border-color:var(--pri); color:var(--pri); }
+
+/* ==========================================================================
+   Inner pages — final design (signalsontasarim)
+   List-first layouts: stat strip, list card with hairline rows, mono badges.
+   ========================================================================== */
+
+/* stat strip: icon square + name + mono count */
+.stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
+.stat-card { display:flex; align-items:center; gap:11px; min-width:0; background:var(--panel);
+  border:1px solid var(--line); border-radius:13px; padding:12px 14px; box-shadow:var(--sh); }
+.stat-card .sq { display:flex; width:30px; height:30px; align-items:center; justify-content:center;
+  border-radius:9px; flex-shrink:0; background:var(--panel2); color:var(--muted); }
+.stat-card .n { display:block; font-size:13px; font-weight:700; color:var(--ink); letter-spacing:-.02em;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.stat-card .s { display:block; font-family:var(--mono); font-size:10px; color:var(--faint); margin-top:1px; }
+@media (max-width:960px) { .stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+/* soft color squares (stat icons, type marks) */
+.sq.pri  { background:var(--pri-soft);  color:var(--pri); }
+.sq.vio  { background:var(--vio-soft);  color:var(--vio); }
+.sq.teal { background:var(--teal-soft); color:var(--teal); }
+.sq.pass { background:var(--pass-soft); color:var(--pass); }
+.sq.fail { background:var(--fail-soft); color:var(--fail); }
+.sq.warn { background:var(--warn-soft); color:var(--warn); }
+
+/* list card: rounded panel, rows separated by hairlines */
+.list-card { background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  box-shadow:var(--sh); overflow:hidden; margin-bottom:14px; }
+.list-card .lrow { display:flex; align-items:center; gap:11px; padding:11px 15px; min-width:0; }
+.list-card .lrow + .lrow, .list-card form + .lrow, .list-card .lrow + form .lrow { border-top:1px solid var(--line2); }
+.list-card a.lrow { color:inherit; }
+.list-card a.lrow:hover { background:var(--panel2); text-decoration:none; }
+.lrow .l-name { display:block; font-size:12.5px; font-weight:600; color:var(--ink);
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lrow .l-sub { display:block; font-family:var(--mono); font-size:10.5px; color:var(--faint); margin-top:1px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lrow .l-meta { font-family:var(--mono); font-size:10.5px; color:var(--faint); white-space:nowrap; }
+.lrow .l-ms { font-family:var(--mono); font-size:10.5px; font-weight:700; color:var(--pass);
+  text-align:right; white-space:nowrap; }
+
+/* mono type badge: PG / MY / RD / MG, factory kinds, methods */
+.tbadge { font-family:var(--mono); font-size:9px; font-weight:800; letter-spacing:.06em;
+  padding:4px 7px; border-radius:6px; flex-shrink:0; min-width:34px; text-align:center;
+  background:var(--panel2); color:var(--muted); text-transform:uppercase; }
+.tbadge.teal { background:var(--teal-soft); color:var(--teal); }
+.tbadge.vio  { background:var(--vio-soft);  color:var(--vio); }
+.tbadge.fail { background:var(--fail-soft); color:var(--fail); }
+.tbadge.pass { background:var(--pass-soft); color:var(--pass); }
+.tbadge.pri  { background:var(--pri-soft);  color:var(--pri); }
+.tbadge.warn { background:var(--warn-soft); color:var(--warn); }
+.tbadge.wide { min-width:62px; }
+
+/* small ghost action inside a row (Test / Edit) */
+.gbtn { padding:6px 12px; border-radius:9px; border:1px solid var(--line); background:var(--panel);
+  color:var(--text); font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer;
+  flex-shrink:0; white-space:nowrap; }
+.gbtn:hover { border-color:var(--pri); color:var(--pri); text-decoration:none; }
+.gbtn.danger:hover { border-color:var(--fail); color:var(--fail); background:var(--fail-soft); }
+
+/* footnote under a list card: shield + sentence */
+.foot-note { display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--muted); padding:0 2px; }
+.foot-note svg { color:var(--pass); flex-shrink:0; }
+
+/* header row inside a list card (columned lists) */
+.lc-head { display:flex; align-items:center; gap:11px; padding:8px 15px; background:var(--panel2);
+  border-bottom:1px solid var(--line2); font-family:var(--mono); font-size:10px; font-weight:700;
+  letter-spacing:.08em; text-transform:uppercase; color:var(--faint); }
+
+/* segmented control */
+.seg { display:inline-flex; gap:2px; background:var(--panel2); padding:3px; border-radius:9px; }
+.seg > a, .seg > button { padding:5px 11px; border-radius:7px; border:none; background:none; cursor:pointer;
+  font-family:inherit; font-size:11.5px; font-weight:600; color:var(--muted); white-space:nowrap; }
+.seg > .on { background:var(--panel); color:var(--ink); box-shadow:var(--sh); font-weight:700; }
+.seg > a:hover { text-decoration:none; color:var(--ink); }
+
+/* filter chips (history / marketplace) */
+.fchip { padding:7px 11px; border-radius:9px; cursor:pointer; font-family:inherit; font-size:11.5px;
+  font-weight:600; border:1px solid var(--line); background:var(--panel); color:var(--muted); white-space:nowrap; }
+.fchip:hover { border-color:var(--pri); color:var(--pri); text-decoration:none; }
+.fchip.on { border-color:var(--pri); background:var(--pri-soft); color:var(--pri); font-weight:700; }
+
+/* search input with a leading icon */
+.searchbar { position:relative; flex:1 1 220px; min-width:200px; max-width:360px; }
+.searchbar .sic { position:absolute; left:10px; top:50%; transform:translateY(-50%);
+  display:flex; color:var(--faint); pointer-events:none; }
+.searchbar input { width:100%; background:var(--panel); border:1px solid var(--line); border-radius:10px;
+  padding:8px 10px 8px 31px; color:var(--text); font-family:inherit; font-size:12.5px; }
+
+/* scope / role mono pill (MINE, SECRET, ADMIN…) */
+.mpill { font-family:var(--mono); font-size:9px; font-weight:800; letter-spacing:.06em;
+  padding:3px 6px; border-radius:5px; text-transform:uppercase;
+  background:var(--panel2); color:var(--muted); white-space:nowrap; }
+.mpill.vio  { background:var(--vio-soft);  color:var(--vio); }
+.mpill.warn { background:var(--warn-soft); color:var(--warn); }
+.mpill.pri  { background:var(--pri-soft);  color:var(--pri); }
+.mpill.pass { background:var(--pass-soft); color:var(--pass); }
+
+/* one-time token reveal card */
+.reveal-card { border:1px solid var(--pass); background:var(--pass-soft); border-radius:14px;
+  padding:13px 15px; margin-bottom:14px; }
+.reveal-card .t { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700;
+  color:var(--pass); margin-bottom:9px; }
+.reveal-card .tok { display:flex; align-items:center; gap:10px; background:#0A0D14;
+  border-radius:11px; padding:10px 12px; }
+.reveal-card .tok code { flex:1; font-family:var(--mono); font-size:12px; color:#C9D2E4;
+  word-break:break-all; }
+
+/* dark snippet block (design language: #0A0D14 editor surface) */
+.snip { background:#0A0D14; color:#C9D2E4; border-radius:11px; padding:12px 14px; margin:0;
+  font-family:var(--mono); font-size:11px; line-height:1.75; overflow-x:auto; }
+.snip .c { color:#5A6480; }
+
+/* heat bar row (history): tall status ticks */
+.heat { display:flex; align-items:flex-end; gap:2px; height:34px; min-width:0; overflow:hidden; }
+.heat i { flex:1; min-width:3px; max-width:7px; border-radius:2px; background:var(--line); display:block; }
+.heat i.passed { background:var(--pass); } .heat i.failed, .heat i.error { background:var(--fail); }
+.heat i.cancelled, .heat i.skipped { background:var(--warn); } .heat i.running { background:var(--pri); }
+
+/* stacked pass/fail rate bar (trends per-flow) */
+.ratebar { display:flex; height:8px; border-radius:99px; overflow:hidden; background:var(--panel2); }
+.ratebar i { display:block; height:100%; }
+.ratebar i.passed { background:var(--pass); } .ratebar i.failed, .ratebar i.error { background:var(--fail); }
+.ratebar i.cancelled { background:var(--warn); }
+
+/* avatar circle-square with initials */
+.av { display:flex; width:30px; height:30px; align-items:center; justify-content:center;
+  border-radius:10px; flex-shrink:0; font-size:12px; font-weight:800;
+  background:var(--pri-soft); color:var(--pri); }
+.av.vio { background:var(--vio-soft); color:var(--vio); }
+.av.teal { background:var(--teal-soft); color:var(--teal); }
+.av.pass { background:var(--pass-soft); color:var(--pass); }
+.av.warn { background:var(--warn-soft); color:var(--warn); }
+.av.lg { width:32px; height:32px; font-size:14px; }
+/* overlapping avatar cluster */
+.av-stack { display:flex; }
+.av-stack .av { width:22px; height:22px; border-radius:7px; font-size:10px; }
+.av-stack .av + .av { margin-left:-6px; box-shadow:0 0 0 2px var(--panel); }
+
+/* violet call-out banner (convert to team) */
+.vio-banner { display:flex; align-items:center; gap:11px; padding:13px 15px;
+  background:var(--vio-soft); border:1px solid var(--line); border-radius:14px; }
+.vio-banner .sq { background:var(--panel); color:var(--vio); width:32px; height:32px; border-radius:10px; }
+.vio-banner .t { display:block; font-size:12.5px; font-weight:700; color:var(--ink); }
+.vio-banner .s { display:block; font-size:11.5px; color:var(--muted); margin-top:2px; line-height:1.5; }
+.btn.vio { background:var(--vio); box-shadow:0 4px 14px -6px var(--vio); }
+.btn.vio:hover { background:var(--vio); filter:brightness(1.06); }
+
+/* workspace / marketplace card grids */
+.ws-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:12px; }
+.ws-card { background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  box-shadow:var(--sh); padding:14px 15px; min-width:0;
+  transition:transform .16s, border-color .16s; }
+.ws-card:hover { border-color:var(--pri); transform:translateY(-2px); }
+.ws-card .stats { display:flex; gap:14px; padding:10px 0; border-top:1px solid var(--line2);
+  border-bottom:1px solid var(--line2); margin:11px 0; }
+.ws-card .stats .n { display:block; font-family:var(--mono); font-size:15px; font-weight:700;
+  color:var(--ink); letter-spacing:-.03em; }
+.ws-card .stats .l { display:block; font-size:10px; color:var(--faint); margin-top:1px; }
+.ws-new { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px;
+  min-height:172px; border:1.5px dashed var(--line); background:none; border-radius:14px;
+  color:var(--muted); font-family:inherit; cursor:pointer; font-size:12.5px; font-weight:700; }
+.ws-new:hover { border-color:var(--pri); color:var(--pri); background:var(--pri-soft); text-decoration:none; }
+.ws-new .sq { width:34px; height:34px; border-radius:11px; }
+
+/* factory kind selector: 2×2 grid of bordered tiles */
+.kind-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+.kind-grid .kbtn { padding:9px 11px; border-radius:11px; cursor:pointer; font-family:inherit;
+  text-align:left; border:1px solid var(--line); background:var(--panel); color:var(--text); }
+.kind-grid .kbtn .t { display:block; font-size:11.5px; font-weight:700; }
+.kind-grid .kbtn .s { display:block; font-size:10px; color:var(--faint); margin-top:2px; }
+.kind-grid .kbtn.on { border-color:var(--pri); background:var(--pri-soft); }
+.kind-grid .kbtn.on .t { color:var(--pri); }
+
+/* preview bar (factory): dark plate + re-roll */
+.preview-bar { display:flex; align-items:center; gap:10px; background:#0A0D14; border-radius:11px;
+  padding:10px 12px; }
+.preview-bar .cap { font-family:var(--mono); font-size:9px; font-weight:800; letter-spacing:.1em;
+  color:#5A6480; text-transform:uppercase; flex-shrink:0; }
+.preview-bar .val { flex:1; font-family:var(--mono); font-size:12px; color:#8FA7FF; min-width:0;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.preview-bar .gbtn { background:transparent; border-color:#232A3B; color:#8B96AC; }
+.preview-bar .gbtn:hover { border-color:var(--pri); color:#A6B7FF; }
+
+/* cookie flag pills */
+.flagpill { font-family:var(--mono); font-size:8.5px; font-weight:700; padding:2px 5px;
+  border-radius:4px; background:var(--panel2); color:var(--muted); white-space:nowrap; }
+.flagpill.on { background:var(--pri-soft); color:var(--pri); }

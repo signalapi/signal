@@ -6,88 +6,203 @@
 <div class="pagehead">
     <div>
         <h1>{{ 'Trends'|trans }}</h1>
-        <p class="subtitle">{{ workspace.name }} · {{ 'based on the last 30 runs per flow'|trans }}</p>
-    </div>
-</div>
-
-{% set rateColor = ws_pass_rate is null ? 'var(--muted)' : (ws_pass_rate >= 80 ? 'var(--pass)' : (ws_pass_rate >= 50 ? 'var(--warn)' : 'var(--fail)')) %}
-<div class="metric-grid" style="grid-template-columns:minmax(0,1.4fr) minmax(0,1fr) minmax(0,1fr);margin-bottom:22px;">
-    <div class="metric">
-        <div class="cap"><span class="l">{{ 'Overall pass rate'|trans }}</span></div>
-        <div class="row"><span class="num" style="color:{{ rateColor }};">{{ ws_pass_rate is null ? '—' : ws_pass_rate ~ '%' }}</span></div>
-        <div class="progress" style="height:7px;"><i style="width:{{ ws_pass_rate ?? 0 }}%;background:{{ rateColor }};"></i></div>
-        <p class="subtitle" style="margin:9px 0 0;font-size:11.5px;">{{ 'across %count% completed runs'|trans({'%count%': ws_finished}) }}</p>
-    </div>
-    <div class="metric">
-        <div class="cap"><span class="l">{{ 'Tracked flows'|trans }}</span></div>
-        <div class="row"><span class="num">{{ rows|length }}</span></div>
-    </div>
-    <div class="metric">
-        <div class="cap"><span class="l">{{ 'Completed runs'|trans }}</span></div>
-        <div class="row"><span class="num">{{ ws_finished }}</span></div>
+        <p class="subtitle">{{ 'Pass rate, duration and flakiness'|trans }} · {{ 'based on the last 30 runs per flow'|trans }}</p>
     </div>
 </div>
 
 {% if rows is empty %}
     <div class="empty">{{ 'No flows yet. Create and run a test flow; results will accumulate here.'|trans }}</div>
 {% else %}
-    <div style="display:flex;gap:16px;flex-wrap:wrap;margin:0 0 14px;color:var(--muted);font-size:11.5px;">
-        <span style="display:inline-flex;align-items:center;gap:6px;"><span class="strip"><i class="passed"></i></span>{{ 'Passed'|trans }}</span>
-        <span style="display:inline-flex;align-items:center;gap:6px;"><span class="strip"><i class="failed"></i></span>{{ 'Failed'|trans }}</span>
-        <span style="display:inline-flex;align-items:center;gap:6px;"><span class="strip"><i class="cancelled"></i></span>{{ 'Cancelled'|trans }}</span>
-        <span style="display:inline-flex;align-items:center;gap:6px;"><span class="strip"><i class="running"></i></span>{{ 'Running'|trans }}</span>
-    </div>
 
-    {% for row in rows %}
-        {% set fin = row.counts.passed + row.counts.failed + row.counts.error + row.counts.cancelled %}
-        <div class="card card-hover" style="margin-bottom:12px;">
-            <div class="card-body">
-                <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
-                    <a href="{{ path('app_flow_show', {workspace: workspace.id, flow: row.flow.id}) }}"
-                       style="min-width:170px;font-size:13.5px;font-weight:700;color:var(--ink);">{{ row.flow.name }}</a>
+{% set rateColor = ws_pass_rate is null ? 'var(--muted)' : (ws_pass_rate >= 80 ? 'var(--pass)' : (ws_pass_rate >= 50 ? 'var(--warn)' : 'var(--fail)')) %}
+<div style="display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:14px;margin-bottom:14px;align-items:start;">
 
-                    <div class="grow" style="min-width:180px;">
-                        <div style="display:flex;justify-content:space-between;gap:8px;margin-bottom:5px;color:var(--muted);font-size:11.5px;">
-                            <span>{{ 'Success'|trans }}</span>
-                            <b class="mono" style="color:{{ row.passRate is null ? 'var(--muted)' : (row.passRate >= 80 ? 'var(--pass)' : (row.passRate >= 50 ? 'var(--warn)' : 'var(--fail)')) }};">{{ row.passRate is null ? '—' : row.passRate ~ '%' }}</b>
-                        </div>
-                        <div style="display:flex;height:9px;border-radius:999px;overflow:hidden;background:var(--panel2);">
-                            {% if fin > 0 %}
-                                {% if row.counts.passed %}<span style="width:{{ (row.counts.passed / fin * 100) }}%;background:var(--pass);"></span>{% endif %}
-                                {% set bad = row.counts.failed + row.counts.error %}
-                                {% if bad %}<span style="width:{{ (bad / fin * 100) }}%;background:var(--fail);"></span>{% endif %}
-                                {% if row.counts.cancelled %}<span style="width:{{ (row.counts.cancelled / fin * 100) }}%;background:var(--warn);"></span>{% endif %}
-                            {% endif %}
-                        </div>
-                    </div>
-
-                    <div style="text-align:center;min-width:64px;">
-                        <div class="mono" style="font-size:14px;font-weight:700;color:var(--ink);">{{ row.total }}</div>
-                        <div class="subtitle" style="font-size:10.5px;">{{ 'runs'|trans }}</div>
-                    </div>
-                    <div style="text-align:center;min-width:64px;">
-                        <div class="mono" style="font-size:14px;font-weight:700;color:var(--ink);">{{ row.avgMs is null ? '—' : row.avgMs ~ 'ms' }}</div>
-                        <div class="subtitle" style="font-size:10.5px;">{{ 'avg. duration'|trans }}</div>
-                    </div>
+    <div class="card">
+        <div class="card-body" style="padding:13px 16px;">
+            <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:12px;">
+                <span style="font-size:12.5px;font-weight:700;color:var(--ink);">{{ 'Pass rate'|trans }}</span>
+                <span class="mono" style="font-size:22px;font-weight:700;letter-spacing:-.03em;color:{{ rateColor }};">{{ ws_pass_rate is null ? '—' : ws_pass_rate ~ '%' }}</span>
+                <div style="flex:1 1 0;"></div>
+                <span style="font-size:11px;color:var(--faint);">{{ 'across %count% completed runs'|trans({'%count%': ws_finished}) }}</span>
+            </div>
+            <div style="display:flex;gap:8px;">
+                <div style="display:flex;flex-direction:column;justify-content:space-between;height:110px;font-family:var(--mono);font-size:9px;color:var(--faint);text-align:right;">
+                    <span>100</span><span>75</span><span>50</span><span>25</span><span>0</span>
                 </div>
-
-                <div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin-top:13px;">
-                    {% if row.timeline is empty %}
-                        <span class="subtitle">{{ 'no runs yet'|trans }}</span>
-                    {% else %}
-                        <span class="eyebrow">{{ 'Old → New'|trans }}</span>
-                        <span class="strip" style="gap:3px;flex-wrap:wrap;">
-                            {% for r in row.timeline %}
-                                <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: row.flow.id, run: r.id}) }}"
-                                   title="{{ r.status }} · {{ '%passed%/%total% steps'|trans({'%passed%': r.passedSteps, '%total%': r.totalSteps}) }} · {{ r.createdAt|date('d.m H:i:s') }}{{ r.batchId ? ' · data #' ~ (r.iteration + 1) }}">
-                                    <i class="{{ r.status }}" style="width:13px;height:13px;border-radius:3px;"></i>
-                                </a>
-                            {% endfor %}
-                        </span>
-                    {% endif %}
+                <div style="flex:1;min-width:0;">
+                    <div id="rateChart" style="display:flex;align-items:flex-end;gap:3px;height:110px;border-bottom:1px solid var(--line2);"></div>
+                    <div id="rateDates" style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:9px;color:var(--faint);margin-top:4px;"></div>
                 </div>
             </div>
         </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:14px;min-width:0;">
+        <div class="card">
+            <div class="card-body" style="padding:13px 16px;">
+                <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:11px;">
+                    <span style="font-size:12.5px;font-weight:700;color:var(--ink);">{{ 'p95 duration'|trans }}</span>
+                    <div style="flex:1 1 0;"></div>
+                    <span class="mono" id="p95Val" style="font-size:18px;font-weight:700;letter-spacing:-.03em;color:var(--ink);">—</span>
+                </div>
+                <div id="durChart" style="display:flex;align-items:flex-end;gap:2px;height:44px;"></div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body" style="padding:13px 16px;">
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                    <span style="font-size:12.5px;font-weight:700;color:var(--ink);">{{ 'Flaky flows'|trans }}</span>
+                    <span class="mpill" id="flakyCount">0</span>
+                    <div style="flex:1 1 0;"></div>
+                    <span style="font-size:10.5px;color:var(--faint);">{{ 'alternating results'|trans }}</span>
+                </div>
+                <div id="flakyList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="list-card">
+    <div class="lc-head" style="text-transform:none;letter-spacing:0;font-family:var(--font);font-size:12.5px;font-weight:700;color:var(--ink);">
+        {{ 'Per flow'|trans }}
+        <div style="flex:1 1 0;"></div>
+        <span class="mono" style="font-size:9.5px;color:var(--faint);">{{ 'old'|trans }} → {{ 'new'|trans }}</span>
+    </div>
+    {% for row in rows %}
+        {% set fin = row.counts.passed + row.counts.failed + row.counts.error + row.counts.cancelled %}
+        <div class="lrow" style="padding:10px 15px;">
+            <a href="{{ path('app_flow_show', {workspace: workspace.id, flow: row.flow.id}) }}"
+               style="flex:0 0 230px;min-width:0;font-size:12.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ row.flow.name }}</a>
+            <span class="ratebar" style="flex:1;min-width:0;">
+                {% if fin > 0 %}
+                    {% if row.counts.passed %}<i class="passed" style="width:{{ (row.counts.passed / fin * 100) }}%;"></i>{% endif %}
+                    {% set bad = row.counts.failed + row.counts.error %}
+                    {% if bad %}<i class="failed" style="width:{{ (bad / fin * 100) }}%;"></i>{% endif %}
+                    {% if row.counts.cancelled %}<i class="cancelled" style="width:{{ (row.counts.cancelled / fin * 100) }}%;"></i>{% endif %}
+                {% endif %}
+            </span>
+            <span class="mono" style="flex:0 0 44px;text-align:right;font-size:11px;font-weight:700;color:{{ row.passRate is null ? 'var(--muted)' : (row.passRate >= 80 ? 'var(--pass)' : (row.passRate >= 50 ? 'var(--warn)' : 'var(--fail)')) }};">{{ row.passRate is null ? '—' : row.passRate ~ '%' }}</span>
+            <span class="strip" style="flex:0 0 auto;gap:3px;">
+                {% for r in row.timeline|slice(-12) %}
+                    <a href="{{ path('app_flow_run_show', {workspace: workspace.id, flow: row.flow.id, run: r.id}) }}"
+                       title="{{ r.status }} · {{ '%passed%/%total% steps'|trans({'%passed%': r.passedSteps, '%total%': r.totalSteps}) }} · {{ r.createdAt|date('d.m H:i:s') }}{{ r.batchId ? ' · data #' ~ (r.iteration + 1) }}"
+                       style="display:flex;"><i class="{{ r.status }}" style="width:8px;height:8px;border-radius:2.5px;"></i></a>
+                {% endfor %}
+            </span>
+            <span class="l-meta" style="flex:0 0 56px;text-align:right;">{{ row.avgMs is null ? '—' : (row.avgMs >= 1000 ? (row.avgMs / 1000)|round(1) ~ ' s' : row.avgMs ~ ' ms') }}</span>
+        </div>
     {% endfor %}
+</div>
+
+{# chronological run data for the charts: one entry per run across all flows #}
+{% set chart = [] %}
+{% for row in rows %}
+    {% for r in row.timeline %}
+        {% set chart = chart|merge([{t: r.createdAt|date('U'), s: r.status, d: r.durationMs, f: row.flow.name}]) %}
+    {% endfor %}
+{% endfor %}
+<script type="application/json" id="trendData">{{ chart|json_encode|raw }}</script>
+<script>
+(function () {
+    var data = JSON.parse(document.getElementById('trendData').textContent);
+    data.sort(function (a, b) { return a.t - b.t; });
+
+    // ---- daily stacked pass-rate bars (last 30 days) ----
+    var chart = document.getElementById('rateChart');
+    var dates = document.getElementById('rateDates');
+    var now = Math.floor(Date.now() / 1000), day = 86400;
+    var days = [];
+    for (var i = 29; i >= 0; i--) {
+        var d0 = now - i * day;
+        days.push({ label: new Date(d0 * 1000).toLocaleDateString('tr-TR', { day: '2-digit', month: '2-digit' }), pass: 0, fin: 0 });
+    }
+    data.forEach(function (r) {
+        var idx = 29 - Math.floor((now - parseInt(r.t, 10)) / day);
+        if (idx < 0 || idx > 29) return;
+        if (['passed', 'failed', 'error', 'cancelled'].indexOf(r.s) === -1) return;
+        days[idx].fin++;
+        if (r.s === 'passed') days[idx].pass++;
+    });
+    days.forEach(function (d) {
+        var col = document.createElement('div');
+        col.style.cssText = 'flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:1px;';
+        if (d.fin > 0) {
+            var pr = d.pass / d.fin;
+            if (pr < 1) {
+                var f = document.createElement('span');
+                f.style.cssText = 'display:block;background:var(--fail);border-radius:2px 2px 0 0;height:' + Math.round((1 - pr) * 92) + '%;';
+                col.appendChild(f);
+            }
+            if (pr > 0) {
+                var p = document.createElement('span');
+                p.style.cssText = 'display:block;background:var(--pass);height:' + Math.max(3, Math.round(pr * 92)) + '%;' + (pr === 1 ? 'border-radius:2px 2px 0 0;' : '');
+                col.appendChild(p);
+            }
+            col.title = d.label + ' · ' + Math.round(pr * 100) + '% (' + d.fin + ')';
+        } else {
+            var e = document.createElement('span');
+            e.style.cssText = 'display:block;background:var(--line2);height:2px;';
+            col.appendChild(e);
+        }
+        chart.appendChild(col);
+    });
+    [days[0], days[14], days[29]].forEach(function (d) {
+        var s = document.createElement('span'); s.textContent = d.label; dates.appendChild(s);
+    });
+
+    // ---- p95 duration + per-run bars ----
+    var durs = data.filter(function (r) { return r.d != null; });
+    var sorted = durs.map(function (r) { return r.d; }).sort(function (a, b) { return a - b; });
+    var p95 = sorted.length ? sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] : null;
+    document.getElementById('p95Val').textContent = p95 == null ? '—'
+        : (p95 >= 1000 ? (p95 / 1000).toFixed(1) + ' s' : p95 + ' ms');
+    var durChart = document.getElementById('durChart');
+    var maxD = Math.max.apply(null, sorted.concat([1]));
+    durs.slice(-40).forEach(function (r) {
+        var b = document.createElement('span');
+        b.style.cssText = 'flex:1;min-width:2px;max-width:10px;border-radius:2px;display:block;'
+            + 'height:' + Math.max(8, Math.round(r.d / maxD * 100)) + '%;'
+            + 'background:' + (p95 != null && r.d >= p95 ? 'var(--warn)' : 'var(--pri)') + ';opacity:.85;';
+        b.title = r.f + ' · ' + (r.d >= 1000 ? (r.d / 1000).toFixed(1) + ' s' : r.d + ' ms');
+        durChart.appendChild(b);
+    });
+
+    // ---- flaky flows: status flips within a flow's timeline ----
+    var byFlow = {};
+    data.forEach(function (r) {
+        if (['passed', 'failed', 'error'].indexOf(r.s) === -1) return;
+        (byFlow[r.f] = byFlow[r.f] || []).push(r.s === 'passed' ? 1 : 0);
+    });
+    var flaky = Object.keys(byFlow).map(function (name) {
+        var seq = byFlow[name], flips = 0;
+        for (var i = 1; i < seq.length; i++) if (seq[i] !== seq[i - 1]) flips++;
+        return { name: name, seq: seq, rate: seq.length > 1 ? flips / (seq.length - 1) : 0 };
+    }).filter(function (x) { return x.rate > 0; }).sort(function (a, b) { return b.rate - a.rate; }).slice(0, 3);
+    document.getElementById('flakyCount').textContent = flaky.length;
+    var list = document.getElementById('flakyList');
+    if (!flaky.length) {
+        list.innerHTML = '<span class="subtitle" style="font-size:11.5px;">{{ 'No flaky flows — results are stable.'|trans|e('js') }}</span>';
+    }
+    flaky.forEach(function (x) {
+        var row = document.createElement('div');
+        row.style.cssText = 'display:flex;align-items:center;gap:9px;padding:7px 0;border-top:1px solid var(--line2);';
+        var n = document.createElement('span');
+        n.style.cssText = 'flex:1;min-width:0;font-size:12px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+        n.textContent = x.name;
+        var strip = document.createElement('span');
+        strip.style.cssText = 'display:flex;gap:2.5px;';
+        x.seq.slice(-10).forEach(function (s) {
+            var d = document.createElement('i');
+            d.style.cssText = 'width:6px;height:6px;border-radius:50%;background:var(--' + (s ? 'pass' : 'fail') + ');';
+            strip.appendChild(d);
+        });
+        var pct = document.createElement('span');
+        pct.style.cssText = 'flex:0 0 34px;text-align:right;font-family:var(--mono);font-size:10.5px;font-weight:700;color:var(--warn);';
+        pct.textContent = Math.round(x.rate * 100) + '%';
+        row.appendChild(n); row.appendChild(strip); row.appendChild(pct);
+        list.appendChild(row);
+    });
+})();
+</script>
 {% endif %}
 {% endblock %}
