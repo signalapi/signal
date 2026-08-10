@@ -484,7 +484,9 @@ class FlowRunner
         $override = trim((string) ($context['dbConnection'] ?? ''));
         if ('' !== $override && (null === $connection || $connection->getName() !== $override)) {
             $resolved = $this->dbConnections->findOneBy(['workspace' => $workspace, 'name' => $override]);
-            if (null !== $resolved) {
+            // Only reroute to a connection of the SAME type: a MySQL override
+            // must not hijack a Mongo/Redis step (its query wouldn't parse).
+            if (null !== $resolved && (null === $connection || $resolved->getType() === $connection->getType())) {
                 $connection = $resolved;
             }
         }
