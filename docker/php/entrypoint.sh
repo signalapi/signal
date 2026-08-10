@@ -3,10 +3,17 @@ set -e
 
 cd /var/www
 
-# Install dependencies if vendor is missing (first boot / fresh clone)
-if [ ! -d vendor ]; then
-    echo "[entrypoint] Installing composer dependencies..."
-    composer install --no-interaction --prefer-dist
+# Install dependencies if vendor is missing (first boot / fresh clone).
+# All containers share one mounted project dir, so only the primary installs —
+# two composer runs over the same vendor/ leave it half-written.
+if [ -z "$SKIP_DB_INIT" ]; then
+    if [ ! -f vendor/autoload_runtime.php ]; then
+        echo "[entrypoint] Installing composer dependencies..."
+        composer install --no-interaction --prefer-dist
+    fi
+else
+    echo "[entrypoint] Waiting for vendor/ from the primary container..."
+    until [ -f vendor/autoload_runtime.php ]; do sleep 2; done
 fi
 
 # Wait for the database to accept connections
