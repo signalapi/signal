@@ -27,15 +27,19 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
         }
     }
 
+    /**
+     * Roles are a json column, which DQL cannot pattern-match — hence the cast
+     * in plain SQL. The platform's own database is PostgreSQL.
+     */
     public function hasSuperAdmin(): bool
     {
-        return (bool) $this->createQueryBuilder('u')
-            ->select('1')
-            ->where('u.roles LIKE :role')
-            ->setParameter('role', '%ROLE_SUPER_ADMIN%')
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+        $connection = $this->getEntityManager()->getConnection();
+        $table = $connection->quoteIdentifier($this->getClassMetadata()->getTableName());
+
+        return (bool) $connection->fetchOne(
+            sprintf('SELECT 1 FROM %s WHERE CAST(roles AS TEXT) LIKE :role LIMIT 1', $table),
+            ['role' => '%ROLE_SUPER_ADMIN%'],
+        );
     }
 
     public function upgradePassword(PasswordAuthenticatedUserInterface $user, string $newHashedPassword): void
