@@ -60,12 +60,15 @@
     function choose(i) {
         var it = items[i]; if (!it || !field) return;
         var pos = field.selectionStart, v = field.value;
-        // If the caret sits inside an existing {{token}}, replace the WHOLE
-        // token: swallow the leftover tail (e.g. "ditCard}}") after the caret
-        // instead of leaving it behind. Only variable-name characters count,
-        // so a JSON-closing "}}"" is never eaten by accident.
+        // Replace the WHOLE surrounding token, not just the typed fragment:
+        //  - tail: "ditCard}}" left after the caret is swallowed (variable-name
+        //    chars + }} only, so a JSON-closing brace pair is never eaten)
+        //  - head: typing a fresh {{ INSIDE an existing token ({{platfo{{pl…)
+        //    widens the start to the outer token's own {{
         var tail = v.slice(pos).match(/^[\w.$-]*\}\}/);
         var end = pos + (tail ? tail[0].length : 0);
+        var head = v.slice(0, start).match(/\{\{[\w.$-]*$/);
+        if (head) start -= head[0].length;
         field.value = v.slice(0, start) + it.token + v.slice(end);
         var caret = start + it.token.length;
         var f = field; // hide() clears `field` — keep the ref for the caret restore
