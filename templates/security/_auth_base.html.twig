@@ -22,43 +22,33 @@
         </div>
     </div>
 
-    <aside class="auth-side" style="background:var(--ink);color:var(--bg);gap:18px">
-        <div style="display:flex;align-items:center;gap:9px">
-            <span class="brand-mark">{{ ic.i('terminal', 15, 2.4) }}</span>
-            <span style="font-size:14px;font-weight:700;letter-spacing:-.02em">Signal: Test Platform</span>
+    {# the final design's brand panel: light ground, a "LIVE NOW" claim and a
+       floating card of demo flow runs — the product, not a feature list #}
+    <aside class="auth-side" style="background:var(--bg);gap:16px;justify-content:center">
+        <div class="eyebrow">{{ 'Live now'|trans }}</div>
+        <h2 style="color:var(--ink);font-size:24px;line-height:1.28;letter-spacing:-.03em;max-width:26ch;margin:0;font-weight:800">
+            {% block brand_title %}{{ 'Every deploy verified end to end — request, chain, database. Not just a 200.'|trans }}{% endblock %}
+        </h2>
+
+        <div class="list-card" style="max-width:420px;box-shadow:var(--sh-lg);margin:6px 0 0">
+            {% for d in [
+                ['fail', 'Signup → subscription verify', ['p','p','p','p','f','p','f'], '3.1 s'],
+                ['pass', 'Card payment → ledger row',    ['p','p','p','p','p','p','p'], '4.6 s'],
+                ['pass', '3DS challenge → webhook',      ['p','p','p','p','p','p','p'], '2.2 s'],
+                ['pri',  'Refund → balance + Redis',     ['p','p','p','p','p','r','r'], '—'],
+            ] %}
+                <div class="lrow" style="padding:10px 14px">
+                    <span class="dot {{ d[0] == 'fail' ? 'failed' : (d[0] == 'pri' ? 'running' : 'passed') }}"></span>
+                    <span style="flex:1;min-width:0;font-size:12.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ d[1] }}</span>
+                    <span class="strip" style="gap:2.5px">
+                        {% for s in d[2] %}<i class="{{ s == 'p' ? 'passed' : (s == 'f' ? 'failed' : 'running') }}" style="width:6px;height:6px;border-radius:50%"></i>{% endfor %}
+                    </span>
+                    <span class="l-meta" style="flex:0 0 34px;text-align:right">{{ d[3] }}</span>
+                </div>
+            {% endfor %}
         </div>
 
-        {# the runline signature, rendered with the .strip status vocabulary #}
-        <span class="strip" style="gap:0">
-            <i class="passed" style="width:10px;height:10px;border-radius:50%"></i>
-            <i style="width:30px;height:2px;background:var(--pass)"></i>
-            <i class="passed" style="width:10px;height:10px;border-radius:50%"></i>
-            <i style="width:30px;height:2px;background:var(--pass)"></i>
-            <i class="running" style="width:10px;height:10px;border-radius:50%"></i>
-            <i style="width:30px;height:2px"></i>
-            <i style="width:10px;height:10px;border-radius:50%"></i>
-        </span>
-
-        <h2 style="color:var(--bg);font-size:22px;line-height:1.32;max-width:24ch;margin:0">
-            {% block brand_title %}{{ 'Test your APIs, verify the result from the database.'|trans }}{% endblock %}
-        </h2>
-        <p style="margin:0;max-width:46ch;font-size:13px;line-height:1.65;color:var(--bg);opacity:.7">
-            {{ 'Import your Postman collections, build chained test flows, verify on PostgreSQL · MySQL · Redis · MongoDB — all in one place.'|trans }}
-        </p>
-
-        <ul style="list-style:none;margin:4px 0 0;padding:0;display:grid;gap:11px">
-            <li style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--bg);opacity:.92">
-                <span class="status-ic passed">{{ ic.i('check', 12, 2.8) }}</span>
-                {{ 'Postman-compatible collection & environment import'|trans }}</li>
-            <li style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--bg);opacity:.92">
-                <span class="status-ic passed">{{ ic.i('check', 12, 2.8) }}</span>
-                {{ 'Chained test flows + live DB verification'|trans }}</li>
-            <li style="display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--bg);opacity:.92">
-                <span class="status-ic passed">{{ ic.i('check', 12, 2.8) }}</span>
-                {{ 'CI/cron triggering and Claude (MCP) integration'|trans }}</li>
-        </ul>
-
-        <div class="foot" style="text-transform:none;letter-spacing:0">© Signal: Test Platform</div>
+        <div class="foot" style="text-transform:none;letter-spacing:0;color:var(--faint)">© Signal: Test Platform</div>
     </aside>
 </div>
 {% endblock %}

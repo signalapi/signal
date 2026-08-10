@@ -15,14 +15,26 @@
     <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>
     {%- if inGroup %}{{ ic.i('suites', 12) }}{{ '%name% run'|trans({'%name%': suiteGroup.name}) }}{% else %}{{ flow.name }}{% endif %}</a>
 
+{% set firstFail = run.stepResults|filter(r => r.status in ['failed', 'error'])|first %}
 <div class="pagehead">
-    <div>
-        <h1>{{ 'Run detail'|trans }} · {{ flow.name }}</h1>
-        <p class="subtitle">{{ run.createdAt|date('d.m.Y H:i:s') }}
-            {%- if inGroup %} · <span class="pill" style="background:var(--vio-soft);color:var(--vio);">{{ ic.i('suites', 11) }}{{ suiteGroup.name }}</span>
-            {%- elseif run.batchId %} · <span class="pill">data #{{ run.iteration + 1 }}</span>{% endif %}</p>
+    <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;">
+        {{ include('app/flow/_status.html.twig', {status: sc}) }}
+        <h1 style="margin:0;">
+            {%- if sc in ['failed', 'error'] and firstFail %}{{ 'Failed at step %n%/%total%'|trans({'%n%': firstFail.position + 1, '%total%': run.totalSteps}) }}
+            {%- elseif sc == 'passed' %}{{ 'All %total% steps passed'|trans({'%total%': run.totalSteps}) }}
+            {%- else %}{{ 'Run detail'|trans }}{% endif -%}
+        </h1>
+        <span class="subtitle">{{ flow.name }} · {{ run.createdAt|date('d.m.Y H:i:s') }}</span>
+        {%- if inGroup %}<span class="pill" style="background:var(--vio-soft);color:var(--vio);">{{ ic.i('suites', 11) }}{{ suiteGroup.name }}</span>
+        {%- elseif run.batchId %}<span class="pill">data #{{ run.iteration + 1 }}</span>{% endif %}
     </div>
     <div class="actions">
+        {% if sc != 'running' %}
+            <form method="post" action="{{ path('app_flow_run', {workspace: workspace.id, flow: flow.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
+                <button class="btn ghost" type="submit">{{ ic.i('rerun', 13) }}{{ 'Re-run'|trans }}</button>
+            </form>
+        {% endif %}
         <a class="btn ghost" href="{{ backUrl }}">{{ inGroup ? 'Back to suite run'|trans : 'Back to flow'|trans }}</a>
     </div>
 </div>
@@ -153,6 +165,83 @@
         <input type="hidden" name="_token" value="{{ csrf_token('cancel-run' ~ run.id) }}">
         <button class="btn danger" type="submit">{{ 'Cancel run'|trans }}</button>
     </form>
+</div>
+{% endif %}
+
+{# ============ waterfall — the run on one time axis (final design) ============ #}
+{% set totalMs = 0 %}
+{% for r in run.stepResults %}{% set totalMs = totalMs + (r.durationMs ?? 0) %}{% endfor %}
+{% set totalMs = max(totalMs, 1) %}
+{% if run.stepResults|length > 0 %}
+<div class="list-card" style="margin-bottom:14px;">
+    <div class="lc-head" style="text-transform:none;letter-spacing:0;font-family:var(--font);font-size:12.5px;font-weight:700;color:var(--ink);">
+        {{ 'Waterfall'|trans }}
+        <div style="flex:1 1 0;"></div>
+        <span class="mono" style="font-size:9.5px;color:var(--faint);">0 → {{ totalMs }} ms</span>
+    </div>
+    {% set offset = 0 %}
+    {% for r in run.stepResults %}
+        {% set kind = r.requestMethod ?: '·' %}
+        {% set bad = r.status in ['failed', 'error'] %}
+        <div class="lrow" style="padding:8px 15px;{{ bad ? 'background:color-mix(in srgb, var(--fail-soft) 55%, var(--panel));' }}">
+            <span class="dot {{ r.status }}" style="border-radius:3px;"></span>
+            <span class="kind m-{{ kind|lower }}" style="flex-shrink:0;min-width:40px;text-align:center;">{{ kind }}</span>
+            <span style="flex:0 0 190px;min-width:0;font-size:11.5px;font-weight:600;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.label }}</span>
+            <span style="flex:1;min-width:0;height:16px;position:relative;background:var(--panel2);border-radius:4px;overflow:hidden;">
+                <span style="position:absolute;top:0;bottom:0;left:{{ (offset / totalMs * 100)|round(1) }}%;width:{{ max(1.4, (r.durationMs ?? 0) / totalMs * 100)|round(1) }}%;border-radius:4px;opacity:{{ r.status == 'skipped' ? '.3' : '.9' }};background:{{ bad ? 'var(--fail)' : (r.status == 'passed' ? 'var(--pass)' : 'var(--warn)') }};"></span>
+            </span>
+            <span class="l-meta" style="flex:0 0 62px;text-align:right;">{{ r.durationMs is not null ? r.durationMs ~ ' ms' : '—' }}</span>
+            <span class="mono" style="flex:0 0 40px;text-align:right;font-size:10px;font-weight:700;color:{{ bad ? 'var(--fail)' : (r.status == 'passed' ? 'var(--pass)' : 'var(--warn)') }};">
+                {%- if bad %}FAIL{% elseif r.status == 'skipped' %}skip{% else %}{{ r.responseStatus ?: 'ok' }}{% endif -%}
+            </span>
+        </div>
+        {% set offset = offset + (r.durationMs ?? 0) %}
+    {% endfor %}
+</div>
+
+{# ============ assertions + extracted variables, side by side ============ #}
+{% set allExtracted = [] %}
+{% for r in run.stepResults %}{% for k, v in r.extractedVars %}{% set allExtracted = allExtracted|merge([{name: k, value: v, step: r.position + 1}]) %}{% endfor %}{% endfor %}
+{% set focus = firstFail ?: run.stepResults|filter(r => r.assertionResults is not empty)|last %}
+<div style="display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:14px;margin-bottom:18px;" class="land-2col">
+    <div class="card">
+        <div class="card-head">
+            <span class="t" style="{{ firstFail ? 'color:var(--fail);' }}">{{ 'Assertions'|trans }}</span>
+            {% if focus %}<span class="subtitle" style="font-size:11px;">#{{ focus.position + 1 }} · {{ focus.label }}</span>{% endif %}
+        </div>
+        <div class="card-body" style="padding:0;">
+            {% if focus and focus.assertionResults is not empty %}
+                {% for a in focus.assertionResults %}
+                    <div style="display:flex;align-items:flex-start;gap:9px;padding:10px 15px;{{ not loop.last ? 'border-bottom:1px solid var(--line2);' }}">
+                        <span class="status-ic {{ a.ok ? 'passed' : 'failed' }}" style="margin-top:1px;">{{ a.ok ? ic.i('check', 11, 3) : ic.i('x', 11, 3) }}</span>
+                        <span style="min-width:0;">
+                            <span style="display:block;font-family:var(--mono);font-size:11px;font-weight:600;color:var(--ink);">{{ a.label }}</span>
+                            {% if not a.ok %}<span style="display:block;font-family:var(--mono);font-size:10px;color:var(--muted);margin-top:2px;">{{ 'got'|trans }} {{ a.actual|default('—') }}</span>{% endif %}
+                        </span>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div style="padding:14px 15px;"><span class="subtitle">{{ 'No assertions in this run.'|trans }}</span></div>
+            {% endif %}
+        </div>
+    </div>
+    <div class="card">
+        <div class="card-head">
+            <span class="t">{{ 'Extracted variables'|trans }}</span>
+            <span class="mpill">{{ allExtracted|length }}</span>
+        </div>
+        <div class="card-body" style="padding:0;max-height:280px;overflow-y:auto;">
+            {% for x in allExtracted %}
+                <div style="display:flex;align-items:center;gap:9px;padding:9px 15px;{{ not loop.last ? 'border-bottom:1px solid var(--line2);' }}">
+                    <span style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--vio);flex:0 0 130px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ x.name }}</span>
+                    <span class="l-meta" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;color:var(--muted);">{{ x.value }}</span>
+                    <span class="mpill">step {{ x.step }}</span>
+                </div>
+            {% else %}
+                <div style="padding:14px 15px;"><span class="subtitle">{{ 'Nothing extracted in this run.'|trans }}</span></div>
+            {% endfor %}
+        </div>
+    </div>
 </div>
 {% endif %}
 

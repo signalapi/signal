@@ -4,9 +4,12 @@
 {% block title %}{{ 'Sign in'|trans }} · Signal: Test Platform{% endblock %}
 
 {% block auth_card %}
-    <div class="eyebrow" style="margin-bottom:7px">{{ 'Sign in'|trans }}</div>
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">
+        <span style="display:flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:9px;background:linear-gradient(140deg,var(--pri),var(--vio));color:#fff">{{ ic.i('terminal', 15, 2.4) }}</span>
+        <span class="no-caps" style="font-weight:800;font-size:15px;color:var(--ink);letter-spacing:-.03em">Signal</span>
+    </div>
     <h1>{{ 'Welcome back'|trans }}</h1>
-    <p class="subtitle" style="margin-bottom:20px">{{ 'Sign in to your account.'|trans }}</p>
+    <p class="subtitle" style="margin-bottom:20px">{{ 'Sign in to your workspace.'|trans }}</p>
 
     {% if error %}
         <div class="flash error">{{ ic.i('x', 14, 2.6) }}{{ error.messageKey|trans(error.messageData, 'security') }}</div>

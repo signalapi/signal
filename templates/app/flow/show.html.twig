@@ -10,35 +10,46 @@
      data-token="{{ csrf_token('run-flow' ~ flow.id) }}"
      id="flowPage">
 
+    {# final design header: breadcrumb / name + last-run pill, env + Run live on the right #}
+    <div class="crumbs">
+        <a href="{{ path('app_flow_index', {workspace: workspace.id}) }}">{{ 'Tests'|trans }}</a><span>/</span>
+        <span style="color:var(--ink);font-weight:600;">{{ flow.name }}</span>
+    </div>
     <div class="pagehead">
-        <div>
-            <h1>{{ flow.name }}</h1>
-            <div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:8px;">
-                <span class="pill"><b style="color:var(--ink);">{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>
-                <span class="pill">{{ ic.i('environments', 11) }}{{ flow.defaultEnvironment ? 'default:'|trans ~ ' ' : 'no env'|trans }}<b style="color:var(--ink);">{{ flow.defaultEnvironment ? flow.defaultEnvironment.name }}</b></span>
-                <span class="pill">{{ flow.stopOnFailure ? 'stops at the first error'|trans : 'runs all steps'|trans }}</span>
-            </div>
+        <div style="display:flex;align-items:center;gap:11px;flex-wrap:wrap;">
+            <h1 style="margin:0;">{{ flow.name }}</h1>
+            {% set lastRun = flow.runs|first %}
+            {% if lastRun %}{{ include('app/flow/_status.html.twig', {status: lastRun.status}) }}{% endif %}
         </div>
         <div class="actions">
-            <a class="btn ghost" href="{{ path('app_flow_index', {workspace: workspace.id}) }}">
-                <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Flows'|trans }}</a>
+            <select id="runEnv" style="width:auto;font-weight:600;">
+                <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— no env —'|trans }}</option>
+                {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+            </select>
+            <button class="btn" id="runLive" {{ flow.steps is empty ? 'disabled' }}>{{ 'Run live'|trans }}</button>
             <form method="post" action="{{ path('app_flow_delete', {workspace: workspace.id, flow: flow.id}) }}" onsubmit="return confirm('{{ 'This flow will be permanently deleted.'|trans|e('js') }}');">
                 <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ flow.id) }}">
-                <button class="btn danger" type="submit">{{ ic.i('trash', 13) }}{{ 'Delete'|trans }}</button>
+                <button class="icon-btn" type="submit" title="{{ 'Delete'|trans }}" aria-label="{{ 'Delete'|trans }}">{{ ic.i('trash', 13) }}</button>
             </form>
         </div>
     </div>
 
-    {% if flow.description %}<p class="subtitle" style="margin:0 0 4px;max-width:680px;">{{ flow.description }}</p>{% endif %}
+    <div style="display:flex;flex-wrap:wrap;gap:7px;margin:-6px 0 4px;">
+        <span class="pill"><b style="color:var(--ink);">{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>
+        <span class="pill">{{ flow.stopOnFailure ? 'stops at the first error'|trans : 'runs all steps'|trans }}</span>
+        {% if flow.description %}<span class="subtitle" style="align-self:center;">{{ flow.description }}</span>{% endif %}
+    </div>
 
     {# two columns; they wrap instead of collapsing behind a media query #}
     <div style="display:flex;gap:22px;align-items:flex-start;flex-wrap:wrap;margin-top:20px;">
         {# ============ LEFT: the vertical timeline ============ #}
         <div style="flex:2.2 1 440px;min-width:0;">
+            {% set dbCount = flow.steps|filter(s => s.isDb)|length %}
+            {% set subCount = flow.steps|filter(s => s.isCall)|length %}
             <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px;">
-                <span class="eyebrow">{{ 'Flow steps'|trans }}</span>
+                <span class="eyebrow">{{ 'Timeline'|trans }}</span>
                 <span style="height:1px;flex:1;background:var(--line);"></span>
-                <span class="mono" style="font-size:10.5px;color:var(--muted);">{{ flow.steps|length }}</span>
+                <span class="mono" style="font-size:10px;color:var(--muted);">{{ flow.steps|length }} {{ 'steps'|trans }}{% if dbCount %} · {{ dbCount }} DB{% endif %}{% if subCount %} · {{ subCount }} sub-flow{% endif %}</span>
             </div>
 
             {% if flow.steps is empty %}
@@ -113,101 +124,107 @@
             </div>
         </div>
 
-        {# ============ RIGHT: run console + live status ============ #}
+        {# ============ RIGHT: Run | Trigger panel (final design) ============ #}
         <div style="flex:1 1 300px;min-width:0;">
-            <div class="card">
-                <div class="card-head"><span class="t">{{ 'Run'|trans }}</span></div>
-                <div class="card-body">
-                    <div class="field">
-                        <label for="runEnv">{{ 'Environment'|trans }}</label>
-                        <select id="runEnv">
-                            <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
-                            {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
-                        </select>
+            <div class="tabs" style="display:flex;gap:4px;border-bottom:1px solid var(--line);margin-bottom:12px;">
+                <button type="button" class="etab on" data-rtab="run">{{ 'Run'|trans }}</button>
+                <button type="button" class="etab" data-rtab="trigger">{{ 'Trigger'|trans }}</button>
+            </div>
+
+            {# ---- Run pane ---- #}
+            <div data-rpane="run">
+                {# status card — idle until a live run starts #}
+                <div class="card" id="livebox" style="padding:13px 15px;margin-bottom:12px;">
+                    <div style="display:flex;align-items:center;gap:9px;">
+                        <span class="dot" id="lbDot"></span>
+                        <span id="lbTitle" style="font-size:12.5px;font-weight:700;color:var(--ink);">{{ 'Idle'|trans }}</span>
+                        <div class="grow"></div>
+                        <span class="mono" id="lbCount" style="font-size:11px;color:var(--muted);">0/{{ flow.steps|length }}</span>
+                        <button class="btn danger small" id="lbCancel" hidden>{{ 'Cancel run'|trans }}</button>
                     </div>
-                    <div class="field">
-                        <label>{{ 'Variables'|trans }}</label>
-                        {% if flow_variables is empty %}
-                            <p class="fhint" style="margin-top:0;">{{ 'This flow needs no extra variables. You can add some manually below if you want.'|trans }}</p>
-                        {% endif %}
-                        <div id="varList">
-                            {% for v in flow_variables %}
-                                <div class="var-row var-card">
-                                    <div class="top">
-                                        <span class="vname" title="{{ v.name }}">{{ v.name }}</span>
-                                        {% if v.fromEnv %}<span class="var-src env" title="{{ 'Provided by the environment — used if you leave this empty'|trans }}">env</span>{% endif %}
-                                    </div>
-                                    <input type="text" class="var-in input-mono" data-var="{{ v.name }}"
-                                           placeholder="{{ v.fromEnv ? (v.envValue|length > 22 ? v.envValue|slice(0,22) ~ '…' : v.envValue) : 'enter value'|trans }}">
-                                </div>
-                            {% endfor %}
+                    <div class="progress" style="margin-top:9px;"><i id="lbFill" style="width:0;"></i></div>
+                    <div style="display:flex;justify-content:flex-end;margin-top:7px;">
+                        <a href="#" id="lbDetail" hidden style="font-size:11.5px;font-weight:600;">{{ 'View details'|trans }}</a>
+                    </div>
+                </div>
+
+                <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;">
+                    <span class="eyebrow" style="margin:0;">{{ 'Inputs'|trans }}</span>
+                    <span style="height:1px;flex:1;background:var(--line);"></span>
+                </div>
+                {% if flow_variables is empty %}
+                    <p class="fhint" style="margin-top:0;">{{ 'This flow needs no extra variables. You can add some manually below if you want.'|trans }}</p>
+                {% endif %}
+                <div id="varList">
+                    {% for v in flow_variables %}
+                        <div class="var-row var-card">
+                            <div class="top">
+                                <span class="vname" title="{{ v.name }}">{{ v.name }}</span>
+                                {% if v.fromEnv %}<span class="var-src env" title="{{ 'Provided by the environment — used if you leave this empty'|trans }}">env</span>{% endif %}
+                            </div>
+                            <input type="text" class="var-in input-mono" data-var="{{ v.name }}"
+                                   placeholder="{{ v.fromEnv ? (v.envValue|length > 22 ? v.envValue|slice(0,22) ~ '…' : v.envValue) : 'enter value'|trans }}">
                         </div>
-                        <a class="add-dashed" id="addVarBtn" style="display:block;text-align:center;">+ {{ 'add variable'|trans }}</a>
+                    {% endfor %}
+                </div>
+                <a class="add-dashed" id="addVarBtn" style="display:block;text-align:center;">+ {{ 'add variable'|trans }}</a>
+
+                <div style="display:flex;align-items:center;gap:9px;margin:16px 0 9px;">
+                    <span class="eyebrow" style="margin:0;">{{ 'Console'|trans }}</span>
+                    <span style="height:1px;flex:1;background:var(--line);"></span>
+                </div>
+                <pre class="snip" id="runConsole" style="min-height:64px;max-height:240px;overflow-y:auto;font-size:10.5px;"><span class="tok-p">— {{ 'a live run writes here'|trans }}</span></pre>
+            </div>
+
+            {# ---- Trigger pane ---- #}
+            <div data-rpane="trigger" hidden>
+                <form method="post" action="{{ path('app_flow_run', {workspace: workspace.id, flow: flow.id}) }}" id="syncForm" style="margin-bottom:12px;">
+                    <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
+                    <input type="hidden" name="environment" id="syncEnv">
+                    <input type="hidden" name="variables" id="syncVars">
+                    <button class="btn ghost block" type="submit" {{ flow.steps is empty ? 'disabled' }} title="{{ 'Run synchronously, open the result when done'|trans }}">{{ 'Run and wait'|trans }}</button>
+                </form>
+
+                {# data-driven #}
+                <details class="fold" style="margin-top:12px;">
+                    <summary>
+                        <span class="ic-box">{{ ic.i('table', 15) }}</span>
+                        <span><span class="t">{{ 'Run data-driven'|trans }}</span></span>
+                        <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+                    </summary>
+                    <div class="fold-body">
+                        <form method="post" action="{{ path('app_flow_run_data', {workspace: workspace.id, flow: flow.id}) }}"
+                              id="ddForm" data-cols="{{ flow_variables|map(v => v.name)|json_encode|e('html_attr') }}">
+                            <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
+                            <div class="field">
+                                <label for="ddEnv">{{ 'Environment'|trans }}</label>
+                                <select name="environment" id="ddEnv">
+                                    <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
+                                    {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+                                </select>
+                            </div>
+                            <div style="overflow-x:auto;"><table class="data" id="ddTable"></table></div>
+                            <div style="display:flex;gap:8px;margin:10px 0;">
+                                <button class="btn ghost small" type="button" id="ddAddRow">+ {{ 'Row'|trans }}</button>
+                                <button class="btn ghost small" type="button" id="ddAddCol">+ {{ 'Column'|trans }}</button>
+                            </div>
+                            <input type="hidden" name="dataset" id="ddDataset">
+                            <p class="fhint" style="margin:0 0 10px;">{{ 'Each row is one run. Columns map to the <code>{{variable}}</code>s in the flow.'|trans|raw }}</p>
+                            <button class="btn small" type="submit" {{ flow.steps is empty ? 'disabled' }}>{{ ic.i('flows', 11) }}{{ 'Run with dataset'|trans }}</button>
+                        </form>
                     </div>
+                </details>
 
-                    <button class="btn block" id="runLive" style="margin-top:4px;padding:11px;" {{ flow.steps is empty ? 'disabled' }}>{{ 'Run live'|trans }}</button>
-                    <form method="post" action="{{ path('app_flow_run', {workspace: workspace.id, flow: flow.id}) }}" style="margin-top:8px;" id="syncForm">
-                        <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
-                        <input type="hidden" name="environment" id="syncEnv">
-                        <input type="hidden" name="variables" id="syncVars">
-                        <button class="btn ghost block" type="submit" {{ flow.steps is empty ? 'disabled' }} title="{{ 'Run synchronously, open the result when done'|trans }}">{{ 'Run and wait'|trans }}</button>
-                    </form>
-                </div>
-            </div>
-
-            {# live status — populated by JS #}
-            <div class="card" id="livebox" style="margin-top:12px;padding:14px 15px;" hidden>
-                <div style="display:flex;align-items:center;gap:9px;">
-                    <span class="dot running" id="lbDot"></span>
-                    <span id="lbTitle" style="font-size:12.5px;font-weight:700;color:var(--ink);">{{ 'Running…'|trans }}</span>
-                    <div class="grow"></div>
-                    <button class="btn danger small" id="lbCancel" hidden>{{ 'Cancel run'|trans }}</button>
-                </div>
-                <div class="progress"><i id="lbFill" style="width:0;"></i></div>
-                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:8px;">
-                    <span class="mono" id="lbCount" style="font-size:11px;color:var(--muted);">{{ '%done%/%total% steps'|trans({'%done%': 0, '%total%': flow.steps|length}) }}</span>
-                    <a href="#" id="lbDetail" hidden style="font-size:11.5px;font-weight:600;">{{ 'View details'|trans }}</a>
-                </div>
-            </div>
-
-            {# data-driven #}
-            <details class="fold" style="margin-top:12px;">
-                <summary>
-                    <span class="ic-box">{{ ic.i('table', 15) }}</span>                    <span><span class="t">{{ 'Run data-driven'|trans }}</span></span>
+                {# Scheduling lives under Tests → Scheduled now: a schedule can point
+                   at a suite as well as a flow, and one target can have several. #}
+                <a class="fold" style="display:flex;align-items:center;gap:10px;text-decoration:none;margin-top:12px;"
+                   href="{{ path('app_schedule_index', {workspace: workspace.id}) }}">
+                    <span class="ic-box warn">{{ ic.i('clock', 15) }}</span>
+                    <span class="grow"><span class="t">{{ 'Schedule'|trans }}</span>
+                        <span class="s">{{ scheduled_count ? '%count% schedule|%count% schedules'|trans({'%count%': scheduled_count}) : 'not scheduled'|trans }}</span></span>
                     <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
-                </summary>
-                <div class="fold-body">
-                    <form method="post" action="{{ path('app_flow_run_data', {workspace: workspace.id, flow: flow.id}) }}"
-                          id="ddForm" data-cols="{{ flow_variables|map(v => v.name)|json_encode|e('html_attr') }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('run-flow' ~ flow.id) }}">
-                        <div class="field">
-                            <label for="ddEnv">{{ 'Environment'|trans }}</label>
-                            <select name="environment" id="ddEnv">
-                                <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
-                                {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
-                            </select>
-                        </div>
-                        <div style="overflow-x:auto;"><table class="data" id="ddTable"></table></div>
-                        <div style="display:flex;gap:8px;margin:10px 0;">
-                            <button class="btn ghost small" type="button" id="ddAddRow">+ {{ 'Row'|trans }}</button>
-                            <button class="btn ghost small" type="button" id="ddAddCol">+ {{ 'Column'|trans }}</button>
-                        </div>
-                        <input type="hidden" name="dataset" id="ddDataset">
-                        <p class="fhint" style="margin:0 0 10px;">{{ 'Each row is one run. Columns map to the <code>{{variable}}</code>s in the flow.'|trans|raw }}</p>
-                        <button class="btn small" type="submit" {{ flow.steps is empty ? 'disabled' }}>{{ ic.i('flows', 11) }}{{ 'Run with dataset'|trans }}</button>
-                    </form>
-                </div>
-            </details>
-
-            {# Scheduling lives under Tests → Scheduled now: a schedule can point
-               at a suite as well as a flow, and one target can have several. #}
-            <a class="fold" style="display:flex;align-items:center;gap:10px;text-decoration:none;"
-               href="{{ path('app_schedule_index', {workspace: workspace.id}) }}">
-                <span class="ic-box warn">{{ ic.i('clock', 15) }}</span>
-                <span class="grow"><span class="t">{{ 'Schedule'|trans }}</span>
-                    <span class="s">{{ scheduled_count ? '%count% schedule|%count% schedules'|trans({'%count%': scheduled_count}) : 'not scheduled'|trans }}</span></span>
-                <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
-            </a>
+                </a>
+            </div>
         </div>
     </div>
 
@@ -303,7 +320,27 @@
         return { label: m || '·', cls: 'm-' + m.toLowerCase() };
     }
 
+    // ---- live console (right panel): one line per step, colored by status ----
+    var consoleEl = document.getElementById('runConsole');
+    function escT(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+    function renderConsole(steps) {
+        if (!consoleEl) return;
+        var html = '';
+        steps.forEach(function (s) {
+            var tag = (s.method || '·');
+            var tail = '';
+            if (s.status === 'passed') tail = ' <span class="tok-n">' + (s.responseStatus || 'ok') + '</span>' + (s.durationMs ? '<span class="tok-p"> · ' + s.durationMs + 'ms</span>' : '');
+            else if (s.status === 'failed' || s.status === 'error') tail = ' <span style="color:#FF6369">' + escT(s.responseStatus || T.error) + '</span>';
+            else if (s.status === 'running') tail = ' <span style="color:#8FA7FF">…</span>';
+            else if (s.status === 'skipped') tail = ' <span class="tok-p">' + escT(T.skipped) + '</span>';
+            html += '<span class="tok-p">→</span> <span class="tok-k">' + escT(tag) + '</span> <span style="color:#C9D2E4">' + escT(s.label || '') + '</span>' + tail + '\n';
+        });
+        consoleEl.innerHTML = html || '<span class="tok-p">…</span>';
+        consoleEl.scrollTop = consoleEl.scrollHeight;
+    }
+
     function renderLive(steps) {
+        renderConsole(steps);
         liveTrack.innerHTML = '';
         steps.forEach(function (s, i) {
             var st = s.status;
@@ -362,6 +399,15 @@
             })
             .catch(function () { setTimeout(function () { poll(url, detailUrl); }, 2000); });
     }
+
+    // ---- right panel tabs: Run | Trigger ----
+    page.querySelectorAll('[data-rtab]').forEach(function (t) {
+        t.addEventListener('click', function () {
+            page.querySelectorAll('[data-rtab]').forEach(function (x) { x.classList.remove('on'); });
+            t.classList.add('on');
+            page.querySelectorAll('[data-rpane]').forEach(function (p) { p.hidden = p.dataset.rpane !== t.dataset.rtab; });
+        });
+    });
 
     runBtn.addEventListener('click', function () {
         var env = document.getElementById('runEnv').value;
