@@ -7,6 +7,12 @@ security:
             entity:
                 class: App\Entity\User
                 property: email
+        # Platform operators live in their own table: a merchant signup can
+        # never become an admin, and admin credentials never work on /login.
+        admin_users:
+            entity:
+                class: App\Entity\AdminUser
+                property: email
 
     firewalls:
         dev:
@@ -21,12 +27,16 @@ security:
             custom_authenticators:
                 - App\Security\ApiTokenAuthenticator
 
-        # Super admin area — fully separate login from the merchant area.
+        # Super admin area — its own user table (AdminUser) and its own token
+        # context. invalidate_session is off on BOTH firewalls because they
+        # share the PHP session: invalidating it on logout would also destroy
+        # the other area's token. Each logout only clears its own context.
         admin:
             pattern: ^/admin
             lazy: true
-            provider: app_users
+            provider: admin_users
             context: admin
+            user_checker: App\Security\ActiveUserChecker
             form_login:
                 login_path: admin_login
                 check_path: admin_login
@@ -35,12 +45,14 @@ security:
             logout:
                 path: admin_logout
                 target: admin_login
+                invalidate_session: false
 
         # Merchant area.
         main:
             lazy: true
             provider: app_users
             context: main
+            user_checker: App\Security\ActiveUserChecker
             form_login:
                 login_path: app_login
                 check_path: app_login
@@ -49,6 +61,7 @@ security:
             logout:
                 path: app_logout
                 target: app_login
+                invalidate_session: false
 
     access_control:
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }

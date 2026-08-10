@@ -2,7 +2,7 @@
 
 namespace App\Entity;
 
-use App\Repository\UserRepository;
+use App\Repository\AdminUserRepository;
 use Doctrine\DBAL\Types\Types;
 use Doctrine\ORM\Mapping as ORM;
 use Symfony\Bridge\Doctrine\Types\UuidType;
@@ -10,10 +10,16 @@ use Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface;
 use Symfony\Component\Security\Core\User\UserInterface;
 use Symfony\Component\Uid\Uuid;
 
-#[ORM\Entity(repositoryClass: UserRepository::class)]
-#[ORM\Table(name: '`user`')]
-#[ORM\UniqueConstraint(name: 'uniq_user_email', columns: ['email'])]
-class User implements UserInterface, PasswordAuthenticatedUserInterface
+/**
+ * Platform operator account for /admin. Deliberately its OWN table:
+ * the admin area and the merchant area must not share identities —
+ * a merchant signup can never become an admin, and admin credentials
+ * do not exist in the merchant user set at all.
+ */
+#[ORM\Entity(repositoryClass: AdminUserRepository::class)]
+#[ORM\Table(name: 'admin_user')]
+#[ORM\UniqueConstraint(name: 'uniq_admin_user_email', columns: ['email'])]
+class AdminUser implements UserInterface, PasswordAuthenticatedUserInterface
 {
     #[ORM\Id]
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -27,19 +33,11 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 120)]
     private string $name;
 
-    /** @var list<string> */
-    #[ORM\Column]
-    private array $roles = [];
-
     #[ORM\Column]
     private string $password;
 
     #[ORM\Column]
     private bool $active = true;
-
-    /** Preferred UI language ('en'|'tr'); null falls back to browser/en. */
-    #[ORM\Column(length: 5, nullable: true)]
-    private ?string $locale = null;
 
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
@@ -78,35 +76,6 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    /**
-     * The unique identifier used by the security system.
-     */
-    public function getUserIdentifier(): string
-    {
-        return $this->email;
-    }
-
-    /**
-     * @return list<string>
-     */
-    public function getRoles(): array
-    {
-        $roles = $this->roles;
-        $roles[] = 'ROLE_USER';
-
-        return array_values(array_unique($roles));
-    }
-
-    /**
-     * @param list<string> $roles
-     */
-    public function setRoles(array $roles): static
-    {
-        $this->roles = $roles;
-
-        return $this;
-    }
-
     public function getPassword(): string
     {
         return $this->password;
@@ -131,25 +100,23 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         return $this;
     }
 
-    public function getLocale(): ?string
-    {
-        return $this->locale;
-    }
-
-    public function setLocale(?string $locale): static
-    {
-        $this->locale = $locale;
-
-        return $this;
-    }
-
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
     }
 
+    /** Every admin account is a super admin; there are no lesser admin tiers. */
+    public function getRoles(): array
+    {
+        return ['ROLE_SUPER_ADMIN'];
+    }
+
     public function eraseCredentials(): void
     {
-        // No temporary, sensitive data stored on the user.
+    }
+
+    public function getUserIdentifier(): string
+    {
+        return $this->email;
     }
 }
