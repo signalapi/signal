@@ -50,25 +50,62 @@
         });
     }
 
+    // Caret pixel position via a hidden mirror — the popup opens AT the caret,
+    // inside the editor's flow, not under the whole field.
+    function caretXY(el) {
+        var cs = getComputedStyle(el);
+        var div = document.createElement('div');
+        ['fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'tabSize',
+         'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
+         'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
+         'boxSizing', 'whiteSpace', 'overflowWrap', 'wordBreak'].forEach(function (prop) { div.style[prop] = cs[prop]; });
+        div.style.position = 'absolute'; div.style.visibility = 'hidden'; div.style.top = '-9999px';
+        div.style.width = el.tagName === 'TEXTAREA' ? cs.width : 'auto';
+        div.textContent = el.value.slice(0, el.selectionStart);
+        var mark = document.createElement('span'); mark.textContent = '​';
+        div.appendChild(mark);
+        document.body.appendChild(div);
+        var x = mark.offsetLeft, y = mark.offsetTop, h = mark.offsetHeight || 16;
+        div.remove();
+        var r = el.getBoundingClientRect();
+        return { left: r.left + x - el.scrollLeft, top: r.top + y - el.scrollTop, h: h };
+    }
+
     function position() {
         var r = field.getBoundingClientRect();
-        pop.style.left = (r.left + window.scrollX) + 'px';
-        pop.style.top = (r.bottom + window.scrollY + 2) + 'px';
-        pop.style.minWidth = Math.max(240, r.width) + 'px';
+        var left = r.left, top = r.bottom + 2;
+        try {
+            var c = caretXY(field);
+            left = Math.min(c.left, window.innerWidth - 260);
+            top = c.top + c.h + 4;
+            // keep the popup inside the field's vertical bounds where possible
+            if (top < r.top) top = r.top + 4;
+            if (top > window.innerHeight - 120) top = c.top - 8 - Math.min(280, pop.offsetHeight || 280);
+        } catch (e) { /* mirror failed — fall back to the field edge */ }
+        pop.style.left = (left + window.scrollX) + 'px';
+        pop.style.top = (top + window.scrollY) + 'px';
+        pop.style.minWidth = '240px';
     }
 
     function choose(i) {
         var it = items[i]; if (!it || !field) return;
         var pos = field.selectionStart, v = field.value;
-        // Replace the WHOLE surrounding token, not just the typed fragment:
-        //  - tail: "ditCard}}" left after the caret is swallowed (variable-name
-        //    chars + }} only, so a JSON-closing brace pair is never eaten)
-        //  - head: typing a fresh {{ INSIDE an existing token ({{platfo{{pl…)
-        //    widens the start to the outer token's own {{
-        var tail = v.slice(pos).match(/^[\w.$-]*\}\}/);
-        var end = pos + (tail ? tail[0].length : 0);
+        // Replace the WHOLE surrounding token, not just the typed fragment.
+        // Typing a fresh {{ INSIDE an existing token widens the start to the
+        // outer token's own {{ first.
         var head = v.slice(0, start).match(/\{\{[\w.$-]*$/);
         if (head) start -= head[0].length;
+        // Measure the token FROM ITS START — independent of where the caret
+        // sits — so no tail can ever be left behind. If the token is still
+        // open ({{pl…), fall back to swallowing a name+}} tail after the caret.
+        var whole = v.slice(start).match(/^\{\{[^{}\n]*\}\}/);
+        var end;
+        if (whole) {
+            end = start + whole[0].length;
+        } else {
+            var tail = v.slice(Math.max(pos, start)).match(/^[\w.$-]*\}\}/);
+            end = Math.max(pos, start) + (tail ? tail[0].length : 0);
+        }
         field.value = v.slice(0, start) + it.token + v.slice(end);
         var caret = start + it.token.length;
         var f = field; // hide() clears `field` — keep the ref for the caret restore
