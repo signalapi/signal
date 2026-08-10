@@ -116,7 +116,7 @@
         {# ============ LEFT: configure ============ #}
         <div class="pane left">
             <div class="pane-head">
-                <span class="cap">{{ 'Configure'|trans }}</span><span class="rule"></span>
+                <span class="cap">{{ 'Configure'|trans }}</span><span class="sep"></span>
                 <span class="subtitle" style="font-size:11px">
                     {%- if step.isDb %}{{ 'read query — writes are blocked'|trans }}
                     {%- elseif step.isCall %}{{ 'called by reference'|trans }}
@@ -247,7 +247,7 @@
         {% if verifiable %}
         <div class="pane right">
             <div class="pane-head">
-                <span class="cap">{{ 'Verify'|trans }}</span><span class="rule"></span>
+                <span class="cap">{{ 'Verify'|trans }}</span><span class="sep"></span>
                 {% if not is_new %}
                     <button type="button" class="btn ghost small" id="probeBtn">{{ ic.i('import', 13) }}{{ 'Run this step'|trans }}</button>
                 {% endif %}
@@ -431,11 +431,11 @@
             row.className = 'rule-row';
             row.innerHTML =
                 '<span class="status-ic"></span>' +
-                '<input class="path" value="">' +
+                '<input type="text" class="path" value="">' +
                 '<select class="op">' + OPS.map(function (o) {
                     return '<option' + (o === r.op ? ' selected' : '') + '>' + o + '</option>';
                 }).join('') + '</select>' +
-                '<input class="expected" placeholder="expected">' +
+                '<input type="text" class="expected" placeholder="expected">' +
                 '<button type="button" class="rm">×</button>';
             row.querySelector('.path').value = r.path;
             row.querySelector('.expected').value = r.expected;
@@ -456,9 +456,9 @@
             var row = document.createElement('div');
             row.className = 'rule-row';
             row.innerHTML =
-                '<input class="name" value="">' +
+                '<input type="text" class="name" value="">' +
                 '<span class="mono" style="color:var(--faint)">=</span>' +
-                '<input class="path" value="">' +
+                '<input type="text" class="path" value="">' +
                 '<button type="button" class="rm">×</button>';
             row.querySelector('.name').value = x.name;
             row.querySelector('.path').value = x.path;

@@ -379,6 +379,10 @@ input[type=text], input[type=email], input[type=password], input[type=number], t
 input:focus, textarea:focus, select:focus { outline:none; border-color:var(--pri);
   box-shadow:0 0 0 3px var(--pri-soft); }
 .input-mono { font-family:var(--mono); font-size:11.5px; }
+textarea.input-mono { background:var(--panel2); border-radius:var(--r-md); padding:12px 14px;
+  line-height:1.7; tab-size:2; min-height:96px; resize:vertical; white-space:pre;
+  overflow-x:auto; overscroll-behavior:contain; }
+textarea.input-mono:focus { background:var(--panel); }
 .var-card { background:var(--panel2); border:1px solid var(--line); border-radius:var(--r);
   padding:8px 9px; margin-bottom:7px; }
 .var-card .top { display:flex; align-items:center; gap:6px; margin-bottom:5px; }
@@ -603,7 +607,16 @@ table.data tbody tr:hover { background:var(--panel2); }
 .pane-head { display:flex; align-items:center; gap:8px; padding:11px 18px; border-bottom:1px solid var(--line); background:var(--panel); }
 .pane-head .cap { font-family:var(--mono); font-size:9.5px; font-weight:700; letter-spacing:.14em;
   text-transform:uppercase; color:var(--faint); }
-.pane-head .rule { height:1px; flex:1; background:var(--line); }
+.sep { height:1px; flex:1; background:var(--line); border:none; border-radius:0; padding:0; margin:0; }
+
+/* configure-pane tabs (Params / Headers / Body / Auth) */
+.etab { appearance:none; background:none; border:none; border-bottom:2px solid transparent;
+  margin-bottom:-1px; padding:8px 12px 9px; font-family:var(--mono); font-size:11px; font-weight:700;
+  letter-spacing:.04em; color:var(--muted); cursor:pointer; border-radius:6px 6px 0 0;
+  transition:color .15s, background .15s; }
+.etab:hover { color:var(--ink); background:var(--panel2); }
+.etab.on { color:var(--pri); border-bottom-color:var(--pri); }
+.etab:focus-visible { outline:2px solid var(--pri); outline-offset:-2px; }
 .pane-body { padding:16px 18px 26px; }
 @media (max-width:1080px) { .editor-panes { grid-template-columns:1fr; } .pane.left { border-right:none; border-bottom:1px solid var(--line); } }
 
@@ -695,8 +708,10 @@ table.data tbody tr:hover { background:var(--panel2); }
 .rule-row { display:flex; align-items:center; gap:7px; background:var(--panel2);
   border:1px solid var(--line); border-radius:10px; padding:7px 9px; margin-bottom:6px; }
 .rule-row.failed { border-color:var(--fail); }
-.rule-row input { background:var(--panel); border-radius:8px; padding:7px 9px;
-  font-family:var(--mono); font-size:11px; }
+.rule-row input, .rule-row select { background:var(--panel); border:1px solid var(--line);
+  border-radius:8px; padding:7px 9px; font-family:var(--mono); font-size:11px; color:var(--text); }
+.rule-row input:focus, .rule-row select:focus { outline:none; border-color:var(--pri);
+  box-shadow:0 0 0 3px var(--pri-soft); }
 .rule-row .path { flex:1.3; min-width:0; }
 .rule-row .expected { flex:1; min-width:0; }
 .rule-row .op { width:auto; flex-shrink:0; font-family:var(--mono); font-size:10.5px;
