@@ -149,7 +149,9 @@ class FlowRunner
             }
 
             // Run-if guard: an unmet condition skips the step (call included) — not a failure.
-            if (!$state['stopped'] && $step->hasCondition() && !$this->conditionMet($step, $context)) {
+            // A looped step defers its condition to each iteration (filter semantics),
+            // because the loop variable ({{item}}) only exists inside the loop.
+            if (!$state['stopped'] && $step->hasCondition() && !$step->hasLoop() && !$this->conditionMet($step, $context)) {
                 $result = new StepResult();
                 $result->setPosition($state['position']++);
                 $result->setLabel($labelPrefix . $step->getName());
@@ -176,16 +178,33 @@ class FlowRunner
                     continue;
                 }
                 $i = 0;
+                $ran = 0;
                 foreach ($items as $item) {
                     if ($i >= self::MAX_LOOP) {
                         break;
                     }
                     $this->bindLoopVars($context, $as, $item, $i);
+                    // Per-iteration run-if: with a condition the loop acts as a
+                    // filter — only matching elements execute the step body.
+                    if ($step->hasCondition() && !$this->conditionMet($step, $context)) {
+                        ++$i;
+                        continue;
+                    }
                     $this->executeStepBody($run, $flow, $step, $context, $state, $callStack, $stopOnFailure, $labelPrefix . '[' . $i . '] ');
+                    ++$ran;
                     ++$i;
                     if ($state['stopped']) {
                         break;
                     }
+                }
+                if (0 === $ran) {
+                    $result = new StepResult();
+                    $result->setPosition($state['position']++);
+                    $result->setLabel($labelPrefix . $step->getName());
+                    $result->setStatus(StepResult::STATUS_SKIPPED);
+                    $result->setError(\sprintf('Loop condition matched 0 of %d items.', \count($items)));
+                    $run->addStepResult($result);
+                    $this->em->flush();
                 }
                 continue;
             }
