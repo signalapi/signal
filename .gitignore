@@ -12,6 +12,8 @@
 ###> app ###
 # Local-only Docker overrides (per-developer host mappings, TLS relax, etc.)
 /docker-compose.override.yml
+# Production secrets, filled in on the server only
+/deploy/prod.env
 # IDE / OS noise
 /.idea/
 /.superpowers/

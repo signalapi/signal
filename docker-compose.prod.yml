@@ -1,0 +1,65 @@
+# Production overlay. Used together with the base file:
+#
+#   docker compose --env-file deploy/prod.env \
+#       -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Differences from the dev stack:
+#   * Symfony runs in prod, secrets come from deploy/prod.env (gitignored)
+#   * no database/cache port is published on the public interface
+#   * http is published only on the cluster bridge, where the ingress terminates TLS
+
+x-app-env: &app-env
+  APP_ENV: prod
+  APP_SECRET: "${APP_SECRET:?deploy/prod.env içinde tanımlayın}"
+  APP_SECRET_KEY: "${APP_SECRET_KEY:?deploy/prod.env içinde tanımlayın}"
+  DATABASE_URL: "postgresql://app:${POSTGRES_PASSWORD:?deploy/prod.env içinde tanımlayın}@database:5432/app?serverVersion=16&charset=utf8"
+  REDIS_URL: "redis://redis:6379"
+  DEFAULT_URI: "${DEFAULT_URI:?deploy/prod.env içinde tanımlayın}"
+  # The ingress is the only way in; it lives in a private range.
+  TRUSTED_PROXIES: "private_ranges"
+  HTTP_INSECURE_SSL: "0"
+  ANTHROPIC_API_KEY: "${ANTHROPIC_API_KEY:-}"
+  ANTHROPIC_MODEL: "${ANTHROPIC_MODEL:-claude-sonnet-4-6}"
+
+services:
+  php:
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+
+  worker:
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      SKIP_DB_INIT: "1"
+
+  scheduler:
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      SKIP_DB_INIT: "1"
+
+  nginx:
+    restart: unless-stopped
+    # Cluster bridge only — nothing plaintext on the public interface.
+    ports: !override
+      - "${HTTP_BIND:?deploy/prod.env içinde tanımlayın}:80"
+
+  database:
+    restart: unless-stopped
+    ports: !reset null
+    environment:
+      POSTGRES_DB: app
+      POSTGRES_USER: app
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:?deploy/prod.env içinde tanımlayın}"
+
+  redis:
+    restart: unless-stopped
+    ports: !reset null
+
+  mongo:
+    restart: unless-stopped
+    ports: !reset null
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: "${MONGO_PASSWORD:?deploy/prod.env içinde tanımlayın}"
