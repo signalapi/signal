@@ -147,7 +147,7 @@ async function runSession({ url, successUrlPattern, actions, timeoutMs }) {
             // No pattern given: consider the flow settled after a quiet spell —
             // but never while a challenge-looking frame is present (those can
             // take a long time to render their confirm button).
-            const challengePresent = page.frames().some((f) => /challenge|three-?ds|3d_secure|acs|secure\//i.test(f.url()));
+            const challengePresent = page.frames().some((f) => /challenge|three-?ds|3d_secure|\bacs\b|interceptor/i.test(f.url()));
             if (!pattern && !acted && !challengePresent && Date.now() - quietSince > 9000) {
                 await debugSnapshot();
                 return { ok: true, sessionStatus: 'completed', finalUrl: page.url(), log, durationMs: Date.now() - started };
