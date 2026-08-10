@@ -1284,9 +1284,12 @@ input[type=file]::file-selector-button:hover { border-color:var(--pri); color:va
 .method-sel.m-put { color:var(--pri); } .method-sel.m-patch { color:var(--vio); }
 .method-sel.m-delete { color:var(--fail); }
 
-/* persistent insert-variable panel under a code editor (design: open panel) */
-.vi-panel { margin-top:8px; background:var(--panel); border:1px solid var(--pri); border-radius:11px;
-  box-shadow:var(--sh-lg); padding:6px; max-width:330px; }
+/* insert-variable panel floating INSIDE the code editor (bottom-left, IDE-style) */
+.code-ed { position:relative; }
+.vi-panel { position:absolute; left:42px; bottom:10px; z-index:3;
+  background:var(--panel); border:1px solid var(--pri); border-radius:11px;
+  box-shadow:var(--sh-lg); padding:6px; max-width:330px;
+  max-height:min(248px, calc(100% - 20px)); overflow-y:auto; }
 .vi-cap { font-family:var(--mono); font-size:9.5px; font-weight:700; letter-spacing:.12em;
   text-transform:uppercase; color:var(--faint); padding:5px 8px 6px; }
 .vi-row { display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:8px; cursor:pointer; }

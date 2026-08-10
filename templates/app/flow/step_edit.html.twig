@@ -188,8 +188,8 @@
                         <pre class="cb-hl" aria-hidden="true"></pre>
                         <textarea name="query" rows="5" data-vc spellcheck="false" placeholder="SELECT status FROM subscriptions WHERE id = {{ '{{' }}subId{{ '}}' }}">{{ step.query }}</textarea>
                     </div>
+                    <div class="vi-panel" hidden></div>
                 </div>
-                <div class="vi-panel" hidden></div>
                 <div class="hintbox" style="background:var(--teal-soft);color:var(--teal)">
                     {{ ic.i('shield', 15) }}{{ 'Variables from earlier steps work here.'|trans }}
                 </div>
@@ -233,8 +233,8 @@
                             <pre class="cb-hl" aria-hidden="true"></pre>
                             <textarea name="body" rows="10" data-vc spellcheck="false">{{ step.reqBody }}</textarea>
                         </div>
+                        <div class="vi-panel" hidden></div>
                     </div>
-                    <div class="vi-panel" hidden></div>
                 </div>
                 <div data-panel-tab="auth" hidden>
                     {% set auth = step.reqAuth %}
@@ -866,7 +866,7 @@
         if (!CAT.length) return;
 
         document.querySelectorAll('.vi-panel').forEach(function (panel) {
-            var ed = panel.previousElementSibling;
+            var ed = panel.closest('.code-ed');
             var ta = ed ? ed.querySelector('textarea') : null;
             if (!ta) return;
 
