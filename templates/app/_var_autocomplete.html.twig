@@ -29,10 +29,13 @@
 
     function suggest(frag) {
         var f = frag.toLowerCase(), wantGen = f.charAt(0) === '$', q = wantGen ? f.slice(1) : f;
-        return CAT.filter(function (it) {
+        var out = CAT.filter(function (it) {
             if (wantGen && it.group !== 'gen' && it.group !== 'fac') return false;
             return it.label.toLowerCase().indexOf(q) !== -1;
-        }).slice(0, 12);
+        });
+        // browsing (empty query, e.g. clicking a token) shows the WHOLE catalog —
+        // the popup scrolls; only a typed filter trims to the best matches
+        return q ? out.slice(0, 12) : out;
     }
 
     function hide() { pop.style.display = 'none'; field = null; }
