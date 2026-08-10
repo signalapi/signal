@@ -146,6 +146,17 @@ class McpToolRegistry
                     'extractions' => $strArray,
                     'assertions' => $strArray,
                 ]]],
+            ['name' => 'add_browser_step', 'description' => 'Append a real-browser (headless Chromium) step to a flow — for redirect/3DS-challenge/OTP pages plain HTTP steps cannot pass. Opens url, auto-detects and completes known PSP sandbox challenges (Checkout.com password, Stripe "Complete authentication", Adyen test password, generic Success/Approve buttons — in any frame), and succeeds when the page lands on a URL matching successUrlPattern (regex). url and successUrlPattern support {{variable}}. The result exposes sessionStatus/finalUrl/log for assertions (e.g. ["sessionStatus == completed"]) and sets {{browserFinalUrl}} for later steps.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'url'], 'properties' => [
+                    'flowId' => ['type' => 'string'],
+                    'url' => ['type' => 'string', 'description' => 'Page to open — typically {{redirectUrl}} extracted from a payment step'],
+                    'successUrlPattern' => ['type' => 'string', 'description' => 'Regex; session completes when the browser lands on a matching URL (e.g. the return/callback host)'],
+                    'actions' => ['type' => 'array', 'description' => 'Optional bespoke gestures before auto-detection: [{"type":"fill"|"click","selector":"…","value":"…"}]', 'items' => ['type' => 'object']],
+                    'timeoutMs' => ['type' => 'integer', 'description' => 'Max session time (default 45000, max 120000)'],
+                    'name' => ['type' => 'string'],
+                    'extractions' => $strArray,
+                    'assertions' => $strArray,
+                ]]],
             ['name' => 'add_call_step', 'description' => 'Append a SUB-FLOW call step to a flow: the other flow\'s steps run inline in this run, sharing the same variable context (by reference — always its current version). Circular calls are blocked automatically at run time. Use it to define a repeated block once (login, start subscription) and call it from every flow.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'calledFlow'], 'properties' => [
                     'flowId' => ['type' => 'string', 'description' => 'Id of the parent flow the step is added to'],
@@ -337,6 +348,7 @@ class McpToolRegistry
             'create_flow_from_collection' => $this->createFlowFromCollection($ws, $args),
             'add_http_step' => $this->addHttpStep($ws, $args),
             'add_db_step' => $this->addDbStep($ws, $args),
+            'add_browser_step' => $this->addBrowserStep($ws, $args),
             'add_call_step' => $this->addCallStep($ws, $args),
             'add_setvar_step' => $this->addSetvarStep($ws, $args),
             'add_delay_step' => $this->addDelayStep($ws, $args),
@@ -589,6 +601,34 @@ class McpToolRegistry
         $step->setDbConnection($connection);
         $step->setQuery((string) ($args['query'] ?? ''));
         $step->setName((string) ($args['name'] ?? 'DB: ' . $connection->getName()));
+        $step->setPosition($this->nextPosition($flow));
+        $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'] ?? [])));
+        $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'] ?? [])));
+        $this->steps->save($step);
+
+        return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition()];
+    }
+
+    private function addBrowserStep(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $url = trim((string) ($args['url'] ?? ''));
+        if ('' === $url) {
+            throw new \InvalidArgumentException('url is required.');
+        }
+
+        $config = array_filter([
+            'url' => $url,
+            'successUrlPattern' => trim((string) ($args['successUrlPattern'] ?? '')) ?: null,
+            'actions' => $args['actions'] ?? null,
+            'timeoutMs' => isset($args['timeoutMs']) ? (int) $args['timeoutMs'] : null,
+        ], static fn ($v) => null !== $v);
+
+        $step = new FlowStep();
+        $step->setFlow($flow);
+        $step->setType(FlowStep::TYPE_BROWSER);
+        $step->setQuery((string) json_encode($config, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
+        $step->setName((string) ($args['name'] ?? 'Browser'));
         $step->setPosition($this->nextPosition($flow));
         $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'] ?? [])));
         $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'] ?? [])));

@@ -14,6 +14,7 @@ services:
       REDIS_URL: "redis://redis:6379"
       APP_SECRET_KEY: "${APP_SECRET_KEY:-REMOVED-FROM-HISTORY}"
       HTTP_INSECURE_SSL: "${HTTP_INSECURE_SSL:-0}"
+      BROWSER_RUNNER_URL: "http://browser:7300"
     depends_on:
       database:
         condition: service_healthy
@@ -34,6 +35,7 @@ services:
       APP_SECRET_KEY: "${APP_SECRET_KEY:-REMOVED-FROM-HISTORY}"
       SKIP_DB_INIT: "1"
       HTTP_INSECURE_SSL: "${HTTP_INSECURE_SSL:-0}"
+      BROWSER_RUNNER_URL: "http://browser:7300"
     command: php bin/console messenger:consume async failed --time-limit=3600 -v
     restart: unless-stopped
     depends_on:
@@ -115,6 +117,15 @@ services:
       - "27018:27017"
     volumes:
       - mongo_data:/data/db
+
+  browser:
+    build:
+      context: ./browser-runner
+    container_name: signal_browser
+    restart: unless-stopped
+    environment:
+      PORT: "7300"
+
 
 volumes:
   db_data:

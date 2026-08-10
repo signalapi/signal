@@ -17,6 +17,7 @@ class FlowStep
     public const TYPE_SETVAR = 'setvar';
     public const TYPE_DELAY = 'delay';
     public const TYPE_CALL = 'call';
+    public const TYPE_BROWSER = 'browser';
 
     #[ORM\Id]
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -289,6 +290,11 @@ class FlowStep
     public function isCall(): bool
     {
         return self::TYPE_CALL === $this->type;
+    }
+
+    public function isBrowser(): bool
+    {
+        return self::TYPE_BROWSER === $this->type;
     }
 
     /** @return array{left: string, op: string, right: string}|null */

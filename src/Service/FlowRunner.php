@@ -267,6 +267,7 @@ class FlowRunner
             $step->isDelay() => $this->runDelayStep($step, $result),
             $step->isSetvar() => $this->runSetvarStep($step, $result, $context),
             $step->isDb() => $this->runDbStep($step, $result, $context, $flow->getWorkspace()),
+            $step->isBrowser() => $this->runBrowserStep($step, $result, $context),
             default => $this->runHttpStep($step, $result, $context, $flow->getWorkspace(), $run->getTriggeredBy()),
         };
 
@@ -568,6 +569,83 @@ class FlowRunner
     /**
      * @param array<string, string> $context
      */
+    /**
+     * Drives a real (headless) browser through a redirect/challenge page —
+     * 3DS simulators, OTP screens, PSP-hosted forms. The step's query field
+     * holds a JSON config: {url, successUrlPattern?, actions?, timeoutMs?}.
+     * PSP simulators (Checkout, Stripe, Adyen, generic) are auto-detected by
+     * the signal_browser service; no per-PSP flow configuration is needed.
+     *
+     * Assertions/extractions run over the runner's JSON result:
+     *   sessionStatus ('completed'|'timeout'|'error'), finalUrl, log[], durationMs.
+     *   (The field is named sessionStatus because a bare "status" in an
+     *   assertion is parsed as the HTTP status-code kind.)
+     *
+     * @param array<string, string> $context
+     */
+    private function runBrowserStep(FlowStep $step, StepResult $result, array &$context): string
+    {
+        $result->setRequestMethod('BROWSER');
+
+        $config = json_decode((string) $step->getQuery(), true);
+        if (!\is_array($config) || '' === trim((string) ($config['url'] ?? ''))) {
+            $result->setStatus(StepResult::STATUS_ERROR);
+            $result->setError('Browser step config must be JSON with a "url" field.');
+
+            return StepResult::STATUS_ERROR;
+        }
+
+        $url = (string) $this->resolver->resolve((string) $config['url'], $context);
+        $payload = [
+            'url' => $url,
+            'successUrlPattern' => $this->resolver->resolve((string) ($config['successUrlPattern'] ?? ''), $context) ?: null,
+            'actions' => $config['actions'] ?? null,
+            'timeoutMs' => $config['timeoutMs'] ?? null,
+        ];
+        $result->setRequestUrl($url);
+
+        $runnerUrl = rtrim((string) ($_SERVER['BROWSER_RUNNER_URL'] ?? getenv('BROWSER_RUNNER_URL') ?: 'http://browser:7300'), '/');
+        $started = microtime(true);
+
+        try {
+            $response = $this->browserClient()->request('POST', $runnerUrl.'/run', [
+                'json' => array_filter($payload, static fn ($v) => null !== $v),
+                'timeout' => 150,
+            ]);
+            $data = $response->toArray(false);
+        } catch (\Throwable $e) {
+            $result->setStatus(StepResult::STATUS_ERROR);
+            $result->setError('Browser runner unreachable: '.$e->getMessage());
+            $result->setDurationMs((int) round((microtime(true) - $started) * 1000));
+
+            return StepResult::STATUS_ERROR;
+        }
+
+        $durationMs = (float) ($data['durationMs'] ?? (microtime(true) - $started) * 1000);
+        $display = (string) json_encode($data, \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE);
+        $result->setDurationMs((int) round($durationMs));
+        $result->setResponseBody($this->truncate($display));
+
+        if (($data['sessionStatus'] ?? 'error') === 'error') {
+            $result->setStatus(StepResult::STATUS_ERROR);
+            $result->setError((string) ($data['error'] ?? 'Browser session failed.'));
+
+            return StepResult::STATUS_ERROR;
+        }
+
+        // Expose the landing URL to later steps even without an explicit extraction.
+        $context['browserFinalUrl'] = (string) ($data['finalUrl'] ?? '');
+
+        return $this->applyExtractionsAndAssertions($step, $result, $context, $data, $display, null, $durationMs, []);
+    }
+
+    private ?\Symfony\Contracts\HttpClient\HttpClientInterface $browserHttp = null;
+
+    private function browserClient(): \Symfony\Contracts\HttpClient\HttpClientInterface
+    {
+        return $this->browserHttp ??= \Symfony\Component\HttpClient\HttpClient::create();
+    }
+
     private function runSetvarStep(FlowStep $step, StepResult $result, array &$context): string
     {
         $result->setRequestMethod('SET');
