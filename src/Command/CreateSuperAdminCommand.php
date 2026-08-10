@@ -28,18 +28,29 @@ class CreateSuperAdminCommand extends Command
     protected function configure(): void
     {
         $this
-            ->addArgument('email', InputArgument::OPTIONAL, 'Super admin email', 'admin@signal.local')
-            ->addArgument('password', InputArgument::OPTIONAL, 'Super admin password', 'admin1234')
-            ->addArgument('name', InputArgument::OPTIONAL, 'Super admin name', 'Super Admin');
+            ->addArgument('email', InputArgument::OPTIONAL, 'Super admin email (default: admin@signal.local)')
+            ->addArgument('password', InputArgument::OPTIONAL, 'Super admin password (default: admin1234)')
+            ->addArgument('name', InputArgument::OPTIONAL, 'Super admin name (default: Super Admin)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $io = new SymfonyStyle($input, $output);
 
-        $email = (string) $input->getArgument('email');
-        $password = (string) $input->getArgument('password');
-        $name = (string) $input->getArgument('name');
+        $email = $input->getArgument('email');
+
+        // The container entrypoint calls this on every boot to bootstrap a fresh
+        // install. Once the platform has a super admin of its own, stop seeding —
+        // otherwise a restart resurrects the well-known default account.
+        if (null === $email && $this->users->hasSuperAdmin()) {
+            $io->info('A super admin already exists. Nothing to do.');
+
+            return Command::SUCCESS;
+        }
+
+        $email = (string) ($email ?? 'admin@signal.local');
+        $password = (string) ($input->getArgument('password') ?? 'admin1234');
+        $name = (string) ($input->getArgument('name') ?? 'Super Admin');
 
         if ($this->users->findOneBy(['email' => $email])) {
             $io->info(sprintf('Super admin "%s" already exists. Nothing to do.', $email));
