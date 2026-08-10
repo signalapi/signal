@@ -33,7 +33,7 @@ class SecurityController extends AbstractController
     #[Route('/', name: 'app_home')]
     public function home(): Response
     {
-        return $this->redirectToRoute('app_dashboard');
+        return $this->render('landing.html.twig');
     }
 
     // ---- Super admin area (admin firewall) ----

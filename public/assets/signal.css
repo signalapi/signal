@@ -1316,3 +1316,13 @@ input[type=file]::file-selector-button:hover { border-color:var(--pri); color:va
 
 /* call-step picker: selected row reads as selected (design: pri-soft + check) */
 .picker-row:has(input:checked) { background:var(--pri-soft); }
+
+/* landing page: collapse the multi-column sections on narrow screens */
+@media (max-width: 900px) {
+  .land-2col { grid-template-columns: 1fr !important; }
+  .land-3col { grid-template-columns: 1fr 1fr !important; }
+  .land-chat { padding: 0 24px 28px !important; }
+}
+@media (max-width: 620px) {
+  .land-3col { grid-template-columns: 1fr !important; }
+}
