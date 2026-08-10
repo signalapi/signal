@@ -34,7 +34,7 @@ class UserRepository extends ServiceEntityRepository implements PasswordUpgrader
     public function hasSuperAdmin(): bool
     {
         $connection = $this->getEntityManager()->getConnection();
-        $table = $connection->quoteIdentifier($this->getClassMetadata()->getTableName());
+        $table = $connection->quoteSingleIdentifier($this->getClassMetadata()->getTableName());
 
         return (bool) $connection->fetchOne(
             sprintf('SELECT 1 FROM %s WHERE CAST(roles AS TEXT) LIKE :role LIMIT 1', $table),
