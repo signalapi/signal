@@ -1,0 +1,3 @@
+# Scripts that run inside the Linux containers must keep LF: a CRLF checkout on
+# Windows turns the shebang into `env bash\r`, and the container refuses to boot.
+*.sh text eol=lf
