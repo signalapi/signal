@@ -27,6 +27,14 @@ class AdminUserRepository extends ServiceEntityRepository implements PasswordUpg
         }
     }
 
+    public function remove(AdminUser $admin, bool $flush = true): void
+    {
+        $this->getEntityManager()->remove($admin);
+        if ($flush) {
+            $this->getEntityManager()->flush();
+        }
+    }
+
     public function hasAny(): bool
     {
         return null !== $this->createQueryBuilder('a')

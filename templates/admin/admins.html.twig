@@ -1,0 +1,75 @@
+{% extends 'admin/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Admins'|trans }} · Signal Admin{% endblock %}
+
+{% block panel %}
+{% set tones = ['pri', 'vio', 'teal', 'warn', 'pass'] %}
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Admins'|trans }}</h1>
+        <p class="subtitle">{{ 'Platform operators — a separate identity set from merchant users'|trans }}</p>
+    </div>
+</div>
+
+{# ---- invite bar: password is optional, a one-time random one is generated when empty ---- #}
+<form method="post" action="{{ path('admin_admin_new') }}">
+    <input type="hidden" name="_token" value="{{ csrf_token('admin-new') }}">
+    <div style="display:flex;gap:8px;margin-bottom:6px;flex-wrap:wrap;">
+        <input type="email" name="email" required placeholder="admin@company.com" style="flex:1 1 220px;min-width:200px;max-width:300px;">
+        <input type="text" name="name" required placeholder="{{ 'Full name'|trans }}" style="flex:1 1 160px;min-width:150px;max-width:240px;">
+        <input type="password" name="password" minlength="8" placeholder="{{ 'password (optional)'|trans }}" autocomplete="new-password" style="flex:1 1 160px;min-width:150px;max-width:240px;">
+        <button class="btn" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Add admin'|trans }}</button>
+    </div>
+    <p class="fhint" style="margin:0 0 16px;">{{ 'Leave the password empty to generate a one-time random one — it is shown once after creation.'|trans }}</p>
+</form>
+
+<div class="list-card">
+    <div class="lc-head">
+        <span style="flex:1.4;">{{ 'Admin'|trans }}</span>
+        <span style="flex:0 0 100px;">{{ 'Created'|trans }}</span>
+        <span style="flex:0 0 86px;text-align:center;">{{ 'Status'|trans }}</span>
+        <span style="flex:0 0 300px;"></span>
+    </div>
+    {% for a in admins %}
+        {% set me = app.user.userIdentifier == a.email %}
+        <div class="lrow" {% if not a.active %}style="opacity:.55;"{% endif %}>
+            <span class="av {{ tones[loop.index0 % 5] }}">{{ a.name|slice(0, 1)|upper }}</span>
+            <span style="flex:1.4;min-width:0;">
+                <span class="l-name">{{ a.name }} {% if me %}<span class="mpill pri">{{ 'you'|trans }}</span>{% endif %}</span>
+                <span class="l-sub" style="font-family:var(--font);">{{ a.email }}</span>
+            </span>
+            <span class="l-meta" style="flex:0 0 100px;">{{ a.createdAt|date('d.m.Y') }}</span>
+            <span style="flex:0 0 86px;display:flex;justify-content:center;">
+                {% if a.active %}<span class="pill passed">{{ 'active'|trans }}</span>
+                {% else %}<span class="pill failed">{{ 'disabled'|trans }}</span>{% endif %}
+            </span>
+            <span style="flex:0 0 300px;display:flex;justify-content:flex-end;gap:6px;flex-wrap:wrap;">
+                <form method="post" action="{{ path('admin_admin_password', {id: a.id}) }}" style="display:flex;gap:5px;"
+                      onsubmit="return this.password.value ? true : confirm('{{ 'Generate a random password for %email%? It is shown once.'|trans({'%email%': a.email})|e('js') }}');">
+                    <input type="hidden" name="_token" value="{{ csrf_token('admin-password' ~ a.id) }}">
+                    <input type="password" name="password" minlength="8" placeholder="{{ 'new password'|trans }}" autocomplete="new-password"
+                           style="width:130px;padding:6px 9px;font-size:11px;">
+                    <button class="gbtn" type="submit">{{ 'Set'|trans }}</button>
+                </form>
+                {% if not me %}
+                    <form method="post" action="{{ path('admin_admin_toggle', {id: a.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('admin-toggle' ~ a.id) }}">
+                        <button class="gbtn" type="submit">{{ a.active ? 'Disable'|trans : 'Enable'|trans }}</button>
+                    </form>
+                    <form method="post" action="{{ path('admin_admin_delete', {id: a.id}) }}"
+                          onsubmit="return confirm('{{ '%email% will be permanently deleted.'|trans({'%email%': a.email})|e('js') }}');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('admin-delete' ~ a.id) }}">
+                        <button class="gbtn danger" type="submit">{{ 'Delete'|trans }}</button>
+                    </form>
+                {% endif %}
+            </span>
+        </div>
+    {% endfor %}
+</div>
+
+<div class="foot-note">
+    {{ ic.i('shield', 14) }}
+    <span>{{ 'You cannot delete or deactivate yourself, and the last active admin can never be removed. Passwords are set here: use the field next to an admin, or leave it empty for a one-time random one.'|trans }}</span>
+</div>
+{% endblock %}

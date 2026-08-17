@@ -28,6 +28,8 @@
                 {{ ic.i('company') }}<span class="label">{{ 'Merchants'|trans }}</span></a>
             <a href="{{ path('admin_catalog_index') }}" class="{{ route starts with 'admin_catalog' ? 'active' }}">
                 {{ ic.i('marketplace') }}<span class="label">{{ 'API Catalog'|trans }}</span></a>
+            <a href="{{ path('admin_admin_index') }}" class="{{ route starts with 'admin_admin' ? 'active' }}">
+                {{ ic.i('members') }}<span class="label">{{ 'Admins'|trans }}</span></a>
             <div class="grow"></div>
         </nav>
 
