@@ -187,7 +187,7 @@ class DynamicVariableGenerator
 
     /**
      * Resolves {{$token}} placeholders inside a template (built-ins + factories),
-     * so factories can compose — e.g. "test+{{$guid}}@zotlo.com". Guarded against
+     * so factories can compose — e.g. "test+{{$guid}}@acme.dev". Guarded against
      * runaway factory recursion.
      */
     private function renderTemplate(string $template): string

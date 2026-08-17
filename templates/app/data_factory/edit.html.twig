@@ -64,7 +64,7 @@
                         <p class="fhint">{{ 'One option per line — a random line is picked.'|trans }}</p>
                     </div>
                     <div class="kcfg" data-kind="template">
-                        <input type="text" name="template" value="{{ cfg.template ?? '' }}" class="input-mono" placeholder="test+{{ '{{$guid}}' }}@zotlo.com">
+                        <input type="text" name="template" value="{{ cfg.template ?? '' }}" class="input-mono" placeholder="test+{{ '{{$guid}}' }}@acme.dev">
                         <p class="fhint">{{ 'The %token% generators inside it (built-in or another factory) are resolved.'|trans({'%token%': '<code>' ~ ('{{$...}}')|e ~ '</code>'})|raw }}</p>
                     </div>
                     <div class="kcfg" data-kind="intRange">

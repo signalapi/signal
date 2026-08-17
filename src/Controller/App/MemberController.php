@@ -38,7 +38,7 @@ class MemberController extends AbstractAppController
         $merchant = $this->currentMerchant();
         $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_MEMBERS, $merchant);
 
-        // Per-user workspace access summary: user id => ["Zotlo · editor", ...].
+        // Per-user workspace access summary: user id => ["Payments · editor", ...].
         $access = [];
         foreach ($workspaceMembers->findByMerchant($merchant) as $wm) {
             $access[(string) $wm->getUser()->getId()][] = $wm->getWorkspace()->getName() . ' · ' . $wm->getRole();

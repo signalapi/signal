@@ -1,4 +1,4 @@
-# Ingress for signal.yusufdgn.com.
+# Ingress for signal.example.com.
 #
 # The app itself runs under docker compose on the host; the cluster only routes
 # to it. A selector-less Service plus hand-written Endpoints point at the k3s
@@ -58,10 +58,10 @@ spec:
   ingressClassName: traefik
   tls:
     - hosts:
-        - signal.yusufdgn.com
+        - signal.example.com
       secretName: signal-tls
   rules:
-    - host: signal.yusufdgn.com
+    - host: signal.example.com
       http:
         paths:
           - path: /
