@@ -1031,8 +1031,12 @@ input[type=file]::file-selector-button:hover { border-color:var(--pri); color:va
 .stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:16px; }
 .stat-card { display:flex; align-items:center; gap:11px; min-width:0; background:var(--panel);
   border:1px solid var(--line); border-radius:13px; padding:12px 14px; box-shadow:var(--sh); }
-.stat-card .sq { display:flex; width:30px; height:30px; align-items:center; justify-content:center;
-  border-radius:9px; flex-shrink:0; background:var(--panel2); color:var(--muted); }
+/* icon square — used everywhere (stat cards, list rows, banners, landing);
+   the centering must NOT be scoped to .stat-card or every other use renders
+   the icon stuck to the box's top-left */
+.sq { display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  border-radius:9px; background:var(--panel2); color:var(--muted); }
+.stat-card .sq { width:30px; height:30px; }
 .stat-card .n { display:block; font-size:13px; font-weight:700; color:var(--ink); letter-spacing:-.02em;
   overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .stat-card .s { display:block; font-family:var(--mono); font-size:10px; color:var(--faint); margin-top:1px; }
