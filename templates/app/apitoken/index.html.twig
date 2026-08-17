@@ -79,7 +79,7 @@
         </div>
         <div class="card-body">
             <p class="fhint" style="margin:0 0 10px;">{{ 'Returns 422 on failure so the pipeline breaks. Add ?format=junit for a report.'|trans }}</p>
-            <pre class="snip">curl -X POST http://localhost:8080/api/v1/flows/&lt;FLOW_ID&gt;/run \
+            <pre class="snip">curl -X POST {{ app.request.schemeAndHttpHost }}/api/v1/flows/&lt;FLOW_ID&gt;/run \
   -H "Authorization: Bearer &lt;TOKEN&gt;"</pre>
         </div>
     </div>
@@ -90,8 +90,8 @@
         </div>
         <div class="card-body">
             <p class="fhint" style="margin:0 0 10px;">{{ 'With this token Claude can build and run flows in this workspace.'|trans }}</p>
-            <pre class="snip">claude mcp add --transport http api-test \
-  http://localhost:8080/mcp \
+            <pre class="snip">claude mcp add --transport http signal \
+  {{ app.request.schemeAndHttpHost }}/mcp \
   --header "Authorization: Bearer &lt;TOKEN&gt;"</pre>
         </div>
     </div>
