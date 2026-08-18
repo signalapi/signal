@@ -131,15 +131,17 @@ class McpToolRegistry
                         'over' => ['type' => 'string'], 'as' => ['type' => 'string'],
                     ]],
                 ]]],
-            ['name' => 'add_http_step', 'description' => 'Append an HTTP request step to a flow. extractions: ["var = json.path"], assertions: ["status == 200", "data.id exists"].',
+            ['name' => 'add_http_step', 'description' => 'Add an HTTP request step to a flow. extractions: ["var = json.path"], assertions: ["status == 200", "data.id exists"].',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'requestId'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'requestId' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
                     'extractions' => $strArray,
                     'assertions' => $strArray,
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
                 ]]],
-            ['name' => 'add_db_step', 'description' => 'Append a DB verification step to a flow. query supports {{variable}}. Example assertions: ["rowCount == 1", "rows.0.status == active"].',
+            ['name' => 'add_db_step', 'description' => 'Add a DB verification step to a flow. query supports {{variable}}. Example assertions: ["rowCount == 1", "rows.0.status == active"].',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'connection', 'query'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'connection' => ['type' => 'string', 'description' => 'DB connection name or id'],
@@ -147,8 +149,10 @@ class McpToolRegistry
                     'name' => ['type' => 'string'],
                     'extractions' => $strArray,
                     'assertions' => $strArray,
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
                 ]]],
-            ['name' => 'add_browser_step', 'description' => 'Append a real-browser (headless Chromium) step to a flow — for redirect/3DS-challenge/OTP pages plain HTTP steps cannot pass. Opens url, auto-detects and completes known PSP sandbox challenges (Checkout.com password, Stripe "Complete authentication", Adyen test password, generic Success/Approve buttons — in any frame), and succeeds when the page lands on a URL matching successUrlPattern (regex). url and successUrlPattern support {{variable}}. The result exposes sessionStatus/finalUrl/log for assertions (e.g. ["sessionStatus == completed"]) and sets {{browserFinalUrl}} for later steps.',
+            ['name' => 'add_browser_step', 'description' => 'Add a real-browser (headless Chromium) step to a flow — for redirect/3DS-challenge/OTP pages plain HTTP steps cannot pass. Opens url, auto-detects and completes known PSP sandbox challenges (Checkout.com password, Stripe "Complete authentication", Adyen test password, generic Success/Approve buttons — in any frame), and succeeds when the page lands on a URL matching successUrlPattern (regex). url and successUrlPattern support {{variable}}. The result exposes sessionStatus/finalUrl/log for assertions (e.g. ["sessionStatus == completed"]) and sets {{browserFinalUrl}} for later steps.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'url'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'url' => ['type' => 'string', 'description' => 'Page to open — typically {{redirectUrl}} extracted from a payment step'],
@@ -158,12 +162,16 @@ class McpToolRegistry
                     'name' => ['type' => 'string'],
                     'extractions' => $strArray,
                     'assertions' => $strArray,
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
                 ]]],
-            ['name' => 'add_call_step', 'description' => 'Append a SUB-FLOW call step to a flow: the other flow\'s steps run inline in this run, sharing the same variable context (by reference — always its current version). Circular calls are blocked automatically at run time. Use it to define a repeated block once (login, start subscription) and call it from every flow.',
+            ['name' => 'add_call_step', 'description' => 'Add a SUB-FLOW call step to a flow: the other flow\'s steps run inline in this run, sharing the same variable context (by reference — always its current version). Circular calls are blocked automatically at run time. Use it to define a repeated block once (login, start subscription) and call it from every flow.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'calledFlow'], 'properties' => [
                     'flowId' => ['type' => 'string', 'description' => 'Id of the parent flow the step is added to'],
                     'calledFlow' => ['type' => 'string', 'description' => 'Id or name of the sub-flow to call'],
                     'name' => ['type' => 'string'],
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
                 ]]],
             ['name' => 'create_flow_from_collection', 'description' => 'Build a flow with ordered HTTP steps from a collection\'s requests in one call. Without requestIds, every request in the collection is added in order; with requestIds, only those requests, in the given order.',
                 'inputSchema' => ['type' => 'object', 'required' => ['collectionId', 'name'], 'properties' => [
@@ -174,17 +182,21 @@ class McpToolRegistry
                     'environmentName' => ['type' => 'string'],
                     'stopOnFailure' => ['type' => 'boolean'],
                 ]]],
-            ['name' => 'add_setvar_step', 'description' => 'Append a variable-assignment step to a flow. assignments: ["orderId = {{data.id}}", "label = literal"]. Values resolve {{variable}} and {{$randomEmail}} tokens.',
+            ['name' => 'add_setvar_step', 'description' => 'Add a variable-assignment step to a flow. assignments: ["orderId = {{data.id}}", "label = literal"]. Values resolve {{variable}} and {{$randomEmail}} tokens.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'assignments'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'assignments' => $strArray,
                     'name' => ['type' => 'string'],
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
                 ]]],
-            ['name' => 'add_delay_step', 'description' => 'Append a wait step to a flow (delay between asynchronous operations).',
+            ['name' => 'add_delay_step', 'description' => 'Add a wait step to a flow (delay between asynchronous operations).',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'ms'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'ms' => ['type' => 'integer', 'description' => 'Wait duration (ms, max 60000)'],
                     'name' => ['type' => 'string'],
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
                 ]]],
             ['name' => 'get_flow', 'description' => 'Return a flow in detail: all its steps, extractions/assertions, retry settings and the external variables it expects.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => ['flowId' => ['type' => 'string']]]],
@@ -224,7 +236,7 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => ['stepId' => ['type' => 'string']]]],
 
             // ---- request building & wiring (chain requests without the panel) ----
-            ['name' => 'add_request_step', 'description' => 'Append an HTTP request step built FROM SCRATCH to a flow (no collection needed). headers/params: [{"name":"x","value":"y"}]. {{variable}} tokens work in the body and in every field. Use extractions to pull values out of the response for later steps, and assertions to verify it. Returns stepId.',
+            ['name' => 'add_request_step', 'description' => 'Add an HTTP request step built FROM SCRATCH to a flow (no collection needed). headers/params: [{"name":"x","value":"y"}]. {{variable}} tokens work in the body and in every field. Use extractions to pull values out of the response for later steps, and assertions to verify it. Returns stepId.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'method', 'url'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
@@ -237,6 +249,8 @@ class McpToolRegistry
                     'auth' => ['type' => 'object', 'description' => 'e.g. {type:bearer, token:"{{token}}"}'],
                     'extractions' => $strArray,
                     'assertions' => $strArray,
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
                 ]]],
             ['name' => 'set_step_request', 'description' => 'Update a step\'s own (flow-specific) request fields — this is how you chain steps: put a previous step\'s output into the body, URL or headers as {{var}}. Only the fields you pass are changed.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
@@ -597,7 +611,7 @@ class McpToolRegistry
         $step->setApiRequest($request);
         $step->copyRequestFrom($request);
         $step->setName((string) ($args['name'] ?? $request->getName()));
-        $step->setPosition($this->nextPosition($flow));
+        $this->placeStep($flow, $step, $args);
         $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'] ?? [])));
         $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'] ?? [])));
         $this->steps->save($step);
@@ -616,7 +630,7 @@ class McpToolRegistry
         $step->setDbConnection($connection);
         $step->setQuery((string) ($args['query'] ?? ''));
         $step->setName((string) ($args['name'] ?? 'DB: ' . $connection->getName()));
-        $step->setPosition($this->nextPosition($flow));
+        $this->placeStep($flow, $step, $args);
         $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'] ?? [])));
         $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'] ?? [])));
         $this->steps->save($step);
@@ -644,7 +658,7 @@ class McpToolRegistry
         $step->setType(FlowStep::TYPE_BROWSER);
         $step->setQuery((string) json_encode($config, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
         $step->setName((string) ($args['name'] ?? 'Browser'));
-        $step->setPosition($this->nextPosition($flow));
+        $this->placeStep($flow, $step, $args);
         $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'] ?? [])));
         $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'] ?? [])));
         $this->steps->save($step);
@@ -665,7 +679,7 @@ class McpToolRegistry
         $step->setType(FlowStep::TYPE_CALL);
         $step->setCalledFlow($called);
         $step->setName(trim((string) ($args['name'] ?? '')) ?: '↳ ' . $called->getName());
-        $step->setPosition($this->nextPosition($flow));
+        $this->placeStep($flow, $step, $args);
         $this->steps->save($step);
 
         return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition(), 'calls' => $called->getName()];
@@ -1259,7 +1273,7 @@ class McpToolRegistry
         $step->setType(FlowStep::TYPE_SETVAR);
         $step->setQuery($assignments);
         $step->setName((string) ($args['name'] ?? 'Set variables'));
-        $step->setPosition($this->nextPosition($flow));
+        $this->placeStep($flow, $step, $args);
         $this->steps->save($step);
 
         return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition()];
@@ -1275,7 +1289,7 @@ class McpToolRegistry
         $step->setType(FlowStep::TYPE_DELAY);
         $step->setQuery((string) $ms);
         $step->setName((string) ($args['name'] ?? 'Wait ' . $ms . ' ms'));
-        $step->setPosition($this->nextPosition($flow));
+        $this->placeStep($flow, $step, $args);
         $this->steps->save($step);
 
         return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition(), 'delayMs' => $ms];
@@ -1377,7 +1391,7 @@ class McpToolRegistry
         $step->setFlow($flow);
         $step->setType(FlowStep::TYPE_HTTP);
         $step->setName((string) ($args['name'] ?? (strtoupper((string) ($args['method'] ?? 'GET')) . ' request')));
-        $step->setPosition($this->nextPosition($flow));
+        $this->placeStep($flow, $step, $args);
         $step->setReqMethod(strtoupper((string) ($args['method'] ?? 'GET')));
         $step->setReqUrl((string) ($args['url'] ?? ''));
         $step->setReqHeaders($this->pairs($args['headers'] ?? []));
@@ -1940,6 +1954,42 @@ class McpToolRegistry
         }
 
         return $conn;
+    }
+
+    /**
+     * Where a new step lands. Appending is the default, but a flow is edited as
+     * often as it is written — a 3DS completion or a wait belongs in the middle,
+     * not at the end — so position (0-based) or afterStepId inserts it there and
+     * shifts the rest down.
+     *
+     * @param array<string, mixed> $args
+     */
+    private function placeStep(TestFlow $flow, FlowStep $step, array $args): void
+    {
+        $at = null;
+        if (!empty($args['afterStepId'])) {
+            $after = $this->steps->find((string) $args['afterStepId']);
+            if (null === $after || $after->getFlow()->getId()?->toRfc4122() !== $flow->getId()?->toRfc4122()) {
+                throw new \InvalidArgumentException('afterStepId is not a step of this flow.');
+            }
+            $at = $after->getPosition() + 1;
+        } elseif (isset($args['position']) && '' !== $args['position']) {
+            $at = max(0, (int) $args['position']);
+        }
+
+        $end = $this->nextPosition($flow);
+        if (null === $at || $at >= $end) {
+            $step->setPosition($end);
+
+            return;
+        }
+
+        foreach ($flow->getSteps() as $existing) {
+            if ($existing->getPosition() >= $at) {
+                $existing->setPosition($existing->getPosition() + 1);
+            }
+        }
+        $step->setPosition($at);
     }
 
     private function nextPosition(TestFlow $flow): int
