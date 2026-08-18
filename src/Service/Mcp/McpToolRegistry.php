@@ -56,6 +56,8 @@ class McpToolRegistry
         private readonly MessageBusInterface $bus,
         private readonly \App\Repository\ScheduleRepository $schedules,
         private readonly \App\Service\ScheduleCompiler $scheduleCompiler,
+        private readonly \App\Repository\NotificationDestinationRepository $notificationDestinations,
+        private readonly \App\Repository\NotificationSubscriptionRepository $notificationSubscriptions,
     ) {
     }
 
@@ -193,12 +195,14 @@ class McpToolRegistry
                     'flowId' => ['type' => 'string'],
                     'environmentName' => ['type' => 'string'],
                     'variables' => ['type' => 'object', 'description' => 'One-off variables {name: value}'],
+                    'notify' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Report this run to these notification destinations (names or ids from list_notification_destinations), on top of the workspace rules. Pass ["none"] to send nothing at all.'],
                 ]]],
             ['name' => 'run_flow_async', 'description' => 'Start a flow IN THE BACKGROUND and return runId immediately (without waiting). Use for long or polling flows. Track progress with list_runs or get_run.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'environmentName' => ['type' => 'string'],
                     'variables' => ['type' => 'object'],
+                    'notify' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Report this run to these notification destinations (names or ids from list_notification_destinations), on top of the workspace rules. Pass ["none"] to send nothing at all.'],
                 ]]],
             ['name' => 'list_runs', 'description' => 'List recent runs (status, passed steps, duration, date). With flowId, only that flow\'s runs; without it, the whole workspace.',
                 'inputSchema' => ['type' => 'object', 'properties' => [
@@ -269,12 +273,18 @@ class McpToolRegistry
             ['name' => 'remove_flow_from_suite', 'description' => 'Remove a flow from the given suite (the flow itself and its other suite memberships are kept).',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'flowId'], 'properties' => ['suiteId' => ['type' => 'string'], 'flowId' => ['type' => 'string']]]],
             ['name' => 'run_suite', 'description' => 'Run every flow in the suite IN THE BACKGROUND, one after another; returns batchId. Track the status with get_suite_run.',
-                'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string'], 'environmentName' => ['type' => 'string']]]],
+                'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => [
+                    'suiteId' => ['type' => 'string'],
+                    'environmentName' => ['type' => 'string'],
+                    'notify' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Report this run to these notification destinations (names or ids from list_notification_destinations), on top of the workspace rules. Pass ["none"] to send nothing at all.'],
+                ]]],
             ['name' => 'get_suite_run', 'description' => 'Return the status of a suite run (passed/failed/running per flow).',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'batchId'], 'properties' => ['suiteId' => ['type' => 'string'], 'batchId' => ['type' => 'string']]]],
             ['name' => 'delete_suite', 'description' => 'Delete a suite (flow group). The flows inside it are not deleted, they just leave the group.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string']]]],
 
+            ['name' => 'list_notification_destinations', 'description' => 'List where run results can be reported: Slack channels and HTTP endpoints defined for this workspace, with the rules that already point at them. Use the names with the notify argument of run_flow/run_suite or with update_schedule. Destinations themselves are created in the Signal UI, because the webhook URL is a secret.',
+                'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'list_schedules', 'description' => 'List the workspace\'s schedules: what each one runs (a flow or a suite), its timing rules in plain words, whether it is active, its timezone, and the next and last run.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'create_schedule', 'description' => 'Schedule a flow or a suite to run by itself. Give EITHER flowId OR suiteId. A schedule holds a LIST of rules, so "Mondays every hour and Tuesdays every two hours" is one schedule with two rules. The smallest unit is a minute. Times are read in the schedule\'s timezone.',
@@ -284,6 +294,8 @@ class McpToolRegistry
                     'name' => ['type' => 'string', 'description' => 'Defaults to the target\'s name'],
                     'timezone' => ['type' => 'string', 'description' => 'IANA name, e.g. Europe/Istanbul (default)'],
                     'environmentName' => ['type' => 'string', 'description' => 'Override the target\'s own environment'],
+                    'notify' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Destinations (names or ids) this schedule reports to, on top of the workspace rules. Pass an empty array to clear.'],
+                    'notifyCondition' => ['type' => 'string', 'enum' => ['always', 'on_failure'], 'description' => 'Report every run, or only failures (default: always).'],
                     'enabled' => ['type' => 'boolean'],
                     'rules' => ['type' => 'array', 'description' => 'Timing rules; the schedule fires when ANY rule matches.', 'items' => ['type' => 'object', 'properties' => [
                     'mode' => ['type' => 'string', 'enum' => ['at', 'every', 'cron'], 'description' => 'at = fixed times of day · every = a repeating interval · cron = a raw 5-field expression'],
@@ -305,6 +317,8 @@ class McpToolRegistry
                     'timezone' => ['type' => 'string'],
                     'environmentName' => ['type' => 'string'],
                     'flowId' => ['type' => 'string'],
+                    'notify' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Destinations (names or ids) this schedule reports to, on top of the workspace rules. Pass an empty array to clear.'],
+                    'notifyCondition' => ['type' => 'string', 'enum' => ['always', 'on_failure'], 'description' => 'Report every run, or only failures (default: always).'],
                     'suiteId' => ['type' => 'string'],
                     'rules' => ['type' => 'array', 'description' => 'Timing rules; the schedule fires when ANY rule matches.', 'items' => ['type' => 'object', 'properties' => [
                     'mode' => ['type' => 'string', 'enum' => ['at', 'every', 'cron'], 'description' => 'at = fixed times of day · every = a repeating interval · cron = a raw 5-field expression'],
@@ -375,6 +389,7 @@ class McpToolRegistry
             'run_suite' => $this->runSuite($ws, $args),
             'get_suite_run' => $this->getSuiteRun($ws, $args),
             'delete_suite' => $this->deleteSuite($ws, $args),
+            'list_notification_destinations' => $this->listNotificationDestinations($ws),
             'list_schedules' => $this->listSchedules($ws),
             'create_schedule' => $this->createSchedule($ws, $args),
             'update_schedule' => $this->updateSchedule($ws, $args),
@@ -668,7 +683,12 @@ class McpToolRegistry
             $environment = $this->findEnvironmentByName($ws, (string) $args['environmentName']);
         }
 
-        $run = $this->runner->run($flow, $environment, 'mcp', $this->scalarVars($args['variables'] ?? []), $this->actor());
+        // createRun + executeInto rather than run(), so the notification choice is
+        // on the row before the run finishes and the event fires.
+        $run = $this->runner->createRun($flow, $environment, 'mcp', null, 0, [], $this->actor());
+        $run->setNotifyOverride($this->notifyOverride($ws, $args));
+        $this->runs->save($run);
+        $this->runner->executeInto($run, $flow, $environment, $this->scalarVars($args['variables'] ?? []));
 
         return $this->reporter->toArray($run);
     }
@@ -694,6 +714,8 @@ class McpToolRegistry
         }
 
         $run = $this->runner->createRun($flow, $environment, 'mcp', null, 0, [], $this->actor());
+        $run->setNotifyOverride($this->notifyOverride($ws, $args));
+        $this->runs->save($run);
         $this->bus->dispatch(new RunFlowMessage(
             (string) $run->getId(),
             (string) $flow->getId(),
@@ -806,6 +828,7 @@ class McpToolRegistry
                 'cron' => $this->scheduleCompiler->scheduleCrons($s),
                 'nextRunAt' => $next?->format(\DATE_ATOM),
                 'lastRunAt' => $s->getLastRunAt()?->format(\DATE_ATOM),
+                'notify' => $this->describeNotify($s),
             ];
         }
 
@@ -938,6 +961,23 @@ class McpToolRegistry
             }
             $schedule->setEnvironment($env);
         }
+        if (\array_key_exists('notify', $args)) {
+            $ids = $this->resolveDestinationIds($ws, $args['notify']);
+            $condition = (string) ($args['notifyCondition'] ?? \App\Entity\NotificationSubscription::WHEN_ALWAYS);
+            $schedule->setNotify([] === $ids ? [] : [
+                'destinations' => $ids,
+                'condition' => \in_array($condition, \App\Entity\NotificationSubscription::CONDITIONS, true)
+                    ? $condition
+                    : \App\Entity\NotificationSubscription::WHEN_ALWAYS,
+            ]);
+        } elseif (\array_key_exists('notifyCondition', $args) && [] !== $schedule->getNotifyDestinationIds()) {
+            $condition = (string) $args['notifyCondition'];
+            if (\in_array($condition, \App\Entity\NotificationSubscription::CONDITIONS, true)) {
+                $notify = $schedule->getNotify();
+                $notify['condition'] = $condition;
+                $schedule->setNotify($notify);
+            }
+        }
     }
 
     /**
@@ -972,6 +1012,133 @@ class McpToolRegistry
             'rules' => $this->scheduleCompiler->describe($schedule),
             'cron' => $this->scheduleCompiler->scheduleCrons($schedule),
             'nextRunAt' => $next?->format(\DATE_ATOM),
+            'notify' => $this->describeNotify($schedule),
+        ];
+    }
+
+    /** @return array<string, mixed> */
+    private function listNotificationDestinations(Workspace $ws): array
+    {
+        $rules = [];
+        foreach ($this->notificationSubscriptions->findByWorkspace($ws) as $subscription) {
+            $rules[(string) $subscription->getDestination()->getId()][] = sprintf(
+                '%s · %s%s',
+                $subscription->getScopeType(),
+                'always' === $subscription->getCondition() ? 'every run' : 'failures only',
+                $subscription->isEnabled() ? '' : ' (off)',
+            );
+        }
+
+        $out = [];
+        foreach ($this->notificationDestinations->findByWorkspace($ws) as $destination) {
+            $id = (string) $destination->getId();
+            $out[] = [
+                'id' => $id,
+                'name' => $destination->getName(),
+                'label' => $destination->getLabel(),
+                'type' => $destination->isSlack() ? 'slack' : 'webhook',
+                'host' => $destination->getUrlHost(),
+                'active' => $destination->isActive(),
+                'rules' => $rules[$id] ?? [],
+            ];
+        }
+
+        return ['destinations' => $out,
+            'hint' => [] === $out
+                ? 'No destination yet. Add a Slack channel or an HTTP endpoint under Notifications in the Signal UI.'
+                : 'Use these names with the notify argument of run_flow/run_flow_async/run_suite, or with update_schedule.'];
+    }
+
+    /**
+     * The run-level notification choice: named destinations on top of the
+     * workspace rules, or ["none"] to keep one run silent.
+     *
+     * @param  array<string, mixed>     $args
+     * @return array<string, mixed>|null
+     */
+    private function notifyOverride(Workspace $ws, array $args): ?array
+    {
+        if (!\array_key_exists('notify', $args)) {
+            return null;
+        }
+
+        $raw = array_map('strval', (array) $args['notify']);
+        if (\in_array('none', array_map('strtolower', $raw), true)) {
+            return ['mute' => true];
+        }
+
+        $ids = $this->resolveDestinationIds($ws, $raw);
+
+        return [] === $ids ? null : ['destinations' => $ids, 'condition' => \App\Entity\NotificationSubscription::WHEN_ALWAYS];
+    }
+
+    /**
+     * Turns destination names (or ids) into ids, so an agent can say "Signal"
+     * instead of a uuid. Unknown names are an error rather than silence — a
+     * typo must not look like a delivered notification.
+     *
+     * @param  mixed        $raw
+     * @return list<string>
+     */
+    private function resolveDestinationIds(Workspace $ws, mixed $raw): array
+    {
+        $wanted = array_filter(array_map('trim', array_map('strval', (array) $raw)), static fn (string $v) => '' !== $v);
+        if ([] === $wanted) {
+            return [];
+        }
+
+        $available = $this->notificationDestinations->findByWorkspace($ws);
+        $ids = [];
+        $unknown = [];
+        foreach ($wanted as $needle) {
+            $match = null;
+            foreach ($available as $destination) {
+                if ((string) $destination->getId() === $needle
+                    || 0 === strcasecmp($destination->getName(), $needle)
+                    || (null !== $destination->getLabel() && 0 === strcasecmp($destination->getLabel(), $needle))) {
+                    $match = $destination;
+                    break;
+                }
+            }
+            if (null === $match) {
+                $unknown[] = $needle;
+                continue;
+            }
+            if (!$match->isActive()) {
+                throw new \InvalidArgumentException(sprintf('Destination "%s" is paused; resume it in the Signal UI first.', $match->getName()));
+            }
+            $ids[(string) $match->getId()] = (string) $match->getId();
+        }
+
+        if ([] !== $unknown) {
+            $names = array_map(static fn ($d) => $d->getName(), $available);
+
+            throw new \InvalidArgumentException(sprintf(
+                'Unknown notification destination: %s. Available: %s',
+                implode(', ', $unknown),
+                [] === $names ? '(none defined)' : implode(', ', $names),
+            ));
+        }
+
+        return array_values($ids);
+    }
+
+    /** Human-readable form of a schedule's own notification targets. */
+    private function describeNotify(\App\Entity\Schedule $schedule): array
+    {
+        $ids = $schedule->getNotifyDestinationIds();
+        if ([] === $ids) {
+            return ['destinations' => [], 'condition' => null];
+        }
+
+        $names = [];
+        foreach ($this->notificationDestinations->findActiveByWorkspaceAndIds($schedule->getWorkspace(), $ids) as $destination) {
+            $names[] = $destination->getName();
+        }
+
+        return [
+            'destinations' => $names,
+            'condition' => $schedule->getNotify()['condition'] ?? \App\Entity\NotificationSubscription::WHEN_ALWAYS,
         ];
     }
 
@@ -1411,6 +1578,7 @@ class McpToolRegistry
         $groupRun->setTotal($suite->getFlows()->count());
         // An agent-driven run counts as automated: the workspace rules apply.
         $groupRun->setTrigger('mcp');
+        $groupRun->setNotifyOverride($this->notifyOverride($ws, $args));
         $this->groupRuns->save($groupRun);
 
         $this->bus->dispatch(new RunFlowGroupMessage((string) $suite->getId(), $batchId, $envId));

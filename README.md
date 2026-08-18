@@ -103,6 +103,15 @@ The session is scoped to the token's workspace. Tools cover reading
 - Sending happens on the worker, never inside the run, so a slow or broken
   endpoint cannot fail a test. Every attempt is logged with its HTTP status and
   error under **Deliveries**.
+- A message carries the run, not just its verdict: what failed with the
+  assertion that caught it, then the rundown — every flow of a suite, every row
+  of a data-driven run, every step of a single run with its HTTP status and
+  duration — and a link to the full report.
+- Over MCP: `list_notification_destinations` to see the channels,
+  `notify: ["#api-alerts"]` on `run_flow` / `run_flow_async` / `run_suite`,
+  `notify: ["none"]` to keep one run silent, and `notify` / `notifyCondition` on
+  `update_schedule`. Destinations are created in the UI, because the webhook URL
+  is a secret.
 
 ## CI
 

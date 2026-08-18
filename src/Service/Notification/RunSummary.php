@@ -19,6 +19,8 @@ class RunSummary
 {
     /** How many failing items a message lists before it says "and N more". */
     private const MAX_FAILURES = 5;
+    /** How many rundown lines (steps, suite flows, dataset rows) a message carries. */
+    private const MAX_ITEMS = 20;
 
     public function __construct(private readonly UrlGeneratorInterface $urls)
     {
@@ -31,7 +33,15 @@ class RunSummary
         $workspace = $flow->getWorkspace();
 
         $failures = [];
+        $steps = [];
         foreach ($run->getStepResults() as $result) {
+            $steps[] = [
+                'name' => sprintf('#%d %s', $result->getPosition() + 1, $result->getLabel()),
+                'status' => $result->getStatus(),
+                'http' => $result->getResponseStatus(),
+                'durationMs' => $result->getDurationMs(),
+                'method' => $result->getRequestMethod(),
+            ];
             if (\in_array($result->getStatus(), [StepResult::STATUS_PASSED, StepResult::STATUS_SKIPPED], true)) {
                 continue;
             }
@@ -57,6 +67,10 @@ class RunSummary
             'finishedAt' => $run->getFinishedAt()?->format(\DATE_ATOM),
             'failures' => \array_slice($failures, 0, self::MAX_FAILURES),
             'moreFailures' => max(0, \count($failures) - self::MAX_FAILURES),
+            // The step-by-step rundown: what the reader would otherwise open
+            // the report for.
+            'items' => \array_slice($steps, 0, self::MAX_ITEMS),
+            'moreItems' => max(0, \count($steps) - self::MAX_ITEMS),
             'url' => $this->absolute('app_flow_run_show', [
                 'workspace' => (string) $workspace->getId(),
                 'flow' => (string) $flow->getId(),
@@ -76,10 +90,18 @@ class RunSummary
         $workspace = $group->getWorkspace();
 
         $failures = [];
+        $items = [];
         $passed = 0;
         $environment = null;
         foreach ($runs as $run) {
             $environment ??= $run->getEnvironmentName();
+            $items[] = [
+                'name' => $run->getFlow()->getName(),
+                'status' => $run->getStatus(),
+                'passed' => $run->getPassedSteps(),
+                'total' => $run->getTotalSteps(),
+                'durationMs' => $run->getDurationMs(),
+            ];
             if (FlowRun::STATUS_PASSED === $run->getStatus()) {
                 ++$passed;
                 continue;
@@ -108,6 +130,8 @@ class RunSummary
             'finishedAt' => $groupRun->getFinishedAt()?->format(\DATE_ATOM),
             'failures' => \array_slice($failures, 0, self::MAX_FAILURES),
             'moreFailures' => max(0, \count($failures) - self::MAX_FAILURES),
+            'items' => \array_slice($items, 0, self::MAX_ITEMS),
+            'moreItems' => max(0, \count($items) - self::MAX_ITEMS),
             'url' => $this->absolute('app_flow_group_run_show', [
                 'workspace' => (string) $workspace->getId(),
                 'group' => (string) $group->getId(),
@@ -129,12 +153,20 @@ class RunSummary
         $workspace = $flow->getWorkspace();
 
         $failures = [];
+        $items = [];
         $passed = 0;
         $durationMs = 0;
         $environment = null;
         foreach ($runs as $run) {
             $environment ??= $run->getEnvironmentName();
             $durationMs += $run->getDurationMs() ?? 0;
+            $items[] = [
+                'name' => sprintf('row %d', $run->getIteration() + 1),
+                'status' => $run->getStatus(),
+                'passed' => $run->getPassedSteps(),
+                'total' => $run->getTotalSteps(),
+                'durationMs' => $run->getDurationMs(),
+            ];
             if (FlowRun::STATUS_PASSED === $run->getStatus()) {
                 ++$passed;
                 continue;
@@ -161,6 +193,8 @@ class RunSummary
             'finishedAt' => end($runs)->getFinishedAt()?->format(\DATE_ATOM),
             'failures' => \array_slice($failures, 0, self::MAX_FAILURES),
             'moreFailures' => max(0, \count($failures) - self::MAX_FAILURES),
+            'items' => \array_slice($items, 0, self::MAX_ITEMS),
+            'moreItems' => max(0, \count($items) - self::MAX_ITEMS),
             'url' => $this->absolute('app_flow_batch_show', [
                 'workspace' => (string) $workspace->getId(),
                 'flow' => (string) $flow->getId(),
@@ -192,6 +226,8 @@ class RunSummary
             'finishedAt' => (new \DateTimeImmutable())->format(\DATE_ATOM),
             'failures' => [],
             'moreFailures' => 0,
+            'items' => [],
+            'moreItems' => 0,
             'url' => $this->absolute('app_workspace_show', ['id' => (string) $workspace->getId()]),
         ];
     }
