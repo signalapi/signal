@@ -1316,11 +1316,41 @@ input[type=file]::file-selector-button:hover { border-color:var(--pri); color:va
 .picker-row:has(input:checked) { background:var(--pri-soft); }
 
 /* landing page: collapse the multi-column sections on narrow screens */
+/* A grid child holding a nowrap code line reports its full text as min-content
+   width, which dragged the whole page wider than the phone; min-width:0 lets the
+   column shrink and the line ellipsis/scroll inside it. */
+.land-2col > *, .land-3col > * { min-width: 0; }
+.land-cmd { max-width: 100%; }
+/* Mono blocks scroll inside their own box; a long curl line must never widen
+   the page itself. */
+.land-code { overflow-x: auto; }
+.snip { overflow-x: auto; }
 @media (max-width: 900px) {
   .land-2col { grid-template-columns: 1fr !important; }
   .land-3col { grid-template-columns: 1fr 1fr !important; }
   .land-chat { padding: 0 24px 28px !important; }
 }
 @media (max-width: 620px) {
+  /* The in-page anchors are the first thing to go — the page is one scroll —
+     so the header keeps the language switch, sign-in and the CTA reachable.
+     Above this width all five still fit on one line. */
+  .land-head .land-nav { display: none !important; }
+  .land-head { gap: 12px !important; }
+}
+@media (max-width: 620px) {
   .land-3col { grid-template-columns: 1fr !important; }
+}
+@media (max-width: 460px) {
+  .land-head { padding-left: 14px !important; padding-right: 14px !important; gap: 8px !important; }
+  .land-head .btn { padding: 8px 12px; }
+}
+/* Below this the header gives things up in order of how little they are missed:
+   first the theme toggle (the app carries its own), then the wordmark — the
+   language switch, sign-in and the CTA always survive. */
+@media (max-width: 400px) {
+  .land-head [data-theme-toggle] { display: none !important; }
+}
+@media (max-width: 365px) {
+  .land-head .land-brand-txt { display: none; }
+  .land-head .btn { padding: 8px 10px; font-size: 12px; }
 }
