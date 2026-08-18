@@ -87,7 +87,14 @@ h2 { margin:0 0 4px; font-size:16px; font-weight:700; letter-spacing:-.025em; co
 .sidebar.collapsed .label, .sidebar.collapsed .nav-group, .sidebar.collapsed .brand-txt,
 .sidebar.collapsed .ws-switch, .sidebar.collapsed .userbox-txt, .sidebar.collapsed .nav-badge { display:none; }
 .sidebar.collapsed .nav a { justify-content:center; }
-.content { flex:1; min-width:0; padding:22px 26px 48px; max-width:1240px; }
+/* The app is a data surface — lists, tables, timelines — so it uses the monitor
+   it is given instead of hugging the left edge in a 1240px column. The cap only
+   stops an ultra-wide display from stretching a table to 4000px, and the auto
+   margin centres what is left over beyond it. */
+.content { flex:1; min-width:0; padding:22px 26px 48px; max-width:2200px; margin-inline:auto; }
+@media (min-width:1500px) { .content { padding:26px 34px 56px; } }
+/* A page that IS a form is read line by line; width does not help it. */
+.content > form { max-width:1100px; }
 
 .brand { display:flex; align-items:center; gap:8px; padding:6px 8px 10px; }
 .brand-mark { width:26px; height:26px; border-radius:8px; flex-shrink:0; display:flex; align-items:center;
