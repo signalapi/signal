@@ -67,6 +67,8 @@
 {# ---- members + pending invitations, one list ---- #}
 <div class="list-card">
     {% for m in members %}
+        {# Own row is read-only: self-demotion would lock you out of this page. #}
+        {% set is_self = (m.user.id ~ '') == (app.user.id ~ '') %}
         <div class="lrow" style="padding:10px 15px;">
             <span class="av {{ tones[loop.index0 % 5] }}">{{ m.user.name|slice(0, 1)|upper }}</span>
             <span style="flex:1.3;min-width:0;">
@@ -87,6 +89,8 @@
             <span style="flex:0 0 120px;">
                 {% if m.owner %}
                     <span class="mpill vio">{{ 'Owner'|trans }}</span>
+                {% elseif is_self %}
+                    <span class="mpill" title="{{ 'You cannot change your own role.'|trans }}">{{ m.role == 'admin' ? 'Admin'|trans : 'Member'|trans }}</span>
                 {% else %}
                     <form method="post" action="{{ path('app_member_role', {id: m.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('member-role' ~ m.id) }}">
@@ -101,7 +105,7 @@
             <span class="l-meta" style="flex:0 0 84px;">{{ m.createdAt|date('d.m.Y') }}</span>
             <span style="flex:0 0 76px;display:flex;justify-content:center;"><span class="pill passed">{{ 'active'|trans }}</span></span>
             <span style="flex:0 0 30px;display:flex;justify-content:flex-end;">
-                {% if not m.owner %}
+                {% if not m.owner and not is_self %}
                     <form method="post" action="{{ path('app_member_remove', {id: m.id}) }}" onsubmit="return confirm('{{ '%name% will be removed from membership.'|trans({'%name%': m.user.name})|e('js') }}');" style="display:flex;">
                         <input type="hidden" name="_token" value="{{ csrf_token('member-remove' ~ m.id) }}">
                         <button type="submit" title="{{ 'Remove'|trans }}" aria-label="{{ 'Remove'|trans }}"

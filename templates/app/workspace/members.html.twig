@@ -69,25 +69,35 @@
 <table class="data" style="margin-bottom:22px;">
     <thead><tr><th>{{ 'Name'|trans }}</th><th>{{ 'Email'|trans }}</th><th>{{ 'Role'|trans }}</th><th></th></tr></thead>
     <tbody>
+    {# Company admins keep workspace admin implicitly, so only an explicit-row
+       admin can lock themselves out by editing their own row. #}
+    {% set implicit_admin = is_granted('MERCHANT_MANAGE_WORKSPACES', workspace.merchant) %}
     {% for m in members %}
+        {% set is_self = (m.user.id ~ '') == (app.user.id ~ '') and not implicit_admin %}
         <tr>
             <td style="font-weight:600;color:var(--ink);">{{ m.user.name }}</td>
             <td class="mono" style="font-size:11.5px;color:var(--muted);">{{ m.user.email }}</td>
             <td>
-                <form method="post" action="{{ path('app_ws_member_role', {workspace: workspace.id, id: m.id}) }}">
-                    <input type="hidden" name="_token" value="{{ csrf_token('ws-member-role' ~ m.id) }}">
-                    <select name="role" onchange="this.form.submit()" style="width:auto;">
-                        <option value="admin" {{ m.role == 'admin' ? 'selected' }}>admin</option>
-                        <option value="editor" {{ m.role == 'editor' ? 'selected' }}>editor</option>
-                        <option value="viewer" {{ m.role == 'viewer' ? 'selected' }}>viewer</option>
-                    </select>
-                </form>
+                {% if is_self %}
+                    <span class="mpill" title="{{ 'You cannot change your own workspace role.'|trans }}">{{ m.role }}</span>
+                {% else %}
+                    <form method="post" action="{{ path('app_ws_member_role', {workspace: workspace.id, id: m.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('ws-member-role' ~ m.id) }}">
+                        <select name="role" onchange="this.form.submit()" style="width:auto;">
+                            <option value="admin" {{ m.role == 'admin' ? 'selected' }}>admin</option>
+                            <option value="editor" {{ m.role == 'editor' ? 'selected' }}>editor</option>
+                            <option value="viewer" {{ m.role == 'viewer' ? 'selected' }}>viewer</option>
+                        </select>
+                    </form>
+                {% endif %}
             </td>
             <td>
-                <form method="post" style="display:flex;justify-content:flex-end;" action="{{ path('app_ws_member_remove', {workspace: workspace.id, id: m.id}) }}" onsubmit="return confirm('{{ '%name% will be removed from the workspace.'|trans({'%name%': m.user.name})|e('js') }}');">
-                    <input type="hidden" name="_token" value="{{ csrf_token('ws-member-remove' ~ m.id) }}">
-                    <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}{{ 'Remove'|trans }}</button>
-                </form>
+                {% if not is_self %}
+                    <form method="post" style="display:flex;justify-content:flex-end;" action="{{ path('app_ws_member_remove', {workspace: workspace.id, id: m.id}) }}" onsubmit="return confirm('{{ '%name% will be removed from the workspace.'|trans({'%name%': m.user.name})|e('js') }}');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('ws-member-remove' ~ m.id) }}">
+                        <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}{{ 'Remove'|trans }}</button>
+                    </form>
+                {% endif %}
             </td>
         </tr>
     {% else %}

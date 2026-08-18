@@ -16,6 +16,16 @@ else
     until [ -f vendor/autoload_runtime.php ]; do sleep 2; done
 fi
 
+# Dev secrets: generate once into .env.local (gitignored) when nothing provides
+# them — a committed default would mean every install shares the same key.
+if [ -z "$SKIP_DB_INIT" ] && [ -z "$APP_SECRET_KEY" ] && ! grep -qs "^APP_SECRET_KEY=" .env.local; then
+    echo "[entrypoint] Generating local secrets into .env.local..."
+    {
+        echo "APP_SECRET=$(php -r 'echo bin2hex(random_bytes(16));')"
+        echo "APP_SECRET_KEY=$(php -r 'echo bin2hex(random_bytes(32));')"
+    } >> .env.local
+fi
+
 # Wait for the database to accept connections
 echo "[entrypoint] Waiting for database..."
 until php -r 'exit(@fsockopen("database", 5432) ? 0 : 1);' 2>/dev/null; do

@@ -9,6 +9,7 @@ use App\Entity\WorkspaceMember;
 use App\Repository\InvitationRepository;
 use App\Repository\MerchantMemberRepository;
 use App\Repository\WorkspaceMemberRepository;
+use App\Security\MerchantVoter;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -252,6 +253,15 @@ class WorkspaceMemberController extends AbstractAppController
             throw $this->createAccessDeniedException();
         }
 
+        // Same lockout as on the company page: dropping your own admin row would
+        // close this page behind you. Merchant owners/admins are implicit
+        // workspace admins, so their access does not hang on the row.
+        if ($this->isSelf($member) && !$this->isGranted(MerchantVoter::MANAGE_WORKSPACES, $workspace->getMerchant())) {
+            $this->addFlash('error', $this->translator->trans('You cannot change your own workspace role. Another workspace admin or a company admin has to do it.'));
+
+            return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
+        }
+
         $role = (string) $request->request->get('role');
         if (!\in_array($role, WorkspaceMember::ROLES, true)) {
             throw $this->createAccessDeniedException();
@@ -279,6 +289,11 @@ class WorkspaceMemberController extends AbstractAppController
 
         if (!$this->isCsrfTokenValid('ws-member-remove' . $member->getId(), (string) $request->request->get('_token'))) {
             throw $this->createAccessDeniedException();
+        }
+        if ($this->isSelf($member) && !$this->isGranted(MerchantVoter::MANAGE_WORKSPACES, $workspace->getMerchant())) {
+            $this->addFlash('error', $this->translator->trans('You cannot remove yourself from the workspace. Another workspace admin or a company admin has to do it.'));
+
+            return $this->redirectToRoute('app_ws_member_index', ['workspace' => $workspace->getId()]);
         }
 
         $em->remove($member);
@@ -318,6 +333,12 @@ class WorkspaceMemberController extends AbstractAppController
         }
 
         return $invitation;
+    }
+
+    /** Is this the logged-in user's own membership row? */
+    private function isSelf(WorkspaceMember $member): bool
+    {
+        return $member->getUser()->getId()?->toRfc4122() === $this->currentUser()->getId()?->toRfc4122();
     }
 
     private function findMember(WorkspaceMemberRepository $members, Workspace $workspace, string $id): WorkspaceMember

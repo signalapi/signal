@@ -12,7 +12,6 @@ services:
       APP_ENV: ${APP_ENV:-dev}
       DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
       REDIS_URL: "redis://redis:6379"
-      APP_SECRET_KEY: "${APP_SECRET_KEY:-REMOVED-FROM-HISTORY}"
       HTTP_INSECURE_SSL: "${HTTP_INSECURE_SSL:-0}"
       BROWSER_RUNNER_URL: "http://browser:7300"
     depends_on:
@@ -32,7 +31,6 @@ services:
       APP_ENV: ${APP_ENV:-dev}
       DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
       REDIS_URL: "redis://redis:6379"
-      APP_SECRET_KEY: "${APP_SECRET_KEY:-REMOVED-FROM-HISTORY}"
       SKIP_DB_INIT: "1"
       HTTP_INSECURE_SSL: "${HTTP_INSECURE_SSL:-0}"
       BROWSER_RUNNER_URL: "http://browser:7300"
@@ -58,7 +56,6 @@ services:
       APP_ENV: ${APP_ENV:-dev}
       DATABASE_URL: "postgresql://app:app@database:5432/app?serverVersion=16&charset=utf8"
       REDIS_URL: "redis://redis:6379"
-      APP_SECRET_KEY: "${APP_SECRET_KEY:-REMOVED-FROM-HISTORY}"
       SKIP_DB_INIT: "1"
       HTTP_INSECURE_SSL: "${HTTP_INSECURE_SSL:-0}"
     command: >

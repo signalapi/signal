@@ -1,0 +1,33 @@
+{# ==========================================================================
+   Styled 403. The status stays 403 — the visitor is signed in, they simply
+   lack the permission — but the page is not a dead end: it names the reason
+   and links back into the app instead of showing Symfony's bare error page.
+   ========================================================================== #}
+{% extends 'base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'You do not have permission'|trans }} · Signal{% endblock %}
+
+{% block body %}
+<div class="auth" style="grid-template-columns:1fr">
+    <div class="auth-form">
+        <div class="inner stagger" style="text-align:center">
+            <span class="sq warn" style="width:34px;height:34px;margin:0 auto 14px">{{ ic.i('shield', 17, 2.2) }}</span>
+            <h1>{{ 'You do not have permission'|trans }}</h1>
+            <p class="subtitle" style="margin-bottom:20px">
+                {{ 'Your role in this company does not cover this page. A company admin or the owner can grant you access.'|trans }}
+            </p>
+
+            {% if app.user %}
+                <a class="btn block" href="{{ path('app_dashboard') }}">{{ 'Back to dashboard'|trans }}</a>
+                <p class="fhint" style="margin-top:16px">
+                    {{ 'Signed in as'|trans }} <strong>{{ app.user.email }}</strong> ·
+                    <a href="{{ path('app_logout') }}">{{ 'Sign out'|trans }}</a>
+                </p>
+            {% else %}
+                <a class="btn block" href="{{ path('app_login') }}">{{ 'Sign in'|trans }}</a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

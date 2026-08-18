@@ -36,7 +36,14 @@ class MemberController extends AbstractAppController
         WorkspaceMemberRepository $workspaceMembers,
     ): Response {
         $merchant = $this->currentMerchant();
-        $this->denyAccessUnlessGranted(MerchantVoter::MANAGE_MEMBERS, $merchant);
+        if (!$this->isGranted(MerchantVoter::MANAGE_MEMBERS, $merchant)) {
+            // A bare 403 page also hides the sidebar — including the company
+            // switcher, which may lead to a merchant they *can* manage. Bounce
+            // them back into the app with the reason instead.
+            $this->addFlash('error', $this->translator->trans('You do not have permission to manage the users of "%name%".', ['%name%' => $merchant->getName()]));
+
+            return $this->redirectToRoute('app_dashboard');
+        }
 
         // Per-user workspace access summary: user id => ["Payments · editor", ...].
         $access = [];
@@ -201,6 +208,13 @@ class MemberController extends AbstractAppController
 
             return $this->redirectToRoute('app_member_index');
         }
+        // Demoting yourself would take away this very page: the admin would be
+        // locked out of member management with no way back in.
+        if ($this->isSelf($member)) {
+            $this->addFlash('error', $translator->trans('You cannot change your own role. Another company admin or the owner has to do it.'));
+
+            return $this->redirectToRoute('app_member_index');
+        }
 
         $role = (string) $request->request->get('role');
         if (!\in_array($role, [MerchantMember::ROLE_ADMIN, MerchantMember::ROLE_MEMBER], true)) {
@@ -231,6 +245,11 @@ class MemberController extends AbstractAppController
 
             return $this->redirectToRoute('app_member_index');
         }
+        if ($this->isSelf($member)) {
+            $this->addFlash('error', $translator->trans('You cannot remove yourself from the company. Another company admin or the owner has to do it.'));
+
+            return $this->redirectToRoute('app_member_index');
+        }
 
         // Also drop the user's per-workspace grants inside this merchant.
         $em->createQuery(
@@ -248,6 +267,12 @@ class MemberController extends AbstractAppController
         $this->addFlash('success', $translator->trans('%name% was removed from membership.', ['%name%' => $member->getUser()->getName()]));
 
         return $this->redirectToRoute('app_member_index');
+    }
+
+    /** Is this the logged-in user's own membership row? */
+    private function isSelf(MerchantMember $member): bool
+    {
+        return $member->getUser()->getId()?->toRfc4122() === $this->currentUser()->getId()?->toRfc4122();
     }
 
     private function findMerchantMember(MerchantMemberRepository $members, string $id): MerchantMember
