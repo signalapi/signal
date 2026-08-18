@@ -42,7 +42,8 @@ class NotificationSubscriptionRepository extends ServiceEntityRepository
             ->join('s.destination', 'd')
             ->andWhere('s.workspace = :ws')
             ->setParameter('ws', $workspace->getId(), 'uuid')
-            ->orderBy('s.scopeType', 'ASC')
+            // Broadest scope first: workspace, then suite, then a single test.
+            ->orderBy('s.scopeType', 'DESC')
             ->addOrderBy('s.createdAt', 'ASC')
             ->getQuery()
             ->getResult();

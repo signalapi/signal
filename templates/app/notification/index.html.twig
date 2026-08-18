@@ -1,3 +1,9 @@
+{# ==========================================================================
+   Notifications — the same furniture as the other workspace settings pages:
+   stat strip · list-card with a column head · folds for the two "add" forms.
+   The page reads top-down as the mental model: where messages can go, which
+   runs are worth one, what actually went out.
+   ========================================================================== #}
 {% extends 'app/_layout.html.twig' %}
 {% import '_icons.html.twig' as ic %}
 
@@ -6,174 +12,332 @@
 {% block panel %}
 {% set typemap = {
     slack_webhook: {label: 'Slack', badge: 'SL', tone: 'vio'},
-    webhook:       {label: 'Webhook', badge: 'WH', tone: 'teal'},
+    webhook:       {label: 'HTTP',  badge: 'WH', tone: 'teal'},
 } %}
 <div class="pagehead">
     <div>
         <h1>{{ 'Notifications'|trans }}</h1>
-        <p class="subtitle">{{ 'Send run results to Slack or any HTTP endpoint'|trans }}</p>
+        <p class="subtitle">{{ 'Run results delivered where your team already looks'|trans }}</p>
+    </div>
+    <div class="actions">
+        <span class="seg">
+            <a class="on" href="{{ path('app_notification_index', {workspace: workspace.id}) }}">{{ 'Notifications'|trans }}</a>
+            <a href="{{ path('app_schedule_index', {workspace: workspace.id}) }}">{{ 'Schedules'|trans }}</a>
+        </span>
     </div>
 </div>
 
-{# ---- destinations ---- #}
+<div class="stat-grid">
+    <div class="stat-card">
+        <span class="sq vio">{{ ic.i('share', 15) }}</span>
+        <span style="min-width:0;">
+            <span class="n">{{ active_destinations }}</span>
+            <span class="s">{{ 'active destinations'|trans }}</span>
+        </span>
+    </div>
+    <div class="stat-card">
+        <span class="sq pri">{{ ic.i('shield', 15) }}</span>
+        <span style="min-width:0;">
+            <span class="n">{{ subscriptions|filter(s => s.enabled)|length }}</span>
+            <span class="s">{{ 'rules on'|trans }}</span>
+        </span>
+    </div>
+    <div class="stat-card">
+        <span class="sq pass">{{ ic.i('check', 15, 3) }}</span>
+        <span style="min-width:0;">
+            <span class="n">{{ sent_24h }}</span>
+            <span class="s">{{ 'delivered · 24h'|trans }}</span>
+        </span>
+    </div>
+    <div class="stat-card">
+        <span class="sq {{ failed_24h > 0 ? 'fail' : 'teal' }}">{{ ic.i(failed_24h > 0 ? 'alert' : 'clock', 15) }}</span>
+        <span style="min-width:0;">
+            <span class="n">{{ failed_24h }}</span>
+            <span class="s">{{ 'failed · 24h'|trans }}</span>
+        </span>
+    </div>
+</div>
+
+{# ---------------------------------------------------------------- destinations #}
 <div class="section-title">{{ 'Destinations'|trans }}</div>
 
 {% if destinations is empty %}
-    <div class="empty" style="margin-bottom:14px;">{{ 'No destination yet. Paste a Slack incoming webhook URL, or any HTTP endpoint, and results can be delivered there.'|trans }}</div>
+    <div class="empty" style="margin-bottom:12px;">
+        {{ 'Nowhere to send yet. Add a Slack channel or an HTTP endpoint below, then send a test message to check it.'|trans }}
+    </div>
 {% else %}
-<div class="list-card" style="margin-bottom:14px;">
-    {% for d in destinations %}
-        {% set t = typemap[d.type] ?? {label: d.type, badge: '??', tone: ''} %}
-        <div class="lrow">
-            <span class="tbadge {{ t.tone }}">{{ t.badge }}</span>
-            <span style="flex:1.4;min-width:0;">
-                <span class="l-name">{{ d.name }}</span>
-                <span class="l-sub">{{ t.label }} · {{ d.urlHost }}{% if d.label %} · {{ d.label }}{% endif %}</span>
-            </span>
-            <span style="flex:0 0 90px;">
-                {% if d.active %}
-                    <span class="pill passed">{{ 'active'|trans }}</span>
-                {% else %}
-                    <span class="pill cancelled">{{ 'paused'|trans }}</span>
-                {% endif %}
-            </span>
-            <span class="l-meta" style="flex:0 0 84px;">{{ d.createdAt|date('d.m.Y') }}</span>
-            <div style="flex:1 1 0;min-width:0;"></div>
-            <form method="post" action="{{ path('app_notification_destination_test', {workspace: workspace.id, destination: d.id}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('notif-test' ~ d.id) }}">
-                <button class="gbtn" type="submit">{{ 'Send test'|trans }}</button>
-            </form>
-            <form method="post" action="{{ path('app_notification_destination_toggle', {workspace: workspace.id, destination: d.id}) }}">
-                <input type="hidden" name="_token" value="{{ csrf_token('notif-toggle' ~ d.id) }}">
-                <button class="gbtn" type="submit">{{ d.active ? 'Pause'|trans : 'Resume'|trans }}</button>
-            </form>
-            <form method="post" action="{{ path('app_notification_destination_delete', {workspace: workspace.id, destination: d.id}) }}"
-                  onsubmit="return confirm('{{ '"%name%" and its rules will be deleted.'|trans({'%name%': d.name})|e('js') }}');">
-                <input type="hidden" name="_token" value="{{ csrf_token('notif-delete' ~ d.id) }}">
-                <button type="submit" title="{{ 'Delete'|trans }}" aria-label="{{ 'Delete'|trans }}"
-                        style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--faint);">{{ ic.i('trash', 13) }}</button>
-            </form>
+    <div class="list-card" style="margin-bottom:12px;">
+        <div class="lc-head">
+            <span style="flex:0 0 34px;"></span>
+            <span style="flex:1.3;">{{ 'Name'|trans }}</span>
+            <span style="flex:0 0 200px;">{{ 'Endpoint'|trans }}</span>
+            <span style="flex:0 0 90px;">{{ 'Status'|trans }}</span>
+            <span style="flex:0 0 84px;">{{ 'Added'|trans }}</span>
+            <span style="flex:0 0 200px;"></span>
         </div>
-    {% endfor %}
-</div>
+        {% for d in destinations %}
+            {% set t = typemap[d.type] ?? {label: d.type, badge: '??', tone: ''} %}
+            <div class="lrow" {% if not d.active %}style="opacity:.6;"{% endif %}>
+                <span style="flex:0 0 34px;"><span class="tbadge {{ t.tone }}">{{ t.badge }}</span></span>
+                <span style="flex:1.3;min-width:0;">
+                    <span class="l-name">{{ d.name }}</span>
+                    <span class="l-sub" style="font-family:var(--mono);">{{ d.label ?: t.label }}</span>
+                </span>
+                <span class="l-meta" style="flex:0 0 200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ d.urlHost }}</span>
+                <span style="flex:0 0 90px;">
+                    {%- if d.active -%}
+                        <span class="pill passed">{{ 'active'|trans }}</span>
+                    {%- else -%}
+                        <span class="pill cancelled">{{ 'paused'|trans }}</span>
+                    {%- endif -%}
+                </span>
+                <span class="l-meta" style="flex:0 0 84px;">{{ d.createdAt|date('d.m.Y') }}</span>
+                <span style="flex:0 0 200px;display:flex;gap:6px;justify-content:flex-end;">
+                    <form method="post" action="{{ path('app_notification_destination_test', {workspace: workspace.id, destination: d.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('notif-test' ~ d.id) }}">
+                        <button class="gbtn" type="submit">{{ 'Send test'|trans }}</button>
+                    </form>
+                    <form method="post" action="{{ path('app_notification_destination_toggle', {workspace: workspace.id, destination: d.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('notif-toggle' ~ d.id) }}">
+                        <button class="gbtn" type="submit">{{ d.active ? 'Pause'|trans : 'Resume'|trans }}</button>
+                    </form>
+                    <form method="post" action="{{ path('app_notification_destination_delete', {workspace: workspace.id, destination: d.id}) }}"
+                          onsubmit="return confirm('{{ '"%name%" and the rules that use it will be deleted.'|trans({'%name%': d.name})|e('js') }}');">
+                        <input type="hidden" name="_token" value="{{ csrf_token('notif-delete' ~ d.id) }}">
+                        <button class="gbtn danger" type="submit" title="{{ 'Delete'|trans }}" aria-label="{{ 'Delete'|trans }}"
+                                style="padding:6px 9px;">{{ ic.i('trash', 12) }}</button>
+                    </form>
+                </span>
+            </div>
+        {% endfor %}
+    </div>
 {% endif %}
 
-<form method="post" action="{{ path('app_notification_destination_create', {workspace: workspace.id}) }}" id="destForm" style="margin-bottom:26px;">
-    <input type="hidden" name="_token" value="{{ csrf_token('notif-destination') }}">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
-        <select name="type" style="width:auto;" onchange="document.getElementById('hookSecret').style.display = this.value == 'webhook' ? '' : 'none';">
-            <option value="slack_webhook" selected>{{ 'Slack incoming webhook'|trans }}</option>
-            <option value="webhook">{{ 'HTTP webhook'|trans }}</option>
-        </select>
-        <input type="url" name="url" required placeholder="https://hooks.slack.com/services/…" style="flex:1 1 320px;min-width:240px;">
-        <input type="text" name="name" placeholder="{{ 'Name (e.g. API alerts)'|trans }}" style="flex:0 1 200px;">
-        <input type="text" name="label" placeholder="#api-alerts" style="flex:0 1 150px;">
-        <input type="text" name="secret" id="hookSecret" placeholder="{{ 'HMAC secret (optional)'|trans }}" style="flex:0 1 190px;display:none;">
-        <button class="btn" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Add destination'|trans }}</button>
+<details class="fold" {{ destinations is empty ? 'open' }}>
+    <summary>
+        <span class="ic-box vio">{{ ic.i('plus', 15, 2.4) }}</span>
+        <span>
+            <span class="t" style="display:block;">{{ 'Add a destination'|trans }}</span>
+            <span class="s" style="display:block;">{{ 'A Slack channel, or any endpoint that accepts a JSON POST'|trans }}</span>
+        </span>
+        <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+    </summary>
+    <div class="fold-body">
+        <form method="post" action="{{ path('app_notification_destination_create', {workspace: workspace.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('notif-destination') }}">
+            <div class="fgrid">
+                <div class="field">
+                    <label for="destType">{{ 'Channel'|trans }}</label>
+                    <select name="type" id="destType">
+                        <option value="slack_webhook" selected>{{ 'Slack channel'|trans }}</option>
+                        <option value="webhook">{{ 'HTTP endpoint'|trans }}</option>
+                    </select>
+                </div>
+                <div class="field" style="grid-column:span 2;">
+                    <label for="destUrl">{{ 'Webhook URL'|trans }}</label>
+                    <input type="url" name="url" id="destUrl" required placeholder="https://hooks.slack.com/services/…">
+                </div>
+                <div class="field">
+                    <label for="destName">{{ 'Name'|trans }}</label>
+                    <input type="text" name="name" id="destName" placeholder="{{ 'API alerts'|trans }}">
+                </div>
+                <div class="field">
+                    <label for="destLabel">{{ 'Shown as'|trans }}</label>
+                    <input type="text" name="label" id="destLabel" placeholder="#api-alerts">
+                </div>
+                <div class="field" id="destSecretField" hidden>
+                    <label for="destSecret">{{ 'Signing secret'|trans }}</label>
+                    <input type="text" name="secret" id="destSecret" placeholder="{{ 'optional'|trans }}">
+                </div>
+            </div>
+            <p class="fhint" id="destHint" style="margin-top:0;">
+                {{ 'In Slack: Apps → Incoming Webhooks → add one for the channel, then paste the URL here.'|trans }}
+            </p>
+            <div class="fold-actions">
+                <button class="btn" type="submit">{{ 'Add destination'|trans }}</button>
+            </div>
+            <p class="fhint">{{ 'The URL is sealed with libsodium and never shown again — only its host stays visible.'|trans }}</p>
+        </form>
     </div>
-    <p class="subtitle" style="margin-top:8px;">
-        {{ 'The URL is stored encrypted and never shown again. For an HTTP webhook the payload is posted as JSON; with a secret it also carries an X-Signal-Signature header.'|trans }}
-    </p>
-</form>
+</details>
 
-{# ---- rules ---- #}
+{# ---------------------------------------------------------------- rules #}
 <div class="section-title">{{ 'Rules'|trans }}</div>
-<p class="subtitle" style="margin:-4px 0 12px;">
-    {{ 'Rules cover scheduled, API/CI and MCP runs. A run you start yourself stays quiet unless you tick a destination when starting it.'|trans }}
+<p class="subtitle" style="margin:-6px 0 11px;">
+    {{ 'Rules speak for the runs nobody is watching: scheduled, API/CI and MCP. A run you start yourself only reports if you pick a destination as you start it.'|trans }}
 </p>
 
 {% if subscriptions is empty %}
-    <div class="empty" style="margin-bottom:14px;">{{ 'No rules yet.'|trans }}</div>
+    <div class="empty" style="margin-bottom:12px;">{{ 'No rules yet. Nothing automated will be reported until you add one.'|trans }}</div>
 {% else %}
-<table class="data" style="margin-bottom:14px;">
-    <thead><tr>
-        <th>{{ 'Scope'|trans }}</th><th>{{ 'Destination'|trans }}</th><th>{{ 'When'|trans }}</th><th></th><th></th>
-    </tr></thead>
-    <tbody>
-    {% for s in subscriptions %}
-        {# A scoped flow/suite can be gone; fall back to a dash rather than blowing up. #}
-        {% set scoped = s.scopeType == 'flow'
-            ? flows|filter(f => (f.id ~ '') == (s.scopeId ~ ''))|first
-            : (s.scopeType == 'suite' ? groups|filter(g => (g.id ~ '') == (s.scopeId ~ ''))|first : null) %}
-        {% set scopeName = s.scopeType == 'workspace' ? 'Every run in this workspace'|trans : (scoped ? scoped.name : '—') %}
-        <tr>
-            <td>
-                <span class="mpill {{ s.scopeType == 'workspace' ? 'pri' : (s.scopeType == 'suite' ? 'vio' : 'teal') }}">{{ s.scopeType }}</span>
-                <span style="font-weight:600;color:var(--ink);">{{ scopeName }}</span>
-            </td>
-            <td>{{ s.destination.name }} <span class="l-meta">{{ s.destination.label }}</span></td>
-            <td>{{ s.condition == 'always' ? 'Every run'|trans : 'Only failures'|trans }}</td>
-            <td>{% if s.enabled %}<span class="pill passed">{{ 'on'|trans }}</span>{% else %}<span class="pill cancelled">{{ 'off'|trans }}</span>{% endif %}</td>
-            <td>
-                <div style="display:flex;gap:6px;justify-content:flex-end;">
+    <div class="list-card" style="margin-bottom:12px;">
+        <div class="lc-head">
+            <span style="flex:1.4;">{{ 'What runs'|trans }}</span>
+            <span style="flex:0 0 200px;">{{ 'Sends to'|trans }}</span>
+            <span style="flex:0 0 130px;">{{ 'When'|trans }}</span>
+            <span style="flex:0 0 70px;">{{ 'State'|trans }}</span>
+            <span style="flex:0 0 150px;"></span>
+        </div>
+        {% for s in subscriptions %}
+            {# A scoped test or suite can be gone; fall back to a dash. #}
+            {% set scoped = s.scopeType == 'flow'
+                ? flows|filter(f => (f.id ~ '') == (s.scopeId ~ ''))|first
+                : (s.scopeType == 'suite' ? groups|filter(g => (g.id ~ '') == (s.scopeId ~ ''))|first : null) %}
+            <div class="lrow" {% if not s.enabled %}style="opacity:.6;"{% endif %}>
+                <span style="flex:1.4;min-width:0;display:flex;align-items:center;gap:8px;">
+                    <span class="mpill {{ s.scopeType == 'workspace' ? 'pri' : (s.scopeType == 'suite' ? 'vio' : 'teal') }}">
+                        {{- s.scopeType == 'workspace' ? 'workspace'|trans : (s.scopeType == 'suite' ? 'suite'|trans : 'test'|trans) -}}
+                    </span>
+                    <span class="l-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                        {{- s.scopeType == 'workspace' ? 'Every automated run'|trans : (scoped ? scoped.name : '—') -}}
+                    </span>
+                </span>
+                <span style="flex:0 0 200px;min-width:0;">
+                    <span class="l-name" style="font-size:12px;">{{ s.destination.name }}</span>
+                    {% if s.destination.label %}<span class="l-sub" style="font-family:var(--mono);">{{ s.destination.label }}</span>{% endif %}
+                </span>
+                <span style="flex:0 0 130px;">
+                    <span class="chip {{ s.condition == 'always' ? '' : 'retry' }}">{{ s.condition == 'always' ? 'every run'|trans : 'failures only'|trans }}</span>
+                </span>
+                <span style="flex:0 0 70px;">
+                    {%- if s.enabled -%}
+                        <span class="pill passed">{{ 'on'|trans }}</span>
+                    {%- else -%}
+                        <span class="pill cancelled">{{ 'off'|trans }}</span>
+                    {%- endif -%}
+                </span>
+                <span style="flex:0 0 150px;display:flex;gap:6px;justify-content:flex-end;">
                     <form method="post" action="{{ path('app_notification_rule_toggle', {workspace: workspace.id, subscription: s.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('notif-rule-toggle' ~ s.id) }}">
-                        <button class="gbtn" type="submit">{{ s.enabled ? 'Disable'|trans : 'Enable'|trans }}</button>
+                        <button class="gbtn" type="submit">{{ s.enabled ? 'Turn off'|trans : 'Turn on'|trans }}</button>
                     </form>
                     <form method="post" action="{{ path('app_notification_rule_delete', {workspace: workspace.id, subscription: s.id}) }}">
                         <input type="hidden" name="_token" value="{{ csrf_token('notif-rule-delete' ~ s.id) }}">
-                        <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}</button>
+                        <button class="gbtn danger" type="submit" title="{{ 'Delete'|trans }}" aria-label="{{ 'Delete'|trans }}"
+                                style="padding:6px 9px;">{{ ic.i('trash', 12) }}</button>
                     </form>
-                </div>
-            </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
+                </span>
+            </div>
+        {% endfor %}
+    </div>
 {% endif %}
 
 {% if destinations is not empty %}
-<form method="post" action="{{ path('app_notification_rule_create', {workspace: workspace.id}) }}" style="margin-bottom:26px;">
-    <input type="hidden" name="_token" value="{{ csrf_token('notif-rule') }}">
-    <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <select name="scope" style="width:auto;">
-            <option value="workspace">{{ 'Every run in this workspace'|trans }}</option>
-            {% for g in groups %}<option value="suite:{{ g.id }}">{{ 'Suite'|trans }}: {{ g.name }}</option>{% endfor %}
-            {% for f in flows %}<option value="flow:{{ f.id }}">{{ 'Test'|trans }}: {{ f.name }}</option>{% endfor %}
-        </select>
-        <select name="destination" style="width:auto;">
-            {% for d in destinations %}<option value="{{ d.id }}">{{ d.name }}{% if d.label %} ({{ d.label }}){% endif %}</option>{% endfor %}
-        </select>
-        <select name="condition" style="width:auto;">
-            <option value="on_failure" selected>{{ 'Only failures'|trans }}</option>
-            <option value="always">{{ 'Every run'|trans }}</option>
-        </select>
-        <button class="btn" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Add rule'|trans }}</button>
-    </div>
-</form>
+    <details class="fold" {{ subscriptions is empty ? 'open' }}>
+        <summary>
+            <span class="ic-box">{{ ic.i('plus', 15, 2.4) }}</span>
+            <span>
+                <span class="t" style="display:block;">{{ 'Add a rule'|trans }}</span>
+                <span class="s" style="display:block;">{{ 'Pick what runs, where it reports, and how loud'|trans }}</span>
+            </span>
+            <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+        </summary>
+        <div class="fold-body">
+            <form method="post" action="{{ path('app_notification_rule_create', {workspace: workspace.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('notif-rule') }}">
+                <div class="fgrid">
+                    <div class="field" style="grid-column:span 2;">
+                        <label for="ruleScope">{{ 'What runs'|trans }}</label>
+                        <select name="scope" id="ruleScope">
+                            <option value="workspace">{{ 'Every automated run in this workspace'|trans }}</option>
+                            {% if groups is not empty %}
+                                <optgroup label="{{ 'Suites'|trans }}">
+                                    {% for g in groups %}<option value="suite:{{ g.id }}">{{ g.name }}</option>{% endfor %}
+                                </optgroup>
+                            {% endif %}
+                            {% if flows is not empty %}
+                                <optgroup label="{{ 'Tests'|trans }}">
+                                    {% for f in flows %}<option value="flow:{{ f.id }}">{{ f.name }}</option>{% endfor %}
+                                </optgroup>
+                            {% endif %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="ruleDest">{{ 'Sends to'|trans }}</label>
+                        <select name="destination" id="ruleDest">
+                            {% for d in destinations %}
+                                <option value="{{ d.id }}" {{ not d.active ? 'disabled' }}>{{ d.name }}{% if d.label %} · {{ d.label }}{% endif %}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="field">
+                        <label for="ruleWhen">{{ 'When'|trans }}</label>
+                        <select name="condition" id="ruleWhen">
+                            <option value="on_failure" selected>{{ 'Failures only'|trans }}</option>
+                            <option value="always">{{ 'Every run'|trans }}</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="fold-actions">
+                    <button class="btn" type="submit">{{ 'Add rule'|trans }}</button>
+                </div>
+            </form>
+        </div>
+    </details>
 {% endif %}
 
-{# ---- delivery log ---- #}
+{# ---------------------------------------------------------------- deliveries #}
 <div class="section-title">{{ 'Deliveries'|trans }}</div>
+
 {% if deliveries is empty %}
-    <div class="empty">{{ 'Nothing sent yet.'|trans }}</div>
+    <div class="empty">{{ 'Nothing sent yet. Send a test message to a destination to see it land here.'|trans }}</div>
 {% else %}
-<table class="data">
-    <thead><tr>
-        <th>{{ 'Time'|trans }}</th><th>{{ 'Destination'|trans }}</th><th>{{ 'Subject'|trans }}</th><th>{{ 'Event'|trans }}</th><th>{{ 'Result'|trans }}</th>
-    </tr></thead>
-    <tbody>
-    {% for l in deliveries %}
-        <tr>
-            <td class="mono" style="font-size:11px;color:var(--muted);">{{ l.createdAt|date('d.m H:i:s') }}</td>
-            <td>{{ l.destinationName }}</td>
-            <td style="color:var(--ink);">{{ l.subject }}</td>
-            <td class="mono" style="font-size:10.5px;color:var(--faint);">{{ l.event }}</td>
-            <td>
-                {% if l.status == 'sent' %}
-                    <span class="pill passed">{{ 'sent'|trans }}</span>
-                    <span class="l-meta">HTTP {{ l.responseCode }}</span>
-                {% elseif l.status == 'failed' %}
-                    <span class="pill failed">{{ 'failed'|trans }}</span>
-                    <span class="l-meta" title="{{ l.error }}">{{ l.error|default('')|slice(0, 70) }}</span>
-                {% else %}
-                    <span class="pill queued">{{ 'queued'|trans }}</span>
-                    {% if l.attempts > 0 %}<span class="l-meta">{{ '%count% attempt|%count% attempts'|trans({'%count%': l.attempts}) }}</span>{% endif %}
-                {% endif %}
-            </td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
+    <div class="list-card">
+        <div class="lc-head">
+            <span style="flex:0 0 108px;">{{ 'Time'|trans }}</span>
+            <span style="flex:1.3;">{{ 'Subject'|trans }}</span>
+            <span style="flex:0 0 170px;">{{ 'Destination'|trans }}</span>
+            <span style="flex:0 0 250px;">{{ 'Result'|trans }}</span>
+        </div>
+        {% for l in deliveries %}
+            <div class="lrow">
+                <span class="l-meta" style="flex:0 0 108px;">{{ l.createdAt|date('d.m H:i:s') }}</span>
+                <span style="flex:1.3;min-width:0;">
+                    <span class="l-name" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ l.subject }}</span>
+                    <span class="l-sub" style="font-family:var(--mono);">{{ l.event }}</span>
+                </span>
+                <span class="l-meta" style="flex:0 0 170px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ l.destinationName }}</span>
+                <span style="flex:0 0 250px;min-width:0;display:flex;align-items:center;gap:7px;">
+                    {% if l.status == 'sent' %}
+                        <span class="pill passed">{{ 'delivered'|trans }}</span>
+                        <span class="l-meta">HTTP {{ l.responseCode }}</span>
+                    {% elseif l.status == 'failed' %}
+                        <span class="pill failed">{{ 'failed'|trans }}</span>
+                        <span class="l-meta" title="{{ l.error }}" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ l.error }}</span>
+                    {% else %}
+                        <span class="pill queued">{{ 'queued'|trans }}</span>
+                        {% if l.attempts > 0 %}<span class="l-meta">{{ '%count% attempt|%count% attempts'|trans({'%count%': l.attempts}) }}</span>{% endif %}
+                    {% endif %}
+                </span>
+            </div>
+        {% endfor %}
+    </div>
 {% endif %}
+
+<script>
+// The signing secret and the URL hint only make sense for a plain HTTP endpoint.
+(function () {
+    var type = document.getElementById('destType');
+    if (!type) return;
+    var secret = document.getElementById('destSecretField');
+    var url = document.getElementById('destUrl');
+    var hint = document.getElementById('destHint');
+    var copy = {
+        slack: {
+            placeholder: 'https://hooks.slack.com/services/…',
+            hint: {{ 'In Slack: Apps → Incoming Webhooks → add one for the channel, then paste the URL here.'|trans|json_encode|raw }}
+        },
+        http: {
+            placeholder: 'https://example.com/hooks/signal',
+            hint: {{ 'The run summary is posted as JSON. With a signing secret every call carries an X-Signal-Signature header you can verify.'|trans|json_encode|raw }}
+        }
+    };
+    type.addEventListener('change', function () {
+        var http = this.value === 'webhook';
+        secret.hidden = !http;
+        url.placeholder = http ? copy.http.placeholder : copy.slack.placeholder;
+        hint.textContent = http ? copy.http.hint : copy.slack.hint;
+    });
+})();
+</script>
 {% endblock %}

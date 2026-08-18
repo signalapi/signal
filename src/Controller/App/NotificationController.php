@@ -2,6 +2,7 @@
 
 namespace App\Controller\App;
 
+use App\Entity\NotificationDelivery;
 use App\Entity\NotificationDestination;
 use App\Entity\NotificationSubscription;
 use App\Entity\Workspace;
@@ -39,13 +40,19 @@ class NotificationController extends AbstractAppController
     ): Response {
         $this->assertWorkspace($workspace, 'admin');
 
+        $list = $destinations->findByWorkspace($workspace);
+        $counts = $deliveries->countsByStatusSince($workspace, new \DateTimeImmutable('-24 hours'));
+
         return $this->render('app/notification/index.html.twig', [
             'workspace' => $workspace,
-            'destinations' => $destinations->findByWorkspace($workspace),
+            'destinations' => $list,
             'subscriptions' => $subscriptions->findByWorkspace($workspace),
             'deliveries' => $deliveries->findRecentByWorkspace($workspace, 20),
             'flows' => $flows->findByWorkspace($workspace),
             'groups' => $groups->findByWorkspace($workspace),
+            'active_destinations' => \count(array_filter($list, static fn ($d) => $d->isActive())),
+            'sent_24h' => $counts[NotificationDelivery::STATUS_SENT] ?? 0,
+            'failed_24h' => $counts[NotificationDelivery::STATUS_FAILED] ?? 0,
         ]);
     }
 
