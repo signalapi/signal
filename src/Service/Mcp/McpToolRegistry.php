@@ -1062,12 +1062,12 @@ class McpToolRegistry
             return null;
         }
 
-        $raw = array_map('strval', (array) $args['notify']);
-        if (\in_array('none', array_map('strtolower', $raw), true)) {
+        $names = $this->notifyNames($args['notify']);
+        if (\in_array('none', array_map('strtolower', $names), true)) {
             return ['mute' => true];
         }
 
-        $ids = $this->resolveDestinationIds($ws, $raw);
+        $ids = $this->resolveDestinationIds($ws, $names);
 
         return [] === $ids ? null : ['destinations' => $ids, 'condition' => \App\Entity\NotificationSubscription::WHEN_ALWAYS];
     }
@@ -1082,7 +1082,7 @@ class McpToolRegistry
      */
     private function resolveDestinationIds(Workspace $ws, mixed $raw): array
     {
-        $wanted = array_filter(array_map('trim', array_map('strval', (array) $raw)), static fn (string $v) => '' !== $v);
+        $wanted = $this->notifyNames($raw);
         if ([] === $wanted) {
             return [];
         }
@@ -1121,6 +1121,26 @@ class McpToolRegistry
         }
 
         return array_values($ids);
+    }
+
+    /**
+     * Destination names as a list, however the client sent them: an array, a
+     * comma-separated string, or a JSON array that arrived as a string because
+     * the caller's cached schema did not know this argument yet.
+     *
+     * @return list<string>
+     */
+    private function notifyNames(mixed $raw): array
+    {
+        if (\is_string($raw)) {
+            $text = trim($raw);
+            $decoded = str_starts_with($text, '[') ? json_decode($text, true) : null;
+            $raw = \is_array($decoded) ? $decoded : explode(',', $text);
+        }
+
+        $names = array_map(static fn ($v) => trim((string) $v, " \t\n\r\0\x0B\"'[]"), (array) $raw);
+
+        return array_values(array_filter($names, static fn (string $v) => '' !== $v));
     }
 
     /** Human-readable form of a schedule's own notification targets. */
