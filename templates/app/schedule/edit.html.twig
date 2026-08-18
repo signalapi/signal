@@ -86,6 +86,31 @@
         <button type="button" class="btn ghost small" id="addRule" style="margin-top:10px;">{{ ic.i('plus', 13, 2.2) }}{{ 'Add rule'|trans }}</button>
     </div>
 
+    <div class="fgroup">
+        <div class="fgroup-title">{{ 'Where the result goes'|trans }}</div>
+        {% if notify_destinations is empty %}
+            <p class="fhint" style="margin-top:-4px;">
+                {{ 'No notification destination in this workspace yet.'|trans }}
+                <a href="{{ path('app_notification_index', {workspace: workspace.id}) }}">{{ 'Add a Slack channel or webhook'|trans }}</a>
+            </p>
+        {% else %}
+            <p class="fhint" style="margin-top:-4px;">{{ 'On top of the workspace rules — this schedule always reports to whatever you tick here.'|trans }}</p>
+            {% set picked = schedule.notifyDestinationIds %}
+            <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;">
+                {% for d in notify_destinations %}
+                    <label class="inline">
+                        <input type="checkbox" name="notify_destinations[]" value="{{ d.id }}" {{ (d.id ~ '') in picked ? 'checked' }}>
+                        {{ d.label ?: d.name }}
+                    </label>
+                {% endfor %}
+                <select name="notify_condition" style="width:auto;">
+                    <option value="always" {{ (schedule.notify.condition|default('always')) == 'always' ? 'selected' }}>{{ 'Every run'|trans }}</option>
+                    <option value="on_failure" {{ (schedule.notify.condition|default('always')) == 'on_failure' ? 'selected' }}>{{ 'Only failures'|trans }}</option>
+                </select>
+            </div>
+        {% endif %}
+    </div>
+
     {% if preview %}
         <div class="hintbox">
             {{ ic.i('clock', 14) }}

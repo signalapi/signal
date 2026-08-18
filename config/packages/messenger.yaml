@@ -10,6 +10,9 @@ framework:
         routing:
             App\Message\RunFlowMessage: async
             App\Message\RunFlowGroupMessage: async
+            # Sending shares the run queue: a slow Slack call must never block a
+            # run, and the transport's retry gives failed deliveries a second go.
+            App\Message\SendNotificationMessage: async
 
 when@test:
     framework:

@@ -1409,6 +1409,8 @@ class McpToolRegistry
         $groupRun->setFlowGroup($suite);
         $groupRun->setBatchId($batchId);
         $groupRun->setTotal($suite->getFlows()->count());
+        // An agent-driven run counts as automated: the workspace rules apply.
+        $groupRun->setTrigger('mcp');
         $this->groupRuns->save($groupRun);
 
         $this->bus->dispatch(new RunFlowGroupMessage((string) $suite->getId(), $batchId, $envId));

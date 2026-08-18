@@ -2,10 +2,12 @@
 
 namespace App\Controller\App;
 
+use App\Entity\NotificationSubscription;
 use App\Entity\Schedule;
 use App\Entity\Workspace;
 use App\Repository\EnvironmentRepository;
 use App\Repository\FlowGroupRepository;
+use App\Repository\NotificationDestinationRepository;
 use App\Repository\ScheduleRepository;
 use App\Repository\TestFlowRepository;
 use App\Service\ScheduleCompiler;
@@ -13,6 +15,7 @@ use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Uid\Uuid;
 use Symfony\Contracts\Translation\TranslatorInterface;
 
 /**
@@ -53,6 +56,7 @@ class ScheduleController extends AbstractAppController
         TestFlowRepository $flows,
         FlowGroupRepository $groups,
         EnvironmentRepository $environments,
+        NotificationDestinationRepository $destinations,
         ScheduleCompiler $compiler,
         TranslatorInterface $translator,
     ): Response {
@@ -61,7 +65,7 @@ class ScheduleController extends AbstractAppController
         $schedule = new Schedule();
         $schedule->setWorkspace($workspace);
 
-        return $this->editor($schedule, $workspace, $request, $schedules, $flows, $groups, $environments, $compiler, $translator);
+        return $this->editor($schedule, $workspace, $request, $schedules, $flows, $groups, $environments, $destinations, $compiler, $translator);
     }
 
     #[Route('/{schedule}/edit', name: 'app_schedule_edit', methods: ['GET', 'POST'])]
@@ -73,13 +77,14 @@ class ScheduleController extends AbstractAppController
         TestFlowRepository $flows,
         FlowGroupRepository $groups,
         EnvironmentRepository $environments,
+        NotificationDestinationRepository $destinations,
         ScheduleCompiler $compiler,
         TranslatorInterface $translator,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertSchedule($workspace, $schedule);
 
-        return $this->editor($schedule, $workspace, $request, $schedules, $flows, $groups, $environments, $compiler, $translator);
+        return $this->editor($schedule, $workspace, $request, $schedules, $flows, $groups, $environments, $destinations, $compiler, $translator);
     }
 
     #[Route('/{schedule}/toggle', name: 'app_schedule_toggle', methods: ['POST'])]
@@ -131,6 +136,7 @@ class ScheduleController extends AbstractAppController
         TestFlowRepository $flows,
         FlowGroupRepository $groups,
         EnvironmentRepository $environments,
+        NotificationDestinationRepository $destinations,
         ScheduleCompiler $compiler,
         TranslatorInterface $translator,
     ): Response {
@@ -177,6 +183,20 @@ class ScheduleController extends AbstractAppController
             }
             $schedule->setRules($rules);
 
+            // Where this schedule's result goes, on top of the workspace rules.
+            $picked = array_map('strval', (array) $request->request->all('notify_destinations'));
+            $valid = [];
+            foreach ($destinations->findActiveByWorkspaceAndIds($workspace, array_values(array_filter($picked, static fn ($id) => Uuid::isValid($id)))) as $destination) {
+                $valid[] = (string) $destination->getId();
+            }
+            $condition = (string) $request->request->get('notify_condition', NotificationSubscription::WHEN_ALWAYS);
+            $schedule->setNotify([] === $valid ? [] : [
+                'destinations' => $valid,
+                'condition' => \in_array($condition, NotificationSubscription::CONDITIONS, true)
+                    ? $condition
+                    : NotificationSubscription::WHEN_ALWAYS,
+            ]);
+
             if (!$errors) {
                 $schedules->save($schedule);
                 $this->addFlash('success', $translator->trans('Schedule saved.'));
@@ -192,6 +212,10 @@ class ScheduleController extends AbstractAppController
             'groups' => $groups->findByWorkspace($workspace),
             'environments' => $environments->findByWorkspace($workspace),
             'timezones' => \DateTimeZone::listIdentifiers(),
+            'notify_destinations' => array_values(array_filter(
+                $destinations->findByWorkspace($workspace),
+                static fn ($d) => $d->isActive(),
+            )),
             'errors' => $errors,
             'preview' => $compiler->describe($schedule),
             'next' => $schedule->getRules() ? $compiler->nextRun($schedule) : null,

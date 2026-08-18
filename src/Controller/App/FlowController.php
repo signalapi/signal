@@ -29,6 +29,7 @@ class FlowController extends AbstractAppController
         \App\Repository\FlowGroupRunRepository $groupRunRepo,
         \App\Repository\FlowRunRepository $runs,
         \App\Repository\EnvironmentRepository $environments,
+        \App\Repository\NotificationDestinationRepository $destinations,
     ): Response {
         $this->assertWorkspace($workspace);
 
@@ -52,6 +53,11 @@ class FlowController extends AbstractAppController
             'groups' => $groupList,
             'groupRuns' => $groupRuns,
             'environments' => $environments->findByWorkspace($workspace),
+            // Lets the suite run bar offer "also tell Slack" for this one run.
+            'notify_destinations' => array_values(array_filter(
+                $destinations->findByWorkspace($workspace),
+                static fn ($d) => $d->isActive(),
+            )),
         ]);
     }
 

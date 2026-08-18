@@ -88,6 +88,8 @@
                 <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_apitoken' ? 'active' }}">
                     {{ ic.i('token') }}<span class="label">API &amp; MCP</span></a>
                 {% if is_granted('WORKSPACE_ADMIN', ws) %}
+                    <a href="{{ path('app_notification_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_notification' ? 'active' }}">
+                        {{ ic.i('share') }}<span class="label">{{ 'Notifications'|trans }}</span></a>
                     <a href="{{ path('app_ws_member_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_ws_member' ? 'active' }}">
                         {{ ic.i('members') }}<span class="label">{{ 'Members'|trans }}</span></a>
                 {% endif %}

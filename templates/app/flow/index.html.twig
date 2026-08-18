@@ -106,6 +106,13 @@
                     <option value="">{{ 'each flow uses its own env'|trans }}</option>
                     {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
                 </select>
+                {% if notify_destinations|default([]) is not empty %}
+                    <select name="notify" style="width:auto" title="{{ 'Where the result goes'|trans }}">
+                        <option value="">{{ 'notify: rules'|trans }}</option>
+                        {% for d in notify_destinations %}<option value="{{ d.id }}">{{ 'notify'|trans }}: {{ d.label ?: d.name }}</option>{% endfor %}
+                        <option value="none">{{ 'notify: off'|trans }}</option>
+                    </select>
+                {% endif %}
                 <button class="btn ghost small" type="submit" {{ gflows is empty ? 'disabled' }}>{{ ic.i('flows', 11) }}{{ 'Run'|trans }}</button>
             </form>
             <form method="post" action="{{ path('app_flow_group_delete', {workspace: workspace.id, group: g.id}) }}"

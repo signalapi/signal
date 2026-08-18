@@ -40,6 +40,9 @@ disagrees with the status code.
   flows can run end to end, headless.
 - **Suites and schedules** — group flows into suites, run them end to end, or
   let cron do it. History, trends, flakiness and p95 out of the box.
+- **Notifications** — run results delivered to a Slack channel (incoming
+  webhook) or any HTTP endpoint (n8n, Zapier, your own service), by standing
+  rule per workspace/test/suite, per schedule, or ticked for a single run.
 - **CI without glue code** — one authenticated `POST` runs a flow and returns
   `422` on failure; ask for JUnit XML and your pipeline renders it.
 - **Claude / MCP** — a Streamable HTTP MCP endpoint inside the app, scoped to a
@@ -83,6 +86,23 @@ The session is scoped to the token's workspace. Tools cover reading
 (`list_flows`, `get_run`, `search_requests`), building (`create_flow`,
 `add_http_step`, `add_db_step`, `add_browser_step`, …) and running
 (`run_flow`, `run_flow_async`, `run_suite`).
+
+## Notifications
+
+**Notifications** in a workspace holds the destinations and the rules.
+
+- A destination is a Slack incoming webhook URL or a plain HTTP endpoint; the
+  URL is sealed with libsodium and never rendered back. Give an HTTP endpoint a
+  secret and every call carries `X-Signal-Signature: sha256=<hmac of the body>`.
+- A rule says who hears about what: every run in the workspace, one test or one
+  suite — always, or only on failure.
+- Rules cover the runs nobody is watching: scheduled, API/CI and MCP. A run you
+  start yourself stays quiet unless you pick a destination in the run bar, and
+  `notify: off` mutes one run whatever the rules say. A schedule can carry its
+  own destinations on top of the rules.
+- Sending happens on the worker, never inside the run, so a slow or broken
+  endpoint cannot fail a test. Every attempt is logged with its HTTP status and
+  error under **Deliveries**.
 
 ## CI
 

@@ -64,6 +64,15 @@ class Schedule
     #[ORM\Column(type: Types::JSON)]
     private array $rules = [];
 
+    /**
+     * Where this schedule's result goes, on top of the workspace rules:
+     * {"destinations": ["uuid", ...], "condition": "always|on_failure"}.
+     *
+     * @var array<string, mixed>
+     */
+    #[ORM\Column(type: Types::JSON)]
+    private array $notify = [];
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $lastRunAt = null;
 
@@ -217,5 +226,25 @@ class Schedule
     public function getCreatedAt(): \DateTimeImmutable
     {
         return $this->createdAt;
+    }
+
+    /** @return array<string, mixed> */
+    public function getNotify(): array
+    {
+        return $this->notify;
+    }
+
+    /** @param array<string, mixed> $notify */
+    public function setNotify(array $notify): static
+    {
+        $this->notify = $notify;
+
+        return $this;
+    }
+
+    /** @return list<string> destination ids this schedule notifies */
+    public function getNotifyDestinationIds(): array
+    {
+        return array_values(array_map('strval', (array) ($this->notify['destinations'] ?? [])));
     }
 }

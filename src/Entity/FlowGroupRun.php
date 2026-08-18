@@ -41,6 +41,18 @@ class FlowGroupRun
     #[ORM\Column]
     private int $total = 0;
 
+    /** How this suite run was started: manual | schedule | mcp | api. */
+    #[ORM\Column(length: 20)]
+    private string $trigger = 'manual';
+
+    /**
+     * Notification choice made at start time; same shape as FlowRun's.
+     *
+     * @var array<string, mixed>|null
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $notifyOverride = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -118,6 +130,32 @@ class FlowGroupRun
     public function setFinishedAt(?\DateTimeImmutable $finishedAt): static
     {
         $this->finishedAt = $finishedAt;
+
+        return $this;
+    }
+
+    public function getTrigger(): string
+    {
+        return $this->trigger;
+    }
+
+    public function setTrigger(string $trigger): static
+    {
+        $this->trigger = $trigger;
+
+        return $this;
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getNotifyOverride(): ?array
+    {
+        return $this->notifyOverride;
+    }
+
+    /** @param array<string, mixed>|null $notifyOverride */
+    public function setNotifyOverride(?array $notifyOverride): static
+    {
+        $this->notifyOverride = $notifyOverride;
 
         return $this;
     }

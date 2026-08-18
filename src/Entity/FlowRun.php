@@ -85,6 +85,16 @@ class FlowRun
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $shareExpiresAt = null;
 
+    /**
+     * Notification choice made when this run was started, overriding the
+     * standing rules: {"mute": true} sends nothing, {"destinations": [...]} adds
+     * those destinations on top of the rules.
+     *
+     * @var array<string, mixed>|null
+     */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private ?array $notifyOverride = null;
+
     public function __construct()
     {
         $this->stepResults = new ArrayCollection();
@@ -300,5 +310,19 @@ class FlowRun
         }
 
         return (int) (($this->finishedAt->format('U.u') - $this->createdAt->format('U.u')) * 1000);
+    }
+
+    /** @return array<string, mixed>|null */
+    public function getNotifyOverride(): ?array
+    {
+        return $this->notifyOverride;
+    }
+
+    /** @param array<string, mixed>|null $notifyOverride */
+    public function setNotifyOverride(?array $notifyOverride): static
+    {
+        $this->notifyOverride = $notifyOverride;
+
+        return $this;
     }
 }

@@ -8,6 +8,8 @@ use App\Entity\FlowStep;
 use App\Entity\StepResult;
 use App\Entity\TestFlow;
 use App\Entity\User;
+use App\Event\DatasetRunFinished;
+use App\Event\FlowRunFinished;
 use App\Service\Db\DbQueryRunner;
 use Doctrine\ORM\EntityManagerInterface;
 
@@ -32,6 +34,7 @@ class FlowRunner
         private readonly ResponseShape $shape,
         private readonly JsonSchema $jsonSchema,
         private readonly \App\Repository\DbConnectionRepository $dbConnections,
+        private readonly \Symfony\Contracts\EventDispatcher\EventDispatcherInterface $events,
     ) {
     }
 
@@ -65,6 +68,10 @@ class FlowRunner
             $runs[] = $this->executeInto($run, $flow, $environment, array_merge($baseVars, $this->rowVars($row)));
             ++$i;
         }
+
+        // The batch reports once; the per-row events stay silent (see
+        // NotificationDispatcher), so a 50-row dataset is not 50 messages.
+        $this->events->dispatch(new DatasetRunFinished($flow, $batchId, $runs));
 
         return $runs;
     }
@@ -125,6 +132,10 @@ class FlowRunner
             default => FlowRun::STATUS_PASSED,
         });
         $this->em->flush();
+
+        // Single choke point for "a flow run just ended": notifications — and any
+        // future post-run work — hang off this event, not off each caller.
+        $this->events->dispatch(new FlowRunFinished($run));
 
         return $run;
     }

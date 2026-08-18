@@ -118,6 +118,10 @@ class RunDueSchedulesCommand extends Command
             $groupRun->setFlowGroup($group);
             $groupRun->setBatchId($batchId);
             $groupRun->setTotal($group->getFlows()->count());
+            $groupRun->setTrigger('schedule');
+            // The schedule's own destinations ride along on the run, so the
+            // worker can notify without re-reading the schedule.
+            $groupRun->setNotifyOverride($schedule->getNotify() ?: null);
             $this->groupRuns->save($groupRun);
 
             $this->bus->dispatch(new RunFlowGroupMessage(
@@ -131,11 +135,13 @@ class RunDueSchedulesCommand extends Command
         }
 
         $flow = $schedule->getFlow();
-        $run = $this->runner->run(
-            $flow,
-            $schedule->getEnvironment() ?? $flow->getDefaultEnvironment(),
-            'schedule',
-        );
+        $environment = $schedule->getEnvironment() ?? $flow->getDefaultEnvironment();
+        // createRun + executeInto instead of run(), so the schedule's notification
+        // choice is on the row before the run finishes and the event fires.
+        $run = $this->runner->createRun($flow, $environment, 'schedule', null, 0, []);
+        $run->setNotifyOverride($schedule->getNotify() ?: null);
+        $this->em->flush();
+        $this->runner->executeInto($run, $flow, $environment);
 
         return sprintf('%s %s (%d/%d)', $flow->getName(), strtoupper($run->getStatus()), $run->getPassedSteps(), $run->getTotalSteps());
     }

@@ -167,6 +167,7 @@ class FlowGroupController extends AbstractAppController
         Request $httpRequest,
         EnvironmentRepository $environments,
         \App\Repository\FlowGroupRunRepository $groupRuns,
+        \App\Repository\NotificationDestinationRepository $destinations,
         MessageBusInterface $bus,
         TranslatorInterface $translator,
     ): Response {
@@ -196,6 +197,10 @@ class FlowGroupController extends AbstractAppController
         $groupRun->setFlowGroup($group);
         $groupRun->setBatchId($batchId);
         $groupRun->setTotal($group->getFlows()->count());
+        $groupRun->setTrigger('manual');
+        // "notify" carries the choice from the run bar: a destination id sends
+        // the result there whatever the rules say, "none" mutes this one run.
+        $groupRun->setNotifyOverride($this->notifyOverride($workspace, $destinations, (string) $httpRequest->request->get('notify')));
         $groupRuns->save($groupRun);
 
         $bus->dispatch(new RunFlowGroupMessage((string) $group->getId(), $batchId, $envId, (string) $this->currentUser()->getId()));
@@ -299,5 +304,31 @@ class FlowGroupController extends AbstractAppController
         if ($group->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
             throw $this->createNotFoundException();
         }
+    }
+
+    /**
+     * Turns the run bar's "notify" value into a run-level override:
+     * "" keeps the standing rules, "none" mutes them, an id adds that
+     * destination (validated against this workspace).
+     *
+     * @return array<string, mixed>|null
+     */
+    private function notifyOverride(
+        Workspace $workspace,
+        \App\Repository\NotificationDestinationRepository $destinations,
+        string $notify,
+    ): ?array {
+        if ('' === $notify) {
+            return null;
+        }
+        if ('none' === $notify) {
+            return ['mute' => true];
+        }
+        if (!\Symfony\Component\Uid\Uuid::isValid($notify)
+            || [] === $destinations->findActiveByWorkspaceAndIds($workspace, [$notify])) {
+            return null;
+        }
+
+        return ['destinations' => [$notify], 'condition' => \App\Entity\NotificationSubscription::WHEN_ALWAYS];
     }
 }

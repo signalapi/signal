@@ -4,6 +4,7 @@ namespace App\MessageHandler;
 
 use App\Entity\FlowGroupRun;
 use App\Entity\FlowRun;
+use App\Event\SuiteRunFinished;
 use App\Message\RunFlowGroupMessage;
 use App\Repository\EnvironmentRepository;
 use App\Repository\FlowGroupRepository;
@@ -11,6 +12,7 @@ use App\Repository\FlowGroupRunRepository;
 use App\Repository\UserRepository;
 use App\Service\FlowRunner;
 use Symfony\Component\Messenger\Attribute\AsMessageHandler;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
 
 #[AsMessageHandler]
 final class RunFlowGroupMessageHandler
@@ -21,6 +23,7 @@ final class RunFlowGroupMessageHandler
         private readonly EnvironmentRepository $environments,
         private readonly FlowRunner $runner,
         private readonly UserRepository $users,
+        private readonly EventDispatcherInterface $events,
     ) {
     }
 
@@ -37,6 +40,7 @@ final class RunFlowGroupMessageHandler
 
         $i = 0;
         $allPassed = true;
+        $flowRuns = [];
         foreach ($group->getFlows() as $flow) {
             if ($flow->getSteps()->isEmpty()) {
                 continue;
@@ -46,6 +50,7 @@ final class RunFlowGroupMessageHandler
             // executeInto runs it to completion before the loop moves to the next flow.
             $run = $this->runner->createRun($flow, $env, 'group', $message->batchId, $i, [], $actor);
             $this->runner->executeInto($run, $flow, $env);
+            $flowRuns[] = $run;
             if (FlowRun::STATUS_PASSED !== $run->getStatus()) {
                 $allPassed = false;
             }
@@ -58,6 +63,10 @@ final class RunFlowGroupMessageHandler
             $groupRun->setStatus($allPassed ? FlowGroupRun::STATUS_PASSED : FlowGroupRun::STATUS_FAILED);
             $groupRun->setFinishedAt(new \DateTimeImmutable());
             $this->groupRuns->save($groupRun);
+
+            // The suite reports its own outcome once; the member flow runs stay
+            // silent (see NotificationDispatcher).
+            $this->events->dispatch(new SuiteRunFinished($groupRun, $flowRuns));
         }
     }
 }

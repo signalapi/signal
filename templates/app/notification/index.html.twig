@@ -1,0 +1,179 @@
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Notifications'|trans }} · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+{% set typemap = {
+    slack_webhook: {label: 'Slack', badge: 'SL', tone: 'vio'},
+    webhook:       {label: 'Webhook', badge: 'WH', tone: 'teal'},
+} %}
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Notifications'|trans }}</h1>
+        <p class="subtitle">{{ 'Send run results to Slack or any HTTP endpoint'|trans }}</p>
+    </div>
+</div>
+
+{# ---- destinations ---- #}
+<div class="section-title">{{ 'Destinations'|trans }}</div>
+
+{% if destinations is empty %}
+    <div class="empty" style="margin-bottom:14px;">{{ 'No destination yet. Paste a Slack incoming webhook URL, or any HTTP endpoint, and results can be delivered there.'|trans }}</div>
+{% else %}
+<div class="list-card" style="margin-bottom:14px;">
+    {% for d in destinations %}
+        {% set t = typemap[d.type] ?? {label: d.type, badge: '??', tone: ''} %}
+        <div class="lrow">
+            <span class="tbadge {{ t.tone }}">{{ t.badge }}</span>
+            <span style="flex:1.4;min-width:0;">
+                <span class="l-name">{{ d.name }}</span>
+                <span class="l-sub">{{ t.label }} · {{ d.urlHost }}{% if d.label %} · {{ d.label }}{% endif %}</span>
+            </span>
+            <span style="flex:0 0 90px;">
+                {% if d.active %}
+                    <span class="pill passed">{{ 'active'|trans }}</span>
+                {% else %}
+                    <span class="pill cancelled">{{ 'paused'|trans }}</span>
+                {% endif %}
+            </span>
+            <span class="l-meta" style="flex:0 0 84px;">{{ d.createdAt|date('d.m.Y') }}</span>
+            <div style="flex:1 1 0;min-width:0;"></div>
+            <form method="post" action="{{ path('app_notification_destination_test', {workspace: workspace.id, destination: d.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('notif-test' ~ d.id) }}">
+                <button class="gbtn" type="submit">{{ 'Send test'|trans }}</button>
+            </form>
+            <form method="post" action="{{ path('app_notification_destination_toggle', {workspace: workspace.id, destination: d.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('notif-toggle' ~ d.id) }}">
+                <button class="gbtn" type="submit">{{ d.active ? 'Pause'|trans : 'Resume'|trans }}</button>
+            </form>
+            <form method="post" action="{{ path('app_notification_destination_delete', {workspace: workspace.id, destination: d.id}) }}"
+                  onsubmit="return confirm('{{ '"%name%" and its rules will be deleted.'|trans({'%name%': d.name})|e('js') }}');">
+                <input type="hidden" name="_token" value="{{ csrf_token('notif-delete' ~ d.id) }}">
+                <button type="submit" title="{{ 'Delete'|trans }}" aria-label="{{ 'Delete'|trans }}"
+                        style="width:26px;height:26px;display:flex;align-items:center;justify-content:center;background:none;border:none;cursor:pointer;color:var(--faint);">{{ ic.i('trash', 13) }}</button>
+            </form>
+        </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<form method="post" action="{{ path('app_notification_destination_create', {workspace: workspace.id}) }}" id="destForm" style="margin-bottom:26px;">
+    <input type="hidden" name="_token" value="{{ csrf_token('notif-destination') }}">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start;">
+        <select name="type" style="width:auto;" onchange="document.getElementById('hookSecret').style.display = this.value == 'webhook' ? '' : 'none';">
+            <option value="slack_webhook" selected>{{ 'Slack incoming webhook'|trans }}</option>
+            <option value="webhook">{{ 'HTTP webhook'|trans }}</option>
+        </select>
+        <input type="url" name="url" required placeholder="https://hooks.slack.com/services/…" style="flex:1 1 320px;min-width:240px;">
+        <input type="text" name="name" placeholder="{{ 'Name (e.g. API alerts)'|trans }}" style="flex:0 1 200px;">
+        <input type="text" name="label" placeholder="#api-alerts" style="flex:0 1 150px;">
+        <input type="text" name="secret" id="hookSecret" placeholder="{{ 'HMAC secret (optional)'|trans }}" style="flex:0 1 190px;display:none;">
+        <button class="btn" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Add destination'|trans }}</button>
+    </div>
+    <p class="subtitle" style="margin-top:8px;">
+        {{ 'The URL is stored encrypted and never shown again. For an HTTP webhook the payload is posted as JSON; with a secret it also carries an X-Signal-Signature header.'|trans }}
+    </p>
+</form>
+
+{# ---- rules ---- #}
+<div class="section-title">{{ 'Rules'|trans }}</div>
+<p class="subtitle" style="margin:-4px 0 12px;">
+    {{ 'Rules cover scheduled, API/CI and MCP runs. A run you start yourself stays quiet unless you tick a destination when starting it.'|trans }}
+</p>
+
+{% if subscriptions is empty %}
+    <div class="empty" style="margin-bottom:14px;">{{ 'No rules yet.'|trans }}</div>
+{% else %}
+<table class="data" style="margin-bottom:14px;">
+    <thead><tr>
+        <th>{{ 'Scope'|trans }}</th><th>{{ 'Destination'|trans }}</th><th>{{ 'When'|trans }}</th><th></th><th></th>
+    </tr></thead>
+    <tbody>
+    {% for s in subscriptions %}
+        {# A scoped flow/suite can be gone; fall back to a dash rather than blowing up. #}
+        {% set scoped = s.scopeType == 'flow'
+            ? flows|filter(f => (f.id ~ '') == (s.scopeId ~ ''))|first
+            : (s.scopeType == 'suite' ? groups|filter(g => (g.id ~ '') == (s.scopeId ~ ''))|first : null) %}
+        {% set scopeName = s.scopeType == 'workspace' ? 'Every run in this workspace'|trans : (scoped ? scoped.name : '—') %}
+        <tr>
+            <td>
+                <span class="mpill {{ s.scopeType == 'workspace' ? 'pri' : (s.scopeType == 'suite' ? 'vio' : 'teal') }}">{{ s.scopeType }}</span>
+                <span style="font-weight:600;color:var(--ink);">{{ scopeName }}</span>
+            </td>
+            <td>{{ s.destination.name }} <span class="l-meta">{{ s.destination.label }}</span></td>
+            <td>{{ s.condition == 'always' ? 'Every run'|trans : 'Only failures'|trans }}</td>
+            <td>{% if s.enabled %}<span class="pill passed">{{ 'on'|trans }}</span>{% else %}<span class="pill cancelled">{{ 'off'|trans }}</span>{% endif %}</td>
+            <td>
+                <div style="display:flex;gap:6px;justify-content:flex-end;">
+                    <form method="post" action="{{ path('app_notification_rule_toggle', {workspace: workspace.id, subscription: s.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('notif-rule-toggle' ~ s.id) }}">
+                        <button class="gbtn" type="submit">{{ s.enabled ? 'Disable'|trans : 'Enable'|trans }}</button>
+                    </form>
+                    <form method="post" action="{{ path('app_notification_rule_delete', {workspace: workspace.id, subscription: s.id}) }}">
+                        <input type="hidden" name="_token" value="{{ csrf_token('notif-rule-delete' ~ s.id) }}">
+                        <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}</button>
+                    </form>
+                </div>
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+
+{% if destinations is not empty %}
+<form method="post" action="{{ path('app_notification_rule_create', {workspace: workspace.id}) }}" style="margin-bottom:26px;">
+    <input type="hidden" name="_token" value="{{ csrf_token('notif-rule') }}">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <select name="scope" style="width:auto;">
+            <option value="workspace">{{ 'Every run in this workspace'|trans }}</option>
+            {% for g in groups %}<option value="suite:{{ g.id }}">{{ 'Suite'|trans }}: {{ g.name }}</option>{% endfor %}
+            {% for f in flows %}<option value="flow:{{ f.id }}">{{ 'Test'|trans }}: {{ f.name }}</option>{% endfor %}
+        </select>
+        <select name="destination" style="width:auto;">
+            {% for d in destinations %}<option value="{{ d.id }}">{{ d.name }}{% if d.label %} ({{ d.label }}){% endif %}</option>{% endfor %}
+        </select>
+        <select name="condition" style="width:auto;">
+            <option value="on_failure" selected>{{ 'Only failures'|trans }}</option>
+            <option value="always">{{ 'Every run'|trans }}</option>
+        </select>
+        <button class="btn" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Add rule'|trans }}</button>
+    </div>
+</form>
+{% endif %}
+
+{# ---- delivery log ---- #}
+<div class="section-title">{{ 'Deliveries'|trans }}</div>
+{% if deliveries is empty %}
+    <div class="empty">{{ 'Nothing sent yet.'|trans }}</div>
+{% else %}
+<table class="data">
+    <thead><tr>
+        <th>{{ 'Time'|trans }}</th><th>{{ 'Destination'|trans }}</th><th>{{ 'Subject'|trans }}</th><th>{{ 'Event'|trans }}</th><th>{{ 'Result'|trans }}</th>
+    </tr></thead>
+    <tbody>
+    {% for l in deliveries %}
+        <tr>
+            <td class="mono" style="font-size:11px;color:var(--muted);">{{ l.createdAt|date('d.m H:i:s') }}</td>
+            <td>{{ l.destinationName }}</td>
+            <td style="color:var(--ink);">{{ l.subject }}</td>
+            <td class="mono" style="font-size:10.5px;color:var(--faint);">{{ l.event }}</td>
+            <td>
+                {% if l.status == 'sent' %}
+                    <span class="pill passed">{{ 'sent'|trans }}</span>
+                    <span class="l-meta">HTTP {{ l.responseCode }}</span>
+                {% elseif l.status == 'failed' %}
+                    <span class="pill failed">{{ 'failed'|trans }}</span>
+                    <span class="l-meta" title="{{ l.error }}">{{ l.error|default('')|slice(0, 70) }}</span>
+                {% else %}
+                    <span class="pill queued">{{ 'queued'|trans }}</span>
+                    {% if l.attempts > 0 %}<span class="l-meta">{{ '%count% attempt|%count% attempts'|trans({'%count%': l.attempts}) }}</span>{% endif %}
+                {% endif %}
+            </td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+{% endif %}
+{% endblock %}
