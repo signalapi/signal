@@ -116,6 +116,16 @@
                 {% endif %}
                 <button class="btn ghost small" type="submit" {{ gflows is empty ? 'disabled' }}>{{ ic.i('flows', 11) }}{{ 'Run'|trans }}</button>
             </form>
+            <form method="post" action="{{ path('app_flow_group_badge', {workspace: workspace.id, group: g.id}) }}" style="display:flex;gap:4px;">
+                <input type="hidden" name="_token" value="{{ csrf_token('flow-group-badge' ~ g.id) }}">
+                <button class="btn ghost small" type="submit" name="do" value="enable"
+                        title="{{ g.badgeToken ? 'Show the badge Markdown for your README'|trans : 'Create a public status badge for your README'|trans }}">
+                    {{ ic.i('shield', 12) }}{{ 'Badge'|trans }}{% if g.badgeToken %} ✓{% endif %}</button>
+                {% if g.badgeToken %}
+                    <button class="btn ghost small" type="submit" name="do" value="disable" title="{{ 'Disable the badge (revokes the URL)'|trans }}"
+                            onclick="return confirm('{{ 'Disable the badge? The current URL stops working.'|trans|e('js') }}');">✕</button>
+                {% endif %}
+            </form>
             <form method="post" action="{{ path('app_flow_group_delete', {workspace: workspace.id, group: g.id}) }}"
                   onsubmit="return confirm('{{ 'The suite will be deleted (flows are kept).'|trans|e('js') }}');">
                 <input type="hidden" name="_token" value="{{ csrf_token('flow-group-delete' ~ g.id) }}">

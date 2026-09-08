@@ -258,6 +258,45 @@ class FlowGroupController extends AbstractAppController
     }
 
     /**
+     * Status badge management. "enable" mints (or re-shows) the badge token and
+     * flashes the ready-to-paste Markdown; "disable" revokes it — the old badge
+     * URL 404s from that moment on.
+     */
+    #[Route('/{group}/badge', name: 'app_flow_group_badge', methods: ['POST'])]
+    public function badge(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['group' => 'id'])] FlowGroup $group,
+        Request $httpRequest,
+        FlowGroupRepository $groups,
+        TranslatorInterface $translator,
+    ): Response {
+        $this->assertWorkspace($workspace, 'edit');
+        $this->assertGroup($workspace, $group);
+        if (!$this->isCsrfTokenValid('flow-group-badge' . $group->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if ('disable' === $httpRequest->request->get('do')) {
+            $group->setBadgeToken(null);
+            $groups->save($group);
+            $this->addFlash('success', $translator->trans('Badge disabled — the old badge URL no longer works.'));
+
+            return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()]);
+        }
+
+        if (null === $group->getBadgeToken()) {
+            $group->setBadgeToken(bin2hex(random_bytes(20)));
+            $groups->save($group);
+        }
+        $url = $this->generateUrl('suite_badge', ['token' => $group->getBadgeToken()], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL);
+        $this->addFlash('success', $translator->trans('Badge ready. Markdown: %snippet%', [
+            '%snippet%' => sprintf('![%s](%s)', $group->getName(), $url),
+        ]));
+
+        return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()]);
+    }
+
+    /**
      * Asks Claude to analyse a finished suite batch: failures grouped by shared
      * cause, compared against recent batches. Dormant until an API key is set —
      * returns {configured:false} otherwise, exactly like the run-level action.

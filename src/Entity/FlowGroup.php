@@ -39,6 +39,14 @@ class FlowGroup
     #[ORM\OrderBy(['position' => 'ASC'])]
     private Collection $items;
 
+    /**
+     * Public status-badge token: /badge/{token}.svg serves this suite's latest
+     * outcome with no login — safe to paste into a README. Null = badge off.
+     * Deliberately NOT an API token: it can only read one bit of state.
+     */
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $badgeToken = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -137,6 +145,18 @@ class FlowGroup
                 $this->items->removeElement($item);
             }
         }
+
+        return $this;
+    }
+
+    public function getBadgeToken(): ?string
+    {
+        return $this->badgeToken;
+    }
+
+    public function setBadgeToken(?string $badgeToken): static
+    {
+        $this->badgeToken = $badgeToken;
 
         return $this;
     }

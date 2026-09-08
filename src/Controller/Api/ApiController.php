@@ -152,6 +152,140 @@ class ApiController extends AbstractController
         return $this->json(['ok' => true, 'run' => $reporter->toArray($run)]);
     }
 
+    #[Route('/suites', name: 'api_suite_list', methods: ['GET'])]
+    public function listSuites(Request $request, \App\Repository\FlowGroupRepository $groups, \App\Repository\FlowGroupRunRepository $groupRuns): JsonResponse
+    {
+        $workspace = $this->workspace($request);
+
+        $data = [];
+        foreach ($groups->findByWorkspace($workspace) as $group) {
+            $recent = $groupRuns->recentForGroup($group, 1);
+            $data[] = [
+                'id' => (string) $group->getId(),
+                'name' => $group->getName(),
+                'flows' => $group->getFlows()->count(),
+                'lastStatus' => [] !== $recent ? $recent[0]->getStatus() : null,
+            ];
+        }
+
+        return $this->json(['ok' => true, 'workspace' => $workspace->getName(), 'suites' => $data]);
+    }
+
+    /**
+     * Starts a suite batch IN THE BACKGROUND and returns its batchId — a suite
+     * can run for many minutes, far past any sane HTTP timeout. CI polls the
+     * status endpoint below until it stops saying "running".
+     */
+    #[Route('/suites/{id}/run', name: 'api_suite_run', methods: ['POST'])]
+    public function runSuite(
+        string $id,
+        Request $request,
+        \App\Repository\FlowGroupRepository $groups,
+        \App\Repository\FlowGroupRunRepository $groupRuns,
+        EnvironmentRepository $environments,
+        \Symfony\Component\Messenger\MessageBusInterface $bus,
+    ): JsonResponse {
+        $workspace = $this->workspace($request);
+        $group = $groups->find($id);
+        if (null === $group || $group->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
+            return $this->json(['ok' => false, 'error' => 'Suite not found.'], 404);
+        }
+        if ($group->getFlows()->isEmpty()) {
+            return $this->json(['ok' => false, 'error' => 'Suite has no flows.'], 422);
+        }
+
+        $envId = null;
+        $body = json_decode($request->getContent() ?: '', true);
+        $ref = \is_array($body) ? (string) ($body['environment'] ?? '') : '';
+        if ('' !== $ref) {
+            $env = \Symfony\Component\Uid\Uuid::isValid($ref) ? $environments->find($ref) : null;
+            if (null === $env) {
+                foreach ($environments->findByWorkspace($workspace) as $candidate) {
+                    if ($candidate->getName() === $ref) {
+                        $env = $candidate;
+                        break;
+                    }
+                }
+            }
+            if (null === $env || $env->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
+                return $this->json(['ok' => false, 'error' => 'Environment not found.'], 404);
+            }
+            $envId = (string) $env->getId();
+        }
+
+        $batchId = \Symfony\Component\Uid\Uuid::v4()->toRfc4122();
+        $groupRun = new \App\Entity\FlowGroupRun();
+        $groupRun->setFlowGroup($group);
+        $groupRun->setBatchId($batchId);
+        $groupRun->setTotal($group->getFlows()->count());
+        $groupRun->setTrigger('api');
+        $groupRuns->save($groupRun);
+
+        $owner = $this->tokenOwner();
+        $bus->dispatch(new \App\Message\RunFlowGroupMessage((string) $group->getId(), $batchId, $envId, null !== $owner ? (string) $owner->getId() : null));
+
+        return $this->json([
+            'ok' => true,
+            'batchId' => $batchId,
+            'statusUrl' => $this->generateUrl('api_suite_run_show', ['id' => $id, 'batchId' => $batchId], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL),
+        ], 202);
+    }
+
+    /**
+     * Batch status for CI polling. While running: {"status":"running", ...}.
+     * Finished + ?format=junit: JUnit XML with HTTP 200 (passed) / 422 (failed).
+     */
+    #[Route('/suites/{id}/runs/{batchId}', name: 'api_suite_run_show', methods: ['GET'])]
+    public function showSuiteRun(
+        string $id,
+        string $batchId,
+        Request $request,
+        \App\Repository\FlowGroupRepository $groups,
+        \App\Repository\FlowGroupRunRepository $groupRuns,
+        FlowRunRepository $runs,
+        FlowRunReporter $reporter,
+    ): Response {
+        $workspace = $this->workspace($request);
+        $group = $groups->find($id);
+        if (null === $group || $group->getWorkspace()->getId()?->toRfc4122() !== $workspace->getId()?->toRfc4122()) {
+            return $this->json(['ok' => false, 'error' => 'Suite not found.'], 404);
+        }
+        $groupRun = $groupRuns->findOneByBatch($batchId);
+        if (null === $groupRun || $groupRun->getFlowGroup()->getId()?->toRfc4122() !== $group->getId()?->toRfc4122()) {
+            return $this->json(['ok' => false, 'error' => 'Batch not found.'], 404);
+        }
+
+        $flowRuns = $runs->findByBatch($batchId);
+        $finished = \App\Entity\FlowGroupRun::STATUS_RUNNING !== $groupRun->getStatus();
+        $passed = \App\Entity\FlowGroupRun::STATUS_PASSED === $groupRun->getStatus();
+
+        if ('junit' === $request->query->get('format')) {
+            if (!$finished) {
+                return $this->json(['ok' => false, 'error' => 'Still running — poll without format=junit until it finishes.'], 409);
+            }
+
+            return new Response($reporter->toJUnitBatch($group->getName(), $flowRuns), $passed ? 200 : 422, ['Content-Type' => 'application/xml']);
+        }
+
+        $rows = array_map(static fn (\App\Entity\FlowRun $r) => [
+            'flow' => $r->getFlow()->getName(),
+            'status' => $r->getStatus(),
+            'passedSteps' => $r->getPassedSteps(),
+            'totalSteps' => $r->getTotalSteps(),
+            'durationMs' => $r->getDurationMs(),
+            'quarantined' => $r->getFlow()->isQuarantined(),
+        ], $flowRuns);
+
+        return $this->json([
+            'ok' => !$finished || $passed,
+            'status' => $groupRun->getStatus(),
+            'done' => \count(array_filter($flowRuns, static fn ($r) => \App\Entity\FlowRun::STATUS_RUNNING !== $r->getStatus())),
+            'total' => $groupRun->getTotal(),
+            'flows' => $rows,
+            'finishedAt' => $groupRun->getFinishedAt()?->format(\DATE_ATOM),
+        ], !$finished ? 200 : ($passed ? 200 : 422));
+    }
+
     private function workspace(Request $request): Workspace
     {
         $token = $request->attributes->get(ApiTokenAuthenticator::REQUEST_ATTR);

@@ -45,11 +45,45 @@ class FlowRunReporter
         ];
     }
 
-    public function toJUnit(FlowRun $run): string
+    /**
+     * One <testsuites> document for a whole suite batch: a <testsuite> per flow
+     * run, so CI renders the suite the way the panel shows it.
+     *
+     * @param FlowRun[] $runs
+     */
+    public function toJUnitBatch(string $suiteName, array $runs): string
     {
-        $failures = $run->getTotalSteps() - $run->getPassedSteps();
         $dom = new \DOMDocument('1.0', 'UTF-8');
         $dom->formatOutput = true;
+
+        $root = $dom->createElement('testsuites');
+        $root->setAttribute('name', $suiteName);
+        $tests = 0;
+        $failures = 0;
+        foreach ($runs as $run) {
+            $tests += $run->getTotalSteps();
+            $failures += max(0, $run->getTotalSteps() - $run->getPassedSteps());
+            $root->appendChild($this->suiteElement($dom, $run));
+        }
+        $root->setAttribute('tests', (string) $tests);
+        $root->setAttribute('failures', (string) $failures);
+        $dom->appendChild($root);
+
+        return (string) $dom->saveXML();
+    }
+
+    public function toJUnit(FlowRun $run): string
+    {
+        $dom = new \DOMDocument('1.0', 'UTF-8');
+        $dom->formatOutput = true;
+        $dom->appendChild($this->suiteElement($dom, $run));
+
+        return (string) $dom->saveXML();
+    }
+
+    private function suiteElement(\DOMDocument $dom, FlowRun $run): \DOMElement
+    {
+        $failures = $run->getTotalSteps() - $run->getPassedSteps();
 
         $suite = $dom->createElement('testsuite');
         $suite->setAttribute('name', $run->getFlow()->getName());
@@ -81,8 +115,6 @@ class FlowRunReporter
             $suite->appendChild($case);
         }
 
-        $dom->appendChild($suite);
-
-        return (string) $dom->saveXML();
+        return $suite;
     }
 }

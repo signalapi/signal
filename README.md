@@ -132,6 +132,48 @@ curl -fsS -X POST -H "Authorization: Bearer $TOKEN" \
   "https://your-host/api/v1/flows/$FLOW/run?format=junit"
 ```
 
+Whole suites run in the background — start one, poll, then pull the JUnit:
+
+```bash
+BATCH=$(curl -fsS -X POST -H "Authorization: Bearer $TOKEN" \
+  https://your-host/api/v1/suites/$SUITE/run | jq -r .batchId)
+
+until [ "$(curl -fsS -H "Authorization: Bearer $TOKEN" \
+  https://your-host/api/v1/suites/$SUITE/runs/$BATCH | jq -r .status)" != running ]; do sleep 10; done
+
+# exit code follows the outcome: 200 passed, 422 failed
+curl -fsS -H "Authorization: Bearer $TOKEN" \
+  "https://your-host/api/v1/suites/$SUITE/runs/$BATCH?format=junit" -o junit.xml
+```
+
+As a GitHub Actions PR check:
+
+```yaml
+jobs:
+  api-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run the Signal suite
+        env:
+          TOKEN: ${{ secrets.SIGNAL_TOKEN }}
+          SUITE: ${{ vars.SIGNAL_SUITE_ID }}
+        run: |
+          BATCH=$(curl -fsS -X POST -H "Authorization: Bearer $TOKEN" \
+            https://your-host/api/v1/suites/$SUITE/run | jq -r .batchId)
+          until STATUS=$(curl -fsS -H "Authorization: Bearer $TOKEN" \
+            https://your-host/api/v1/suites/$SUITE/runs/$BATCH | jq -r .status); \
+            [ "$STATUS" != running ]; do sleep 10; done
+          curl -fsS -H "Authorization: Bearer $TOKEN" \
+            "https://your-host/api/v1/suites/$SUITE/runs/$BATCH?format=junit" -o junit.xml
+      - uses: mikepenz/action-junit-report@v4
+        if: always()
+        with: { report_paths: junit.xml }
+```
+
+**README badge:** press **Badge** on a suite to mint a public, revocable SVG —
+`![My suite](https://your-host/badge/<token>.svg)` shows passing / failing /
+running from the latest batch, and leaks nothing else.
+
 ## Stack
 
 Symfony 7.2 · PHP 8.3 · PostgreSQL 16 · Redis · MongoDB (optional, for Mongo
