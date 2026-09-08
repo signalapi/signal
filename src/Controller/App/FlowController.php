@@ -127,6 +127,33 @@ class FlowController extends AbstractAppController
     }
 
 
+    /**
+     * Releases a flaky flow from quarantine by hand — its failures count again
+     * immediately. (Quarantine itself is applied automatically by
+     * FlakinessSentry when a flow keeps flipping status.)
+     */
+    #[Route('/{flow}/quarantine/release', name: 'app_flow_quarantine_release', methods: ['POST'])]
+    public function quarantineRelease(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        Request $httpRequest,
+        TestFlowRepository $flows,
+        TranslatorInterface $translator,
+    ): Response {
+        $this->assertWorkspace($workspace, 'edit');
+        $this->assertFlow($workspace, $flow);
+        if (!$this->isCsrfTokenValid('quarantine-release' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $flow->setQuarantinedAt(null);
+        $flow->setQuarantineNote(null);
+        $flows->save($flow);
+        $this->addFlash('success', $translator->trans('Released from quarantine — failures count again.'));
+
+        return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
+    }
+
     #[Route('/{flow}/delete', name: 'app_flow_delete', methods: ['POST'])]
     public function delete(
         Workspace $workspace,

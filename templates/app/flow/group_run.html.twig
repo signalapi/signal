@@ -30,7 +30,7 @@
         {% set st = r ? r.status : 'pending' %}
         <{{ r ? 'a' : 'div' }} class="wf-row {{ st }}" data-idx="{{ loop.index0 }}"{% if r %} href="{{ r.detailUrl }}" style="color:inherit;"{% endif %}>
             <span class="node {{ st }}" style="width:22px;height:22px;font-size:10px;box-shadow:none;">{{ loop.index }}</span>
-            <span class="name" style="width:auto;flex:1;">{{ flow.name }}</span>
+            <span class="name" style="width:auto;flex:1;">{{ flow.name }}{% if flow.quarantined %} <span class="mpill warn" title="{{ 'Failures do not turn the batch red while quarantined.'|trans }}">{{ 'quarantined'|trans }}</span>{% endif %}</span>
             <span class="ms" style="width:auto;" data-meta>{% if r %}{{ r.passed }}/{{ r.total }}{{ r.durationMs is not null ? ' · ' ~ r.durationMs ~ 'ms' }}{% endif %}</span>
             <span class="pill {{ st }}" data-state>{{ labels[st] ?? 'Pending'|trans }}</span>
         </{{ r ? 'a' : 'div' }}>

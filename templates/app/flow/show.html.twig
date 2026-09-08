@@ -20,6 +20,7 @@
             <h1 style="margin:0;">{{ flow.name }}</h1>
             {% set lastRun = flow.runs|first %}
             {% if lastRun %}{{ include('app/flow/_status.html.twig', {status: lastRun.status}) }}{% endif %}
+            {% if flow.quarantined %}<span class="mpill warn">{{ 'quarantined'|trans }}</span>{% endif %}
         </div>
         <div class="actions">
             <select id="runEnv" style="width:auto;font-weight:600;">
@@ -33,6 +34,21 @@
             </form>
         </div>
     </div>
+
+    {% if flow.quarantined %}
+    <div class="card" style="display:flex;align-items:center;gap:12px;padding:12px 16px;margin:0 0 12px;background:var(--warn-soft);border-color:var(--warn);flex-wrap:wrap;">
+        <span class="sq" style="width:28px;height:28px;">{{ ic.i('alert', 14) }}</span>
+        <span style="font-size:12.5px;min-width:0;">
+            <b>{{ 'Quarantined as flaky'|trans }}</b> — {{ flow.quarantineNote }} ({{ flow.quarantinedAt|date('d.m.Y H:i') }}).
+            {{ 'Its failures do not turn suite batches red until it stabilises.'|trans }}
+        </span>
+        <div style="flex:1;"></div>
+        <form method="post" action="{{ path('app_flow_quarantine_release', {workspace: workspace.id, flow: flow.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('quarantine-release' ~ flow.id) }}">
+            <button class="gbtn" type="submit">{{ 'Release now'|trans }}</button>
+        </form>
+    </div>
+    {% endif %}
 
     <div style="display:flex;flex-wrap:wrap;gap:7px;margin:-6px 0 4px;">
         <span class="pill"><b style="color:var(--ink);">{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>

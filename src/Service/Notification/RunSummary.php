@@ -92,22 +92,28 @@ class RunSummary
         $failures = [];
         $items = [];
         $passed = 0;
+        $quarantinedFailures = 0;
         $environment = null;
         foreach ($runs as $run) {
             $environment ??= $run->getEnvironmentName();
+            $quarantined = $run->getFlow()->isQuarantined();
             $items[] = [
                 'name' => $run->getFlow()->getName(),
                 'status' => $run->getStatus(),
                 'passed' => $run->getPassedSteps(),
                 'total' => $run->getTotalSteps(),
                 'durationMs' => $run->getDurationMs(),
+                'quarantined' => $quarantined,
             ];
             if (FlowRun::STATUS_PASSED === $run->getStatus()) {
                 ++$passed;
                 continue;
             }
+            if ($quarantined) {
+                ++$quarantinedFailures;
+            }
             $failures[] = [
-                'name' => $run->getFlow()->getName(),
+                'name' => $run->getFlow()->getName() . ($quarantined ? ' (quarantined — not counted)' : ''),
                 'detail' => $this->firstFailureDetail($run),
             ];
         }
@@ -130,6 +136,7 @@ class RunSummary
             'finishedAt' => $groupRun->getFinishedAt()?->format(\DATE_ATOM),
             'failures' => \array_slice($failures, 0, self::MAX_FAILURES),
             'moreFailures' => max(0, \count($failures) - self::MAX_FAILURES),
+            'quarantinedFailures' => $quarantinedFailures,
             'items' => \array_slice($items, 0, self::MAX_ITEMS),
             'moreItems' => max(0, \count($items) - self::MAX_ITEMS),
             'url' => $this->absolute('app_flow_group_run_show', [

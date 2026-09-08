@@ -91,6 +91,14 @@ class SlackWebhookChannel implements ChannelInterface
             ['type' => 'context', 'elements' => [['type' => 'mrkdwn', 'text' => $this->escape(implode('  ·  ', $meta))]]],
         ];
 
+        // A green suite can still contain quarantined flaky failures — say so.
+        if (($p['quarantinedFailures'] ?? 0) > 0) {
+            $blocks[] = ['type' => 'context', 'elements' => [['type' => 'mrkdwn', 'text' => sprintf(
+                ':warning: %d quarantined flaky test(s) failed — not counted in the suite outcome.',
+                (int) $p['quarantinedFailures'],
+            )]]];
+        }
+
         // What broke, with the assertion that caught it.
         if ([] !== ($p['failures'] ?? [])) {
             $lines = ['*What failed*'];
@@ -177,9 +185,10 @@ class SlackWebhookChannel implements ChannelInterface
         }
 
         return sprintf(
-            '%s %s%s',
+            '%s %s%s%s',
             $mark,
             $this->escape((string) ($item['name'] ?? '—')),
+            ($item['quarantined'] ?? false) ? ' _(quarantined)_' : '',
             [] === $numbers ? '' : '  `' . $this->escape(implode(' · ', $numbers)) . '`',
         );
     }

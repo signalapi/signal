@@ -64,6 +64,18 @@ class TestFlow
     #[ORM\OrderBy(['createdAt' => 'DESC'])]
     private Collection $runs;
 
+    /**
+     * Set while the flow is quarantined as flaky: its failures no longer turn a
+     * suite batch red (they are reported separately). Set/cleared automatically
+     * by FlakinessSentry; a person can release it early from the flow page.
+     */
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $quarantinedAt = null;
+
+    /** Why it was quarantined, e.g. "4 status flips in the last 10 runs". */
+    #[ORM\Column(length: 200, nullable: true)]
+    private ?string $quarantineNote = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -180,6 +192,35 @@ class TestFlow
     public function getRuns(): Collection
     {
         return $this->runs;
+    }
+
+    public function isQuarantined(): bool
+    {
+        return null !== $this->quarantinedAt;
+    }
+
+    public function getQuarantinedAt(): ?\DateTimeImmutable
+    {
+        return $this->quarantinedAt;
+    }
+
+    public function setQuarantinedAt(?\DateTimeImmutable $quarantinedAt): static
+    {
+        $this->quarantinedAt = $quarantinedAt;
+
+        return $this;
+    }
+
+    public function getQuarantineNote(): ?string
+    {
+        return $this->quarantineNote;
+    }
+
+    public function setQuarantineNote(?string $quarantineNote): static
+    {
+        $this->quarantineNote = $quarantineNote;
+
+        return $this;
     }
 
     public function getCreatedAt(): \DateTimeImmutable

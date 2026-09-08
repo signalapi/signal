@@ -51,7 +51,10 @@ final class RunFlowGroupMessageHandler
             $run = $this->runner->createRun($flow, $env, 'group', $message->batchId, $i, [], $actor);
             $this->runner->executeInto($run, $flow, $env);
             $flowRuns[] = $run;
-            if (FlowRun::STATUS_PASSED !== $run->getStatus()) {
+            // A quarantined (flaky) flow's failure is reported but does not turn
+            // the batch red — checked after executeInto, because the run just
+            // finished may itself have triggered quarantine or release.
+            if (FlowRun::STATUS_PASSED !== $run->getStatus() && !$flow->isQuarantined()) {
                 $allPassed = false;
             }
             ++$i;

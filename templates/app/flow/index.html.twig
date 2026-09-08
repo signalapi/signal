@@ -27,7 +27,7 @@
         <span class="grip" title="{{ 'Drag to reorder'|trans }}">{{ ic.i('grip', 12) }}</span>
         <span class="dot {{ last ? last.status }}"></span>
         <a href="{{ path('app_flow_show', {workspace: workspace.id, flow: flow.id}) }}" style="flex:1;min-width:0;color:inherit">
-            <span class="name">{{ flow.name }}</span>
+            <span class="name">{{ flow.name }}{% if flow.quarantined %} <span class="mpill warn" title="{{ flow.quarantineNote }}">{{ 'quarantined'|trans }}</span>{% endif %}</span>
             <span class="meta">
                 <span>{{ '%count% step|%count% steps'|trans({'%count%': flow.steps|length}) }}</span>
                 <span>·</span>
