@@ -15,7 +15,7 @@
     heroA: '200 dönmesi', heroB: 'testin geçtiği anlamına gelmez.',
     lead: "Signal API'ni tetikler, dönen değerleri zincirler ve gerçekten Postgres, MySQL, Redis ve Mongo'ya ne yazıldığını doğrular.",
     cta2: 'Bir koşumu izle', openApp: 'Uygulamayı aç', signin: 'Giriş yap',
-    facts: ['Tek yapıştırmayla Postman içe aktarma', 'Şifreli veritabanı bilgileri', 'CI exit code + JUnit'],
+    facts: ['Postman + OpenAPI içe aktarma', "Claude akış taslağı çıkarır ve hatayı teşhis eder", 'Açık kaynak · AGPL-3.0'],
     running: 'canlı çalışıyor', flow: 'Akış', stepsWord: 'adım', dbCheck: 'Veritabanı doğrulaması',
     caught: 'Yakaladı: API 201 dedi, satır trialing dedi.',
     diffEyebrow: 'Fark burada', diffTitle: 'Çoğu araç yanıt gövdesinde durur.',
@@ -26,18 +26,21 @@
         ['Şifreli kimlik bilgileri', 'Bağlantı parolaları libsodium ile mühürlenir, arayüze düz metin dönmez.'],
     ],
     waterfall: 'Şelale',
-    featEyebrow: 'Neler var', featTitle: 'Tezgah, akış motoru ve zamanlayıcı — tek yerde.',
+    featEyebrow: 'Neler var', featTitle: 'Tezgah, akış motoru, mock sunucu ve bir AI yardımcı pilotu — tek yerde.',
     features: [
-        ['İstek tezgahı', 'Koleksiyonlar, klasörler, kayıtlı örnekler, değişken vurgulama ve kod üretimi. Postman koleksiyonunu içe aktar, kaldığın yerden devam et.', ['Collection v2.1', 'Ortamlar']],
+        ['İstek tezgahı', 'Koleksiyonlar, klasörler, kayıtlı örnekler, değişken vurgulama ve kod üretimi. Postman veya OpenAPI 3 dosyanı içe aktar, kaldığın yerden devam et.', ['Postman v2.1', 'OpenAPI 3', 'Ortamlar']],
         ['Zincirlenen akışlar', 'Değer çıkar, doğrula, sonraki adıma besle. Koşul, döngü, retry ve referansla çağrılan alt akışlar.', ['extract', 'assert', 'alt akış']],
         ['Veritabanı doğrulaması', 'rowCount, satır değerleri, Redis anahtarları, Mongo dokümanları — sebebi olan isteğin aynı koşumunda doğrulanır.', ['SQL', 'Redis', 'Mongo']],
-        ['Suite ve zamanlama', "Akışları suite'lerde grupla, suite'i uçtan uca çalıştır ya da bırak cron on beş dakikada bir yapsın.", ['cron', 'stopOnFailure']],
-        ['Yapıştırma kodu olmadan CI', "Tek yetkili POST akışı çalıştırır, hatada 422 döner. JUnit XML istersen pipeline'ın onu çizer.", ['Bearer token', 'JUnit XML']],
-        ['Ekipler için', 'Şirket, workspace, üye ve API token — MCP oturumu dahil her kaynak kapsanmış.', ['workspace', 'roller']],
+        ['AI yardımcı pilotu', "Senaryoyu anlat, Claude akışı taslak olarak kursun. Kırmızı koşumda kök nedeni ve önerilen düzeltmeyi söyler — koşum, suite ve trend sayfalarında, hatta Slack mesajının içinde.", ['taslak akış', 'kök neden', 'trend özeti']],
+        ['Mock sunucu', 'Bağımlı olduğun API\'leri stub\'la: metot + path girsin, hazır yanıtın dönsün. Her istekte taze {{$guid}}, simüle gecikme, dış kaynaklı flakiness yok.', ['wildcard', 'gecikme', 'deterministik']],
+        ['Suite, zamanlama ve paralel koşum', "Akışları suite'lerde grupla, cron'a bırak; bağımsız akışları worker'lara yayarak paralel koştur. Flaky testler otomatik karantinaya alınır, suite'ini kirletmez.", ['cron', 'paralel', 'karantina']],
+        ['Bildirimler', "Sonuçlar Slack'e veya herhangi bir webhook'a — workspace, test ya da suite bazlı kural. İstersen hata mesajına Claude'un analizi de biner.", ['Slack', 'webhook', 'HMAC imza']],
+        ['CI, rozet ve durum sayfası', "Tek POST suite'i koşturur, JUnit XML döner. README rozeti ve herkese açık durum sayfası gerçek koşumlardan beslenir.", ['JUnit XML', 'PR check', 'status page']],
+        ['Ekipler için', 'Şirket, workspace, üye ve API token — MCP oturumu dahil her kaynak kapsanmış. Google/GitHub ile giriş hazır.', ['workspace', 'roller', 'SSO']],
     ],
     mcpTitle: 'Testi anlat. Claude kurar.',
-    mcpLead: "Uygulamanın içinde Streamable HTTP MCP endpoint'i, aynı Bearer token ile tek bir workspace'e kapsanmış. On dokuz araç, ayrı Node süreci yok.",
-    mcpTools: [['KAPSAM', 'whoami'], ['OKUMA', 'list_flows · get_run · search_requests'], ['KURMA', 'create_flow · add_http_step · add_db_step'], ['KOŞUM', 'run_flow · run_flow_async']],
+    mcpLead: "Uygulamanın içinde Streamable HTTP MCP endpoint'i, aynı Bearer token ile tek bir workspace'e kapsanmış. Altmışın üzerinde araç, ayrı Node süreci yok.",
+    mcpTools: [['KAPSAM', 'whoami'], ['OKUMA', 'list_flows · get_run · diagnose_run'], ['KURMA', 'create_flow · add_http_step · add_db_step'], ['STUB', 'create_mock_route · set_env_variables'], ['KOŞUM', 'run_flow · run_suite']],
     chat: [
         ['sen', 'Signup isteğini at, sonra subscriptions tablosunda o kullanıcı için active satır var mı kontrol et.'],
         ['claude', 'Checkout v3\'te POST /v3/customers\'ı buldum. "signup → subscription" akışını kuruyorum.'],
@@ -46,11 +49,12 @@
     ],
     hostEyebrow: 'Tetikleyiciler', hostTitle: 'Zaten çalıştığın yerden tetikle.',
     hostLead: "Tek yetkili çağrı akışı çalıştırır ve kararı döner — geçerse 200, geçmezse 422. Ya da cron, pipeline'ın veya Claude başlatsın.",
-    stack: ['GitHub Actions', 'GitLab CI', 'cron zamanlama', 'API token', 'JUnit XML', 'Claude MCP'],
+    stack: ['GitHub Actions', 'GitLab CI', 'cron zamanlama', 'README rozeti', 'durum sayfası', 'JUnit XML', 'Claude MCP'],
     ctaTitle: 'Durum koduna güvenmeyi bırak.',
     ctaLead: 'Bir workspace aç, Postman koleksiyonunu içe aktar ve ilk akışın kendini veritabanına karşı doğrulamasını izle.',
     footerNote: 'API entegrasyon ve E2E test — veritabanı doğrulamalı.',
     nav: [['Ürün', '#product'], ['Akışlar', '#diff'], ['MCP', '#mcp'], ['CI', '#triggers']],
+    legalPrivacy: 'Gizlilik', legalTerms: 'Koşullar',
     shellC1: 'pipeline içinde — adım düşerse sıfır olmayan exit',
     shellC2: 'aynı çağrı, CI\'ın çizebileceği JUnit XML',
 } : {
@@ -58,7 +62,7 @@
     heroA: 'A 200 response', heroB: 'is not a passing test.',
     lead: 'Signal fires your API, chains the values it returns, then verifies what actually landed in Postgres, MySQL, Redis and Mongo.',
     cta2: 'See a flow run', openApp: 'Open app', signin: 'Sign in',
-    facts: ['Postman import in one paste', 'Encrypted database credentials', 'CI exit codes + JUnit'],
+    facts: ['Postman + OpenAPI import', 'Claude drafts flows and diagnoses failures', 'Open source · AGPL-3.0'],
     running: 'running live', flow: 'Flow', stepsWord: 'steps', dbCheck: 'Database assertion',
     caught: 'Caught it: the API said 201, the row said trialing.',
     diffEyebrow: 'The difference', diffTitle: 'Most tools stop at the response body.',
@@ -69,18 +73,21 @@
         ['Encrypted credentials', 'Connection passwords are sealed with libsodium and never returned to the browser.'],
     ],
     waterfall: 'Waterfall',
-    featEyebrow: 'What you get', featTitle: 'A workbench, a flow engine and a scheduler — in one place.',
+    featEyebrow: 'What you get', featTitle: 'A workbench, a flow engine, a mock server and an AI copilot — in one place.',
     features: [
-        ['Request workbench', 'Collections, folders, saved examples, variable highlighting and code generation. Import a Postman collection and keep working.', ['Collection v2.1', 'Environments']],
+        ['Request workbench', 'Collections, folders, saved examples, variable highlighting and code generation. Import a Postman collection or an OpenAPI 3 spec and keep working.', ['Postman v2.1', 'OpenAPI 3', 'Environments']],
         ['Flows that chain', 'Extract a value, assert on it, feed it into the next step. Conditions, loops, retries and sub-flows called by reference.', ['extract', 'assert', 'sub-flow']],
         ['Database assertions', 'rowCount, row values, Redis keys, Mongo documents — asserted in the same run as the request that caused them.', ['SQL', 'Redis', 'Mongo']],
-        ['Suites and schedules', 'Group flows into suites, run a suite end to end, or let cron do it every fifteen minutes.', ['cron', 'stopOnFailure']],
-        ['CI without glue code', 'One authenticated POST runs a flow and returns 422 on failure. Ask for JUnit XML and your pipeline renders it.', ['Bearer token', 'JUnit XML']],
-        ['Built for teams', 'Companies, workspaces, members and API tokens — every resource scoped, including the MCP session.', ['workspaces', 'roles']],
+        ['An AI copilot', 'Describe the scenario and Claude drafts the flow. When a run goes red it names the root cause and the fix — on the run, suite and trend pages, and even inside the Slack message.', ['draft flows', 'root cause', 'trend digest']],
+        ['Mock server', 'Stub the APIs you depend on: method + path in, your canned answer out. Fresh {{$guid}} per hit, simulated latency, zero external flakiness.', ['wildcards', 'latency', 'deterministic']],
+        ['Suites, schedules, parallel runs', 'Group flows into suites, hand them to cron, and fan independent flows out across workers. Flaky tests get quarantined automatically instead of burying the suite.', ['cron', 'parallel', 'quarantine']],
+        ['Notifications', 'Results land in Slack or any webhook — standing rules per workspace, test or suite. Failure messages can carry Claude\'s analysis along.', ['Slack', 'webhooks', 'HMAC signed']],
+        ['CI, badges & status pages', 'One POST runs a suite and answers with JUnit XML. The README badge and a public status page are fed by real test runs.', ['JUnit XML', 'PR checks', 'status page']],
+        ['Built for teams', 'Companies, workspaces, members and API tokens — every resource scoped, including the MCP session. Google/GitHub sign-in included.', ['workspaces', 'roles', 'SSO']],
     ],
     mcpTitle: 'Describe the test. Claude wires it up.',
-    mcpLead: 'A Streamable HTTP MCP endpoint inside the app, scoped to a single workspace by the same Bearer token. Nineteen tools, no separate Node process.',
-    mcpTools: [['SCOPE', 'whoami'], ['READ', 'list_flows · get_run · search_requests'], ['BUILD', 'create_flow · add_http_step · add_db_step'], ['RUN', 'run_flow · run_flow_async']],
+    mcpLead: 'A Streamable HTTP MCP endpoint inside the app, scoped to a single workspace by the same Bearer token. Sixty-plus tools, no separate Node process.',
+    mcpTools: [['SCOPE', 'whoami'], ['READ', 'list_flows · get_run · diagnose_run'], ['BUILD', 'create_flow · add_http_step · add_db_step'], ['STUB', 'create_mock_route · set_env_variables'], ['RUN', 'run_flow · run_suite']],
     chat: [
         ['you', 'Hit the signup request, then check the subscriptions table has an active row for that user.'],
         ['claude', 'Found POST /v3/customers in Checkout v3. Creating flow "signup → subscription".'],
@@ -89,11 +96,12 @@
     ],
     hostEyebrow: 'Triggers', hostTitle: 'Run it from wherever you already work.',
     hostLead: 'One authenticated call runs a flow and answers with the verdict — 200 when it passes, 422 when it does not. Or let cron, your pipeline or Claude start it.',
-    stack: ['GitHub Actions', 'GitLab CI', 'cron schedules', 'API tokens', 'JUnit XML', 'Claude MCP'],
+    stack: ['GitHub Actions', 'GitLab CI', 'cron schedules', 'README badges', 'status pages', 'JUnit XML', 'Claude MCP'],
     ctaTitle: 'Stop trusting the status code.',
     ctaLead: 'Create a workspace, import your Postman collection and watch the first flow verify itself against your database.',
     footerNote: 'API integration and E2E testing, with database verification.',
     nav: [['Product', '#product'], ['Flows', '#diff'], ['MCP', '#mcp'], ['CI', '#triggers']],
+    legalPrivacy: 'Privacy', legalTerms: 'Terms',
     shellC1: 'in your pipeline — non-zero exit when a step fails',
     shellC2: 'same call, JUnit XML your CI can render',
 } %}
@@ -314,14 +322,17 @@
     </div>
     <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px;" class="land-3col">
         {% for f in L.features %}
-            {% set tone = ['pri', 'vio', 'teal', 'warn', 'pass', 'pri'][loop.index0] %}
+            {% set tone = ['pri', 'vio', 'teal', 'vio', 'warn', 'pri', 'pass', 'teal', 'pri'][loop.index0] %}
             <div class="card-hover" style="background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:18px 19px 20px;box-shadow:var(--sh);min-width:0;">
                 <div class="sq {{ tone }}" style="width:34px;height:34px;border-radius:11px;">
                     {% if loop.index0 == 0 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4.5 3h15"/><path d="M6 3v16a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3"/><path d="M6 14h12"/></svg>
                     {% elseif loop.index0 == 1 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
                     {% elseif loop.index0 == 2 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg>
-                    {% elseif loop.index0 == 3 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-                    {% elseif loop.index0 == 4 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><circle cx="18" cy="12" r="2.6"/><path d="M6 8.6v6.8"/><path d="M8.6 6H13a2.4 2.4 0 0 1 2.4 2.4v1.2"/></svg>
+                    {% elseif loop.index0 == 3 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="7" width="16" height="12" rx="3"/><path d="M12 3v4"/><circle cx="9" cy="13" r="1.1" fill="currentColor" stroke="none"/><circle cx="15" cy="13" r="1.1" fill="currentColor" stroke="none"/></svg>
+                    {% elseif loop.index0 == 4 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M14.7 6.3a4.5 4.5 0 0 0-6 6L3 18l3 3 5.7-5.7a4.5 4.5 0 0 0 6-6L14 13l-3-3z"/></svg>
+                    {% elseif loop.index0 == 5 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+                    {% elseif loop.index0 == 6 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+                    {% elseif loop.index0 == 7 %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="6" cy="6" r="2.6"/><circle cx="6" cy="18" r="2.6"/><circle cx="18" cy="12" r="2.6"/><path d="M6 8.6v6.8"/><path d="M8.6 6H13a2.4 2.4 0 0 1 2.4 2.4v1.2"/></svg>
                     {% else %}<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M16 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="9.5" cy="7" r="3.5"/><path d="M21 21v-2a4 4 0 0 0-3-3.8"/></svg>{% endif %}
                 </div>
                 <div style="font-size:14.5px;font-weight:700;color:var(--ink);margin-top:13px;letter-spacing:-.02em;">{{ f[0] }}</div>
@@ -428,10 +439,15 @@
         </div>
         <span style="font-size:12px;color:var(--faint);">{{ L.footerNote }}</span>
         <div style="flex:1 1 0;min-width:0;"></div>
-        <div style="display:flex;gap:14px;flex-wrap:wrap;">
+        <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;">
             {% for n in L.nav %}
                 <a href="{{ n[1] }}" style="font-size:12px;font-weight:600;color:var(--muted);">{{ n[0] }}</a>
             {% endfor %}
+            <a href="https://github.com/signalapi/signal" rel="noopener" style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;color:var(--muted);">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.4 0 0 5.4 0 12c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.8-1.3-1.8-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1.1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.8-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2-.1-.3-.5-1.5.1-3.2 0 0 1-.3 3.3 1.2 1-.3 2-.4 3-.4s2 .1 3 .4c2.3-1.5 3.3-1.2 3.3-1.2.6 1.7.2 2.9.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.2c0 .3.2.7.8.6C20.6 21.8 24 17.3 24 12c0-6.6-5.4-12-12-12z"/></svg>
+                GitHub</a>
+            <a href="{{ path('legal_privacy') }}" style="font-size:12px;font-weight:600;color:var(--muted);">{{ L.legalPrivacy }}</a>
+            <a href="{{ path('legal_terms') }}" style="font-size:12px;font-weight:600;color:var(--muted);">{{ L.legalTerms }}</a>
         </div>
     </div>
 </footer>

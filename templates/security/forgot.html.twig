@@ -1,0 +1,30 @@
+{% extends 'security/_auth_base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Forgot password'|trans }} · Signal: Test Platform{% endblock %}
+
+{% block auth_card %}
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">
+        <span style="display:flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:9px;background:linear-gradient(140deg,var(--pri),var(--vio));color:#fff">{{ ic.i('terminal', 15, 2.4) }}</span>
+        <span class="no-caps" style="font-weight:800;font-size:15px;color:var(--ink);letter-spacing:-.03em">Signal</span>
+    </div>
+    <h1>{{ 'Forgot your password?'|trans }}</h1>
+    <p class="subtitle" style="margin-bottom:20px">{{ 'Enter your e-mail; we will send a one-time reset link that expires in an hour.'|trans }}</p>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="flash {{ label }}">{{ ic.i(label == 'success' ? 'check' : 'x', 14, 2.6) }}{{ message }}</div>
+        {% endfor %}
+    {% endfor %}
+
+    <form method="post" action="{{ path('app_forgot_password') }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('forgot-password') }}">
+        <div class="field">
+            <label for="email">{{ 'Email'|trans }}</label>
+            <input type="email" id="email" name="email" required autofocus placeholder="ad@sirket.com">
+        </div>
+        <button class="btn block" type="submit" style="margin-top:4px">{{ 'Send reset link'|trans }}</button>
+    </form>
+
+    <p class="fhint" style="text-align:center;margin-top:16px"><a href="{{ path('app_login') }}">{{ 'Back to sign in'|trans }}</a></p>
+{% endblock %}

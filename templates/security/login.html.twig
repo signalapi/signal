@@ -11,6 +11,11 @@
     <h1>{{ 'Welcome back'|trans }}</h1>
     <p class="subtitle" style="margin-bottom:20px">{{ 'Sign in to your workspace.'|trans }}</p>
 
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="flash {{ label }}">{{ ic.i(label == 'success' ? 'check' : 'x', 14, 2.6) }}{{ message }}</div>
+        {% endfor %}
+    {% endfor %}
     {% if error %}
         <div class="flash error">{{ ic.i('x', 14, 2.6) }}{{ error.messageKey|trans(error.messageData, 'security') }}</div>
     {% endif %}
@@ -26,6 +31,7 @@
         </div>
         <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
         <button class="btn block" type="submit" style="margin-top:4px">{{ 'Sign in'|trans }}</button>
+        <p class="fhint" style="text-align:right;margin:8px 0 0"><a href="{{ path('app_forgot_password') }}">{{ 'Forgot password?'|trans }}</a></p>
     </form>
 
     {% include 'security/_social.html.twig' with {providers: social_providers|default([])} only %}

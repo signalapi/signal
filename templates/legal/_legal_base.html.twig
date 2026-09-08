@@ -1,0 +1,15 @@
+{# Shared shell for the legal pages: quiet typography, a way back, no chrome. #}
+{% extends 'base.html.twig' %}
+
+{% block body %}
+<main class="content" style="max-width:680px;margin:0 auto;padding:48px 24px 64px;">
+    <a href="{{ path('app_home') }}" style="display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:var(--muted);margin-bottom:26px;">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M19 12H5"/><path d="m12 19-7-7 7-7"/></svg>
+        Signal</a>
+    <h1 style="margin:0 0 6px;font-size:30px;letter-spacing:-.04em;">{% block legal_title %}{% endblock %}</h1>
+    <p class="subtitle" style="margin:0 0 30px;">{% block legal_updated %}{% endblock %}</p>
+    <div style="font-size:14px;line-height:1.75;color:var(--text);display:flex;flex-direction:column;gap:18px;">
+        {% block legal_body %}{% endblock %}
+    </div>
+</main>
+{% endblock %}

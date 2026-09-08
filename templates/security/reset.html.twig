@@ -1,0 +1,32 @@
+{% extends 'security/_auth_base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Set a new password'|trans }} · Signal: Test Platform{% endblock %}
+
+{% block auth_card %}
+    <div style="display:flex;align-items:center;gap:9px;margin-bottom:14px">
+        <span style="display:flex;width:30px;height:30px;align-items:center;justify-content:center;border-radius:9px;background:linear-gradient(140deg,var(--pri),var(--vio));color:#fff">{{ ic.i('terminal', 15, 2.4) }}</span>
+        <span class="no-caps" style="font-weight:800;font-size:15px;color:var(--ink);letter-spacing:-.03em">Signal</span>
+    </div>
+    <h1>{{ 'Set a new password'|trans }}</h1>
+    <p class="subtitle" style="margin-bottom:20px">{{ 'This link works once — pick something at least 8 characters long.'|trans }}</p>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="flash {{ label }}">{{ ic.i(label == 'success' ? 'check' : 'x', 14, 2.6) }}{{ message }}</div>
+        {% endfor %}
+    {% endfor %}
+
+    <form method="post" action="{{ path('app_reset_password', {token: token}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('reset-password') }}">
+        <div class="field">
+            <label for="password">{{ 'New password'|trans }}</label>
+            <input type="password" id="password" name="password" required minlength="8" autofocus autocomplete="new-password" placeholder="••••••••">
+        </div>
+        <div class="field">
+            <label for="password_confirm">{{ 'New password (again)'|trans }}</label>
+            <input type="password" id="password_confirm" name="password_confirm" required minlength="8" autocomplete="new-password" placeholder="••••••••">
+        </div>
+        <button class="btn block" type="submit" style="margin-top:4px">{{ 'Update password'|trans }}</button>
+    </form>
+{% endblock %}

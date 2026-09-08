@@ -41,6 +41,13 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\Column(length: 5, nullable: true)]
     private ?string $locale = null;
 
+    /** sha256 of the outstanding password-reset token; only the hash is stored. */
+    #[ORM\Column(length: 64, nullable: true)]
+    private ?string $resetTokenHash = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $resetTokenExpiresAt = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -139,6 +146,30 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     public function setLocale(?string $locale): static
     {
         $this->locale = $locale;
+
+        return $this;
+    }
+
+    public function getResetTokenHash(): ?string
+    {
+        return $this->resetTokenHash;
+    }
+
+    public function setResetTokenHash(?string $resetTokenHash): static
+    {
+        $this->resetTokenHash = $resetTokenHash;
+
+        return $this;
+    }
+
+    public function getResetTokenExpiresAt(): ?\DateTimeImmutable
+    {
+        return $this->resetTokenExpiresAt;
+    }
+
+    public function setResetTokenExpiresAt(?\DateTimeImmutable $resetTokenExpiresAt): static
+    {
+        $this->resetTokenExpiresAt = $resetTokenExpiresAt;
 
         return $this;
     }

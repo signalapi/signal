@@ -1,0 +1,38 @@
+{% extends 'legal/_legal_base.html.twig' %}
+
+{% block title %}Terms of Service · Signal{% endblock %}
+{% block legal_title %}Terms of Service{% endblock %}
+{% block legal_updated %}Last updated: 8 September 2026 · applies to the hosted service at signalapi.dev{% endblock %}
+
+{% block legal_body %}
+<p><b>The service.</b> Signal at signalapi.dev is a hosted instance of the open-source Signal project
+(AGPL-3.0). It is currently free while it is young. If paid plans arrive, existing users will be told
+clearly and in advance; self-hosting remains free and unlimited forever under the
+<a href="https://github.com/signalapi/signal/blob/main/LICENSE">license</a>.</p>
+
+<p><b>Your account.</b> You are responsible for what happens under your account and API tokens. Keep
+tokens secret; revoke them in the product the moment you suspect a leak.</p>
+
+<p><b>Acceptable use.</b> Test APIs you own or are authorised to test. Do not use Signal — including
+its scheduler, parallel runs or mock server — to attack, overload or scrape systems that are not
+yours. We may suspend accounts that do, and rate limits may apply to keep the service healthy for
+everyone.</p>
+
+<p><b>Your data.</b> Your collections, flows and results stay yours. We claim no rights over them
+beyond what is needed to operate the service (storing and processing them on your instruction). See
+the <a href="{{ path('legal_privacy') }}">Privacy Policy</a> for what is stored and what leaves the
+service only on your say-so.</p>
+
+<p><b>Availability.</b> The service is provided as-is, without an SLA, while it is free. We care about
+uptime (Signal tests itself, publicly), but scheduled runs may be delayed and maintenance windows
+happen. Keep an export or a self-hosted mirror of anything you cannot afford to lose.</p>
+
+<p><b>Liability.</b> To the maximum extent permitted by law, the service is provided without
+warranties, and our liability is limited to the amount you paid for it — currently nothing. Test
+results are an aid, not a guarantee that your API is correct.</p>
+
+<p><b>Termination.</b> You can delete your account at any time, which deletes your data. We may
+terminate accounts that break these terms, with notice where practical.</p>
+
+<p><b>Contact.</b> <a href="mailto:hello@signalapi.dev">hello@signalapi.dev</a>.</p>
+{% endblock %}

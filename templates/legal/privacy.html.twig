@@ -1,0 +1,49 @@
+{% extends 'legal/_legal_base.html.twig' %}
+
+{% block title %}Privacy Policy · Signal{% endblock %}
+{% block legal_title %}Privacy Policy{% endblock %}
+{% block legal_updated %}Last updated: 8 September 2026 · applies to the hosted service at signalapi.dev{% endblock %}
+
+{% block legal_body %}
+<p><b>Who we are.</b> Signal is an open-source API testing platform
+(<a href="https://github.com/signalapi/signal">github.com/signalapi/signal</a>). This policy covers the
+hosted service at signalapi.dev. If you self-host Signal, your installation is governed by you, not by
+this document.</p>
+
+<p><b>What we collect.</b> Your account data (name, e-mail, a password hash — or, with social sign-in,
+the name and verified e-mail your Google/GitHub account provides), and the content you create in the
+product: collections, requests, test flows, environments, run results and notification settings. We do
+not collect analytics beyond standard web-server logs (IP address, user agent, timestamp), kept for
+security and debugging.</p>
+
+<p><b>Sensitive values.</b> Database connection passwords, notification webhook URLs and the platform
+AI key are sealed with libsodium before they are stored and are never rendered back to a browser.
+Environment variables you mark as secret are masked in the UI and in API/MCP responses. Test runs
+necessarily store the request and response bodies of the APIs you test — treat that as your data under
+your control: you can delete flows, runs and whole workspaces at any time, and deletion is immediate
+and cascading.</p>
+
+<p><b>AI features.</b> AI analysis and flow drafting send evidence to Anthropic's API only when a
+platform administrator has configured an API key, and only when you (or a rule you created) ask for an
+analysis. What is sent: failing-run evidence (requests, response bodies, assertion results) or, for
+flow drafting, request names/methods/URLs and environment variable <i>names</i> — never variable
+values, secrets or database credentials. Anthropic's handling of that data is governed by
+<a href="https://www.anthropic.com/legal/commercial-terms">their commercial terms</a>.</p>
+
+<p><b>Social sign-in.</b> With "Continue with Google/GitHub" we receive your name and verified e-mail
+from the provider and nothing else. We do not post, read repositories, or access contacts. Only
+verified e-mail addresses are accepted.</p>
+
+<p><b>Sharing.</b> We do not sell or share your data with third parties. Data leaves the service only
+when you make it leave: notifications you configure (Slack/webhooks), public badges and status pages
+you explicitly enable (batch-level results only), report links you share, and AI requests as described
+above. Infrastructure runs on Hetzner (Germany) behind Cloudflare.</p>
+
+<p><b>Your rights.</b> Export or delete your data at any time from the product, or write to
+<a href="mailto:privacy@signalapi.dev">privacy@signalapi.dev</a> and we will do it for you. Deleting
+your account removes your merchants, workspaces and everything inside them.</p>
+
+<p><b>Changes.</b> If this policy changes in a way that matters, we will note it here with a new date.
+The service is young; the promise stays simple — your test data is yours, and the parts that are
+secret stay sealed.</p>
+{% endblock %}
