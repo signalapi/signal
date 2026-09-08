@@ -316,8 +316,10 @@ class FlowGroupController extends AbstractAppController
             $groups->save($group);
         }
         $url = $this->generateUrl('suite_badge', ['token' => $group->getBadgeToken()], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL);
-        $this->addFlash('success', $translator->trans('Badge ready. Markdown: %snippet%', [
+        $statusUrl = $this->generateUrl('suite_status', ['token' => $group->getBadgeToken()], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL);
+        $this->addFlash('success', $translator->trans('Badge ready. Markdown: %snippet% — public status page: %status%', [
             '%snippet%' => sprintf('![%s](%s)', $group->getName(), $url),
+            '%status%' => $statusUrl,
         ]));
 
         return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()]);

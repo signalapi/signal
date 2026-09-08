@@ -1,0 +1,74 @@
+{# ==========================================================================
+   templates/public/status.html.twig — the login-less suite status page behind
+   the badge token. Deliberately batch-level only: outsiders see passing /
+   failing, uptime and timing — never flow names, URLs or payloads.
+   ========================================================================== #}
+{% extends 'base.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ group.name }} · {{ 'Status'|trans }} · Signal{% endblock %}
+
+{% block stylesheets %}<meta name="robots" content="noindex, nofollow">{% endblock %}
+
+{% block body %}
+{% set tone = current == 'passed' ? 'pass' : (current in ['failed'] ? 'fail' : 'muted') %}
+{% set headline = current == 'passed' ? 'All checks passing'|trans
+    : (current == 'failed' ? 'Checks are failing'|trans : 'No finished runs yet'|trans) %}
+
+<main class="content" style="max-width:720px;margin:0 auto">
+    <div class="pagehead">
+        <div>
+            <div class="eyebrow" style="display:flex;align-items:center;gap:7px;margin-bottom:9px">
+                {{ ic.i('terminal', 12, 2.4) }}Signal · {{ 'Live API status'|trans }}</div>
+            <h1>{{ group.name }}</h1>
+            {% if lastAt %}<p class="subtitle">{{ 'Last run finished %at% (UTC)'|trans({'%at%': lastAt|date('d.m.Y H:i')}) }}</p>{% endif %}
+        </div>
+        <div class="actions" style="align-items:center">
+            <button class="icon-btn" data-theme-toggle title="{{ 'Theme'|trans }}" aria-label="{{ 'Theme'|trans }}">{{ ic.i('moon', 14) }}</button>
+        </div>
+    </div>
+
+    <div class="card" style="display:flex;align-items:center;gap:14px;padding:18px 20px;margin-bottom:14px;
+                border-left:4px solid var(--{{ tone == 'muted' ? 'line' : tone }});">
+        <span class="dot {{ current == 'passed' ? 'passed' : (current == 'failed' ? 'failed' : '') }}" style="width:12px;height:12px;"></span>
+        <span style="font-size:17px;font-weight:800;letter-spacing:-.02em;
+                     color:{{ tone == 'muted' ? 'var(--muted)' : 'var(--' ~ tone ~ ')' }};">{{ headline }}</span>
+    </div>
+
+    <div class="ru-sum" style="margin-bottom:14px;">
+        <div class="ru-stat">
+            <div class="n">{{ uptime is null ? '—' : uptime ~ '%' }}</div>
+            <div class="l">{{ 'pass rate · last %count% runs'|trans({'%count%': sample}) }}</div>
+        </div>
+        <div class="ru-stat">
+            <div class="n">{{ avgMs is null ? '—' : (avgMs >= 1000 ? (avgMs / 1000)|round(1) ~ 's' : avgMs ~ ' ms') }}</div>
+            <div class="l">{{ 'average duration'|trans }}</div>
+        </div>
+        <div class="ru-stat">
+            <div class="n">{{ sample }}</div>
+            <div class="l">{{ 'recent runs'|trans }}</div>
+        </div>
+    </div>
+
+    {% if batches is not empty %}
+    <div class="card" style="padding:16px 18px;">
+        <div class="eyebrow" style="margin-bottom:10px;">{{ 'Run history'|trans }}</div>
+        <div style="display:flex;align-items:flex-end;gap:4px;">
+            {% for b in batches %}
+                {% set c = b.status == 'passed' ? 'var(--pass)' : (b.status == 'failed' ? 'var(--fail)' : 'var(--line2)') %}
+                <span title="{{ b.createdAt|date('d.m.Y H:i') }} UTC · {{ b.status }}"
+                      style="flex:1;height:34px;border-radius:4px;background:{{ c }};opacity:{{ b.status == 'running' ? '.5' : '.9' }};"></span>
+            {% endfor %}
+        </div>
+        <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--faint);margin-top:6px;">
+            <span>{{ batches|first.createdAt|date('d.m') }}</span>
+            <span>{{ batches|last.createdAt|date('d.m') }}</span>
+        </div>
+    </div>
+    {% endif %}
+
+    <p style="text-align:center;font-size:11px;color:var(--faint);margin-top:22px;">
+        {{ 'Live results from real API test runs — powered by'|trans }} <a href="https://signalapi.dev" style="color:var(--muted);">Signal</a>
+    </p>
+</main>
+{% endblock %}

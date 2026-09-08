@@ -56,6 +56,44 @@ class BadgeController extends AbstractController
     }
 
     /**
+     * The public status PAGE behind the same token: current state, uptime over
+     * the recent batches and a history strip — batch-level only, flow names and
+     * any payload data stay private. Enabling the badge enables this too.
+     */
+    #[Route('/status/{token}', name: 'suite_status', methods: ['GET'])]
+    public function status(string $token, FlowGroupRepository $groups, FlowGroupRunRepository $groupRuns): Response
+    {
+        if (!preg_match('/^[a-f0-9]{32,64}$/', $token)) {
+            throw $this->createNotFoundException();
+        }
+        $group = $groups->findOneBy(['badgeToken' => $token]);
+        if (null === $group) {
+            throw $this->createNotFoundException();
+        }
+
+        $batches = $groupRuns->recentForGroup($group, 30);
+        $finished = array_values(array_filter($batches, static fn (FlowGroupRun $r): bool => FlowGroupRun::STATUS_RUNNING !== $r->getStatus()));
+        $passed = \count(array_filter($finished, static fn (FlowGroupRun $r): bool => FlowGroupRun::STATUS_PASSED === $r->getStatus()));
+
+        $durations = [];
+        foreach ($finished as $r) {
+            if (null !== $r->getFinishedAt()) {
+                $durations[] = (int) (($r->getFinishedAt()->format('U.u') - $r->getCreatedAt()->format('U.u')) * 1000);
+            }
+        }
+
+        return $this->render('public/status.html.twig', [
+            'group' => $group,
+            'current' => [] !== $finished ? $finished[0]->getStatus() : null,
+            'batches' => array_reverse($batches), // oldest → newest for the strip
+            'uptime' => [] !== $finished ? (int) round($passed / \count($finished) * 100) : null,
+            'sample' => \count($finished),
+            'avgMs' => [] !== $durations ? (int) round(array_sum($durations) / \count($durations)) : null,
+            'lastAt' => [] !== $finished ? $finished[0]->getFinishedAt() : null,
+        ]);
+    }
+
+    /**
      * A flat shields-style badge. Width is estimated from character count —
      * good enough for the two short texts a badge carries.
      */

@@ -170,9 +170,12 @@ jobs:
         with: { report_paths: junit.xml }
 ```
 
-**README badge:** press **Badge** on a suite to mint a public, revocable SVG —
-`![My suite](https://your-host/badge/<token>.svg)` shows passing / failing /
-running from the latest batch, and leaks nothing else.
+**README badge & status page:** press **Badge** on a suite to mint a public,
+revocable token. `![My suite](https://your-host/badge/<token>.svg)` shows
+passing / failing / running from the latest batch, and
+`https://your-host/status/<token>` is a full status page — current state,
+pass rate and a run-history strip, fed by real test runs. Both are batch-level
+only: flow names, URLs and payloads stay private.
 
 ## Stack
 
