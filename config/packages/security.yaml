@@ -74,6 +74,8 @@ security:
         # Suite status badges + status pages: token-addressed, batch-level only.
         - { path: '^/badge/', roles: PUBLIC_ACCESS }
         - { path: '^/status/', roles: PUBLIC_ACCESS }
+        # The mock server must be callable by the system under test — no login.
+        - { path: '^/mock/', roles: PUBLIC_ACCESS }
         # Merchant access is decided by membership rows, not a global role.
         - { path: ^/app, roles: ROLE_USER }
         # "Add to Signal" deep links: login first, then bounce back to the link.

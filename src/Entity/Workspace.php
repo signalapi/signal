@@ -32,6 +32,10 @@ class Workspace
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $description = null;
 
+    /** Public token addressing this workspace's mock server: /mock/{token}/… */
+    #[ORM\Column(length: 64, unique: true, nullable: true)]
+    private ?string $mockToken = null;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -89,6 +93,18 @@ class Workspace
     public function setDescription(?string $description): static
     {
         $this->description = $description;
+
+        return $this;
+    }
+
+    public function getMockToken(): ?string
+    {
+        return $this->mockToken;
+    }
+
+    public function setMockToken(?string $mockToken): static
+    {
+        $this->mockToken = $mockToken;
 
         return $this;
     }

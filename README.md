@@ -35,6 +35,9 @@ disagrees with the status code.
 - **Database assertions** — `rowCount`, row values, Redis keys, Mongo documents,
   asserted in the same run as the request that caused them. Connection
   passwords are sealed with libsodium and never returned to the browser.
+- **Mock server** — stub the APIs you depend on: method + path (wildcards
+  supported) in, your canned response out, with `{{$guid}}`-style generators
+  per hit and simulated latency. Deterministic tests, no external flakiness.
 - **Browser step** — a Playwright runner completes hosted 3-D Secure / redirect
   sessions (Checkout.com, Stripe, Adyen and a generic handler) so payment
   flows can run end to end, headless.

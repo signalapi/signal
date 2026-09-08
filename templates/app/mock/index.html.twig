@@ -1,0 +1,114 @@
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Mock server'|trans }} · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+{% set baseUrl = url('mock_serve', {token: workspace.mockToken, path: ''}) %}
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Mock server'|trans }}</h1>
+        <p class="subtitle">{{ 'Stub the APIs you depend on — deterministic answers, simulated latency, no external flakiness.'|trans }}</p>
+    </div>
+</div>
+
+<div class="card" style="display:flex;align-items:center;gap:12px;padding:13px 16px;margin-bottom:16px;flex-wrap:wrap;">
+    <span class="sq" style="width:30px;height:30px;">{{ ic.i('wrench', 15) }}</span>
+    <div style="min-width:0;">
+        <div style="font-size:11px;color:var(--muted);margin-bottom:2px;">{{ 'Base URL — point your flows (or the system under test) here'|trans }}</div>
+        <code class="mono" id="mockBase" style="font-size:12.5px;word-break:break-all;">{{ baseUrl }}</code>
+    </div>
+    <div style="flex:1;"></div>
+    <button class="gbtn" type="button" onclick="navigator.clipboard.writeText(document.getElementById('mockBase').textContent)">{{ 'Copy'|trans }}</button>
+    <form method="post" action="{{ path('app_mock_regenerate', {workspace: workspace.id}) }}"
+          onsubmit="return confirm('{{ 'Regenerate the base URL? Every existing mock URL stops working.'|trans|e('js') }}');">
+        <input type="hidden" name="_token" value="{{ csrf_token('mock-regenerate') }}">
+        <button class="gbtn danger" type="submit">{{ 'Regenerate'|trans }}</button>
+    </form>
+</div>
+
+{# ---- add route ---- #}
+<details class="fold" {{ routes is empty ? 'open' }}>
+    <summary>
+        <span class="ic-box">{{ ic.i('plus', 15, 2.4) }}</span>
+        <span>
+            <span class="t" style="display:block;">{{ 'Add a route'|trans }}</span>
+            <span class="s" style="display:block;">{{ 'Method + path in, your canned response out'|trans }}</span>
+        </span>
+        <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+    </summary>
+    <div class="fold-body">
+        <form method="post" action="{{ path('app_mock_create', {workspace: workspace.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('mock-create') }}">
+            <div class="fgrid">
+                <div class="field">
+                    <label>{{ 'Method'|trans }}</label>
+                    <select name="method">
+                        {% for m in ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] %}<option>{{ m }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="field" style="grid-column:span 2;">
+                    <label>{{ 'Path'|trans }}</label>
+                    <input type="text" name="path" required placeholder="/v1/users/42 {{ 'or'|trans }} /v1/users/*">
+                </div>
+                <div class="field">
+                    <label>{{ 'Status'|trans }}</label>
+                    <input type="number" name="status" value="200" min="100" max="599">
+                </div>
+                <div class="field">
+                    <label>{{ 'Delay (ms)'|trans }}</label>
+                    <input type="number" name="delay_ms" value="0" min="0" max="30000">
+                </div>
+                <div class="field">
+                    <label>Content-Type</label>
+                    <input type="text" name="content_type" value="application/json">
+                </div>
+                <div class="field" style="grid-column:1 / -1;">
+                    <label>{{ 'Response body'|trans }}</label>
+                    <textarea name="body" rows="5" class="mono" placeholder='{"id": "{{ '{{$guid}}' }}", "status": "active"}'></textarea>
+                    <p class="fhint" style="margin:5px 0 0;">{{ 'Generators like {{$guid}} and {{$randomEmail}} produce a fresh value on every hit. A trailing /* on the path matches anything deeper.'|trans }}</p>
+                </div>
+            </div>
+            <div class="fold-actions">
+                <button class="btn" type="submit">{{ 'Add route'|trans }}</button>
+            </div>
+        </form>
+    </div>
+</details>
+
+{# ---- route list ---- #}
+{% if routes is not empty %}
+<div class="list-card" style="margin-top:16px;">
+    <div class="lc-head">
+        <span style="flex:0 0 70px;">{{ 'Method'|trans }}</span>
+        <span style="flex:1.6;">{{ 'Path'|trans }}</span>
+        <span style="flex:0 0 60px;text-align:center;">{{ 'Status'|trans }}</span>
+        <span style="flex:0 0 90px;text-align:right;">{{ 'Hits'|trans }}</span>
+        <span style="flex:0 0 120px;">{{ 'Last hit'|trans }}</span>
+        <span style="flex:0 0 150px;"></span>
+    </div>
+    {% for r in routes %}
+        <div class="lrow" {% if not r.active %}style="opacity:.55;"{% endif %}>
+            <span style="flex:0 0 70px;"><span class="mpill {{ r.method == 'GET' ? 'teal' : 'vio' }}">{{ r.method }}</span></span>
+            <span class="mono" style="flex:1.6;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ r.path }}</span>
+            <span style="flex:0 0 60px;text-align:center;">
+                <span class="pill {{ r.responseStatus < 400 ? 'passed' : 'failed' }}">{{ r.responseStatus }}</span></span>
+            <span class="mono" style="flex:0 0 90px;text-align:right;font-size:12px;">{{ r.hits }}{% if r.delayMs %} <span title="{{ 'simulated delay'|trans }}" style="color:var(--warn);">+{{ r.delayMs }}ms</span>{% endif %}</span>
+            <span class="l-meta" style="flex:0 0 120px;">{{ r.lastHitAt ? r.lastHitAt|date('d.m H:i') : '—' }}</span>
+            <span style="flex:0 0 150px;display:flex;gap:6px;justify-content:flex-end;">
+                <form method="post" action="{{ path('app_mock_toggle', {workspace: workspace.id, route: r.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('mock-toggle' ~ r.id) }}">
+                    <button class="gbtn" type="submit">{{ r.active ? 'Pause'|trans : 'Resume'|trans }}</button>
+                </form>
+                <form method="post" action="{{ path('app_mock_delete', {workspace: workspace.id, route: r.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('mock-delete' ~ r.id) }}">
+                    <button class="gbtn danger" type="submit">{{ ic.i('trash', 12) }}</button>
+                </form>
+            </span>
+        </div>
+    {% endfor %}
+</div>
+{% else %}
+    <div class="empty" style="margin-top:16px;">{{ 'No routes yet. Add one above; unmatched calls answer 404 with what was tried.'|trans }}</div>
+{% endif %}
+{% endblock %}

@@ -58,6 +58,9 @@ class McpToolRegistry
         private readonly \App\Service\ScheduleCompiler $scheduleCompiler,
         private readonly \App\Repository\NotificationDestinationRepository $notificationDestinations,
         private readonly \App\Repository\NotificationSubscriptionRepository $notificationSubscriptions,
+        private readonly \App\Repository\MockRouteRepository $mockRoutes,
+        private readonly \Symfony\Component\Routing\Generator\UrlGeneratorInterface $urls,
+        private readonly \Doctrine\ORM\EntityManagerInterface $em,
     ) {
     }
 
@@ -96,6 +99,19 @@ class McpToolRegistry
                     'environmentName' => ['type' => 'string'],
                     'names' => $strArray,
                 ]]],
+            ['name' => 'list_mock_routes', 'description' => 'List the workspace mock server routes and the public base URL flows should call.',
+                'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'create_mock_route', 'description' => 'Add a stub endpoint to the workspace mock server. path may end with /* to match anything deeper; body may contain {{$guid}}-style generators (fresh value per hit); delayMs simulates latency (max 30000). Returns the full URL to call.',
+                'inputSchema' => ['type' => 'object', 'required' => ['method', 'path'], 'properties' => [
+                    'method' => ['type' => 'string', 'enum' => ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']],
+                    'path' => ['type' => 'string'],
+                    'status' => ['type' => 'integer', 'description' => 'Response status (default 200)'],
+                    'contentType' => ['type' => 'string', 'description' => 'Default application/json'],
+                    'body' => ['type' => 'string'],
+                    'delayMs' => ['type' => 'integer'],
+                ]]],
+            ['name' => 'delete_mock_route', 'description' => 'Delete a mock route by id (from list_mock_routes).',
+                'inputSchema' => ['type' => 'object', 'required' => ['routeId'], 'properties' => ['routeId' => ['type' => 'string']]]],
             ['name' => 'list_db_connections', 'description' => 'List the database connections (no credentials are returned).',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'list_data_factories', 'description' => 'List the workspace data factories (manageable {{$generator}} tokens) AND the built-in {{$guid}}/{{$randomEmail}}… generators, each with a sample value.',
@@ -385,6 +401,9 @@ class McpToolRegistry
             'create_environment' => $this->createEnvironment($ws, $args),
             'set_env_variables' => $this->setEnvVariables($ws, $args),
             'delete_env_variables' => $this->deleteEnvVariables($ws, $args),
+            'list_mock_routes' => $this->listMockRoutes($ws),
+            'create_mock_route' => $this->createMockRoute($ws, $args),
+            'delete_mock_route' => $this->deleteMockRoute($ws, $args),
             'list_db_connections' => $this->listDbConnections($ws),
             'list_data_factories' => $this->listDataFactories($ws),
             'create_data_factory' => $this->createDataFactory($ws, $args),
@@ -590,6 +609,69 @@ class McpToolRegistry
         }
 
         return $out;
+    }
+
+    private function mockBaseUrl(Workspace $ws): string
+    {
+        if (null === $ws->getMockToken()) {
+            $ws->setMockToken(bin2hex(random_bytes(20)));
+            $this->em->flush();
+        }
+
+        return $this->urls->generate('mock_serve', ['token' => $ws->getMockToken(), 'path' => ''], \Symfony\Component\Routing\Generator\UrlGeneratorInterface::ABSOLUTE_URL);
+    }
+
+    private function listMockRoutes(Workspace $ws): array
+    {
+        $out = [];
+        foreach ($this->mockRoutes->findByWorkspace($ws) as $r) {
+            $out[] = [
+                'id' => (string) $r->getId(),
+                'method' => $r->getMethod(),
+                'path' => $r->getPath(),
+                'status' => $r->getResponseStatus(),
+                'delayMs' => $r->getDelayMs(),
+                'active' => $r->isActive(),
+                'hits' => $r->getHits(),
+            ];
+        }
+
+        return ['baseUrl' => $this->mockBaseUrl($ws), 'routes' => $out];
+    }
+
+    private function createMockRoute(Workspace $ws, array $args): array
+    {
+        $path = trim((string) ($args['path'] ?? ''));
+        if ('' === $path) {
+            throw new \InvalidArgumentException('path is required.');
+        }
+
+        $route = new \App\Entity\MockRoute();
+        $route->setWorkspace($ws);
+        $route->setMethod((string) ($args['method'] ?? 'GET'));
+        $route->setPath($path);
+        $route->setResponseStatus((int) ($args['status'] ?? 200));
+        $route->setContentType(trim((string) ($args['contentType'] ?? '')) ?: 'application/json');
+        $route->setResponseBody(isset($args['body']) ? (string) $args['body'] : null);
+        $route->setDelayMs((int) ($args['delayMs'] ?? 0));
+        $this->mockRoutes->save($route);
+
+        return [
+            'ok' => true,
+            'routeId' => (string) $route->getId(),
+            'url' => rtrim($this->mockBaseUrl($ws), '/') . $route->getPath(),
+        ];
+    }
+
+    private function deleteMockRoute(Workspace $ws, array $args): array
+    {
+        $route = $this->mockRoutes->find((string) ($args['routeId'] ?? ''));
+        if (null === $route || $route->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
+            throw new \InvalidArgumentException('Mock route not found.');
+        }
+        $this->mockRoutes->remove($route);
+
+        return ['ok' => true];
     }
 
     private function listDbConnections(Workspace $ws): array

@@ -83,6 +83,8 @@
                     {{ ic.i('factory') }}<span class="label">{{ 'Data factories'|trans }}</span></a>
                 <a href="{{ path('app_cookie_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_cookie' ? 'active' }}">
                     {{ ic.i('cookie') }}<span class="label">{{ 'Cookies'|trans }}</span></a>
+                <a href="{{ path('app_mock_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_mock' ? 'active' }}">
+                    {{ ic.i('wrench') }}<span class="label">{{ 'Mock server'|trans }}</span></a>
 
                 <div class="nav-group">{{ 'Management'|trans }}</div>
                 <a href="{{ path('app_apitoken_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_apitoken' ? 'active' }}">
