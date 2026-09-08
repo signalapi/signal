@@ -32,6 +32,7 @@ class FlowRunner
         private readonly DynamicVariableGenerator $dynamic,
         private readonly \App\Repository\DataFactoryRepository $factories,
         private readonly ResponseShape $shape,
+        private readonly ResponseSnapshot $snapshot,
         private readonly JsonSchema $jsonSchema,
         private readonly \App\Repository\DbConnectionRepository $dbConnections,
         private readonly \Symfony\Contracts\EventDispatcher\EventDispatcherInterface $events,
@@ -466,6 +467,7 @@ class FlowRunner
                 $this->checkContract($step, $result, $decoded);
                 $status = $this->applyExtractionsAndAssertions($step, $result, $context, $decoded, (string) $response->body, $response->statusCode, $response->durationMs, $response->headers);
                 $status = $this->enforceContract($step, $result, $status);
+                $status = $this->checkSnapshot($step, $result, $decoded, $status);
             }
 
             if (StepResult::STATUS_PASSED === $status) {
@@ -542,6 +544,53 @@ class FlowRunner
         $result->setAttempts($attempt);
 
         return $status;
+    }
+
+    /**
+     * Value snapshot: the first successful JSON response is captured (volatile
+     * paths masked); every later run must match it VALUE by VALUE or the step
+     * fails with a synthetic assertion listing what changed. Reset on the step
+     * to approve an intended change.
+     */
+    private function checkSnapshot(FlowStep $step, StepResult $result, mixed $decoded, string $status): string
+    {
+        if (!$step->isSnapshotEnabled() || !\is_array($decoded)) {
+            return $status;
+        }
+
+        $normalized = $this->snapshot->normalize($decoded, ResponseSnapshot::parseIgnore($step->getSnapshotIgnore()));
+        $assertions = $result->getAssertionResults();
+
+        if (null === $step->getSnapshotValue()) {
+            // Only a run that is otherwise green may set the approved snapshot —
+            // capturing a broken response as "the truth" would lock the bug in.
+            if (StepResult::STATUS_PASSED === $status) {
+                $step->setSnapshotValue($normalized);
+                $step->setSnapshotAt(new \DateTimeImmutable());
+                $assertions[] = ['label' => 'snapshot: captured as the approved response', 'ok' => true, 'actual' => 'baseline set'];
+                $result->setAssertionResults($assertions);
+            }
+
+            return $status;
+        }
+
+        $diff = $this->snapshot->diff($step->getSnapshotValue(), $normalized);
+        if ([] === $diff) {
+            $assertions[] = ['label' => 'snapshot: matches the approved response', 'ok' => true, 'actual' => 'no value changes'];
+            $result->setAssertionResults($assertions);
+
+            return $status;
+        }
+
+        $assertions[] = [
+            'label' => 'snapshot: response matches the approved snapshot',
+            'ok' => false,
+            'actual' => implode(' · ', \array_slice($diff, 0, 3)) . (\count($diff) > 3 ? sprintf(' · +%d more', \count($diff) - 3) : ''),
+        ];
+        $result->setAssertionResults($assertions);
+        $result->setStatus(StepResult::STATUS_FAILED);
+
+        return StepResult::STATUS_FAILED;
     }
 
     /**

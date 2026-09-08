@@ -341,9 +341,44 @@
                     <div class="fold-body">
                         <div class="code" id="baselineBox">{{ 'No baseline captured yet.'|trans }}</div>
                         <div class="fold-actions">
-                            <button type="button" class="btn ghost small"
+                            <button type="submit" class="btn ghost small"
                                     formaction="{{ path('app_flow_step_reset_baseline', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"
                                     formmethod="post">{{ 'Reset baseline'|trans }}</button>
+                        </div>
+                    </div>
+                </details>
+
+                <details class="fold" {{ step.snapshotEnabled ? 'open' }}>
+                    <summary>
+                        <span class="ic-box vio">{{ ic.i('history', 15) }}</span>
+                        <span><span class="t">{{ 'Value snapshot'|trans }}</span>
+                            <span class="s">{{ 'the response VALUES must match the approved snapshot — Jest snapshots, for APIs'|trans }}</span></span>
+                        <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+                    </summary>
+                    <div class="fold-body">
+                        <label style="display:flex;align-items:center;gap:8px;font-size:12.5px;cursor:pointer;margin-bottom:10px;">
+                            <input type="checkbox" name="snapshot_enabled" value="1" {{ step.snapshotEnabled ? 'checked' }} style="width:auto;">
+                            {{ 'Fail this step when any response value changes'|trans }}
+                        </label>
+                        <label style="display:block;font-size:11.5px;color:var(--muted);margin-bottom:4px;">{{ 'Ignore volatile paths (one per line, * matches a segment)'|trans }}</label>
+                        <textarea name="snapshot_ignore" rows="3" class="input-mono"
+                                  placeholder="meta.requestId&#10;result.createdAt&#10;items.*.id">{{ step.snapshotIgnore }}</textarea>
+                        <p class="fhint" style="margin:6px 0 0;">
+                            {% if step.snapshotValue is not null %}
+                                {{ 'Approved snapshot captured %at%. Reset it after an intended API change.'|trans({'%at%': step.snapshotAt|date('d.m.Y H:i')}) }}
+                            {% else %}
+                                {{ 'No snapshot yet — the next fully green run captures it.'|trans }}
+                            {% endif %}
+                        </p>
+                        <div class="fold-actions">
+                            <button type="submit" class="btn small"
+                                    formaction="{{ path('app_flow_step_snapshot', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"
+                                    formmethod="post">{{ 'Save snapshot settings'|trans }}</button>
+                            {% if step.snapshotValue is not null %}
+                                <button type="submit" class="btn ghost small" name="do" value="reset"
+                                        formaction="{{ path('app_flow_step_snapshot', {workspace: workspace.id, flow: flow.id, step: step.id}) }}"
+                                        formmethod="post">{{ 'Reset snapshot'|trans }}</button>
+                            {% endif %}
                         </div>
                     </div>
                 </details>

@@ -126,6 +126,74 @@ class FlowStep
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $contractBaselineAt = null;
 
+    /**
+     * Value snapshot (one level above the shape baseline): when enabled, the
+     * response VALUES must match the approved snapshot or the step fails.
+     * The first successful run captures it; reset to re-approve after an
+     * intended change.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $snapshotEnabled = false;
+
+    /** Volatile paths (one per line, `items.*.id` wildcards ok) masked before compare. */
+    #[ORM\Column(type: Types::TEXT, nullable: true)]
+    private ?string $snapshotIgnore = null;
+
+    /** @var array<string, mixed>|string|null the approved, normalised response */
+    #[ORM\Column(type: Types::JSON, nullable: true)]
+    private array|string|null $snapshotValue = null;
+
+    #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
+    private ?\DateTimeImmutable $snapshotAt = null;
+
+    public function isSnapshotEnabled(): bool
+    {
+        return $this->snapshotEnabled;
+    }
+
+    public function setSnapshotEnabled(bool $snapshotEnabled): static
+    {
+        $this->snapshotEnabled = $snapshotEnabled;
+
+        return $this;
+    }
+
+    public function getSnapshotIgnore(): ?string
+    {
+        return $this->snapshotIgnore;
+    }
+
+    public function setSnapshotIgnore(?string $snapshotIgnore): static
+    {
+        $this->snapshotIgnore = $snapshotIgnore;
+
+        return $this;
+    }
+
+    public function getSnapshotValue(): array|string|null
+    {
+        return $this->snapshotValue;
+    }
+
+    public function setSnapshotValue(array|string|null $snapshotValue): static
+    {
+        $this->snapshotValue = $snapshotValue;
+
+        return $this;
+    }
+
+    public function getSnapshotAt(): ?\DateTimeImmutable
+    {
+        return $this->snapshotAt;
+    }
+
+    public function setSnapshotAt(?\DateTimeImmutable $snapshotAt): static
+    {
+        $this->snapshotAt = $snapshotAt;
+
+        return $this;
+    }
+
     /** Node position on the visual flow canvas. */
     #[ORM\Column(options: ['default' => 0])]
     private int $canvasX = 0;

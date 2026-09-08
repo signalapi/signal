@@ -99,6 +99,13 @@ class McpToolRegistry
                     'environmentName' => ['type' => 'string'],
                     'names' => $strArray,
                 ]]],
+            ['name' => 'set_step_snapshot', 'description' => 'Configure value-snapshot testing on an HTTP step: enabled=true makes the step fail when any response VALUE differs from the approved snapshot (captured on the next fully green run). ignorePaths mask volatile fields (dot paths, * matches one segment, e.g. items.*.id). reset=true discards the approved snapshot so a new one is captured.',
+                'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
+                    'stepId' => ['type' => 'string'],
+                    'enabled' => ['type' => 'boolean'],
+                    'ignorePaths' => $strArray,
+                    'reset' => ['type' => 'boolean'],
+                ]]],
             ['name' => 'list_mock_routes', 'description' => 'List the workspace mock server routes and the public base URL flows should call.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'create_mock_route', 'description' => 'Add a stub endpoint to the workspace mock server. path may end with /* to match anything deeper; body may contain {{$guid}}-style generators (fresh value per hit); delayMs simulates latency (max 30000). Returns the full URL to call.',
@@ -401,6 +408,7 @@ class McpToolRegistry
             'create_environment' => $this->createEnvironment($ws, $args),
             'set_env_variables' => $this->setEnvVariables($ws, $args),
             'delete_env_variables' => $this->deleteEnvVariables($ws, $args),
+            'set_step_snapshot' => $this->setStepSnapshot($ws, $args),
             'list_mock_routes' => $this->listMockRoutes($ws),
             'create_mock_route' => $this->createMockRoute($ws, $args),
             'delete_mock_route' => $this->deleteMockRoute($ws, $args),
@@ -609,6 +617,34 @@ class McpToolRegistry
         }
 
         return $out;
+    }
+
+    private function setStepSnapshot(Workspace $ws, array $args): array
+    {
+        $step = $this->requireStep($ws, (string) ($args['stepId'] ?? ''));
+        if (FlowStep::TYPE_HTTP !== $step->getType()) {
+            throw new \InvalidArgumentException('Snapshots only apply to HTTP steps.');
+        }
+
+        if (true === ($args['reset'] ?? false)) {
+            $step->setSnapshotValue(null);
+            $step->setSnapshotAt(null);
+        }
+        if (\array_key_exists('enabled', $args)) {
+            $step->setSnapshotEnabled((bool) $args['enabled']);
+        }
+        if (\array_key_exists('ignorePaths', $args)) {
+            $paths = implode("\n", array_map(strval(...), (array) $args['ignorePaths']));
+            $step->setSnapshotIgnore('' !== trim($paths) ? $paths : null);
+        }
+        $this->steps->save($step);
+
+        return [
+            'ok' => true,
+            'enabled' => $step->isSnapshotEnabled(),
+            'hasSnapshot' => null !== $step->getSnapshotValue(),
+            'note' => null === $step->getSnapshotValue() ? 'The next fully green run captures the approved snapshot.' : 'Comparing against the approved snapshot.',
+        ];
     }
 
     private function mockBaseUrl(Workspace $ws): string

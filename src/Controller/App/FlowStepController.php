@@ -510,13 +510,56 @@ class FlowStepController extends AbstractAppController
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
         $this->assertStep($flow, $step);
-        if (!$this->isCsrfTokenValid('reset-baseline' . $step->getId(), (string) $httpRequest->request->get('_token'))) {
+        // The reset button lives inside the step-edit form, so the token that
+        // arrives is the form's own edit-step token.
+        if (!$this->isCsrfTokenValid('edit-step' . $step->getId(), (string) $httpRequest->request->get('_token'))
+            && !$this->isCsrfTokenValid('reset-baseline' . $step->getId(), (string) $httpRequest->request->get('_token'))) {
             throw $this->createAccessDeniedException();
         }
         $step->setResponseShape(null);
         $step->setContractBaselineAt(null);
         $steps->save($step);
         $this->addFlash('success', $this->translator->trans('Contract baseline reset; it will be captured again on the next successful run.'));
+
+        return $this->redirectToRoute('app_flow_step_edit', ['workspace' => $workspace->getId(), 'flow' => $flow->getId(), 'step' => $step->getId()]);
+    }
+
+    /**
+     * Snapshot settings: save (enable/disable + volatile paths) or reset the
+     * approved snapshot so the next green run captures a new one. Submitted
+     * from inside the step-edit form via formaction, hence the edit-step token.
+     */
+    #[Route('/{step}/snapshot', name: 'app_flow_step_snapshot', methods: ['POST'])]
+    public function snapshot(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        #[MapEntity(mapping: ['step' => 'id'])] FlowStep $step,
+        Request $httpRequest,
+        FlowStepRepository $steps,
+    ): Response {
+        $this->assertWorkspace($workspace, 'edit');
+        $this->assertFlow($workspace, $flow);
+        $this->assertStep($flow, $step);
+        if (!$this->isCsrfTokenValid('edit-step' . $step->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if ('reset' === $httpRequest->request->get('do')) {
+            $step->setSnapshotValue(null);
+            $step->setSnapshotAt(null);
+            $steps->save($step);
+            $this->addFlash('success', $this->translator->trans('Snapshot reset — the next green run captures the new approved response.'));
+        } else {
+            $wasEnabled = $step->isSnapshotEnabled();
+            $step->setSnapshotEnabled($httpRequest->request->getBoolean('snapshot_enabled'));
+            $step->setSnapshotIgnore(trim((string) $httpRequest->request->get('snapshot_ignore')) ?: null);
+            if (!$wasEnabled && $step->isSnapshotEnabled() && null === $step->getSnapshotValue()) {
+                $this->addFlash('success', $this->translator->trans('Snapshot testing is on — the next green run captures the approved response.'));
+            } else {
+                $this->addFlash('success', $this->translator->trans('Snapshot settings saved.'));
+            }
+            $steps->save($step);
+        }
 
         return $this->redirectToRoute('app_flow_step_edit', ['workspace' => $workspace->getId(), 'flow' => $flow->getId(), 'step' => $step->getId()]);
     }
