@@ -1,0 +1,76 @@
+{% extends 'admin/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Settings'|trans }} · Signal Admin{% endblock %}
+
+{% block panel %}
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Settings'|trans }}</h1>
+        <p class="subtitle">{{ 'Platform-wide configuration — applies to every merchant and workspace'|trans }}</p>
+    </div>
+</div>
+
+{# ---- AI analysis (Claude) ---- #}
+<div class="card" style="max-width:720px;padding:0;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--line);">
+        <span class="sq" style="width:30px;height:30px;">{{ ic.i('bot', 15) }}</span>
+        <div style="min-width:0;">
+            <div style="font-weight:700;">{{ 'AI analysis (Claude)'|trans }}</div>
+            <div style="font-size:11.5px;color:var(--muted);">{{ 'Powers "Diagnose with AI" on run, suite and trend pages.'|trans }}</div>
+        </div>
+        <div class="grow" style="flex:1;"></div>
+        {% if keySource == 'panel' %}
+            <span class="pill passed">{{ 'connected'|trans }}</span>
+        {% elseif keySource == 'env' %}
+            <span class="pill passed">{{ 'connected via env'|trans }}</span>
+        {% else %}
+            <span class="pill failed">{{ 'not connected'|trans }}</span>
+        {% endif %}
+    </div>
+
+    <form method="post" action="{{ path('admin_settings_ai') }}" style="padding:16px 18px;">
+        <input type="hidden" name="_token" value="{{ csrf_token('settings-ai') }}">
+
+        <div class="field" style="margin-bottom:12px;">
+            <label>{{ 'Anthropic API key'|trans }}</label>
+            <input type="password" name="api_key" autocomplete="off"
+                   placeholder="{{ keySource == 'panel' and keyHint ? keyHint ~ ' — ' ~ 'leave empty to keep'|trans : 'sk-ant-…' }}">
+            <p class="fhint" style="margin:5px 0 0;">
+                {{ 'Sealed with libsodium before it is stored; only the hint above is ever shown again.'|trans }}
+                {% if envKeySet %}{{ 'An ANTHROPIC_API_KEY environment variable is also set — the panel key takes precedence.'|trans }}{% endif %}
+            </p>
+        </div>
+
+        <div class="field" style="margin-bottom:14px;">
+            <label>{{ 'Model'|trans }}</label>
+            <input type="text" name="model" list="modelOptions" value="{{ model }}"
+                   placeholder="{{ activeModel }}">
+            <datalist id="modelOptions">
+                <option value="claude-sonnet-4-6">
+                <option value="claude-opus-5">
+                <option value="claude-haiku-4-5">
+            </datalist>
+            <p class="fhint" style="margin:5px 0 0;">{{ 'Leave empty to use the default. Currently active: %model%'|trans({'%model%': activeModel}) }}</p>
+        </div>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button class="btn" type="submit">{{ 'Save'|trans }}</button>
+        </div>
+    </form>
+
+    <div style="display:flex;gap:8px;flex-wrap:wrap;padding:0 18px 16px;">
+        <form method="post" action="{{ path('admin_settings_ai_test') }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('settings-ai-test') }}">
+            <button class="gbtn" type="submit">{{ 'Test connection'|trans }}</button>
+        </form>
+        {% if keySource == 'panel' %}
+            <form method="post" action="{{ path('admin_settings_ai_remove') }}"
+                  onsubmit="return confirm('{{ 'Remove the panel API key? The environment variable, if set, takes over.'|trans|e('js') }}');">
+                <input type="hidden" name="_token" value="{{ csrf_token('settings-ai-remove') }}">
+                <button class="gbtn danger" type="submit">{{ 'Remove key'|trans }}</button>
+            </form>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

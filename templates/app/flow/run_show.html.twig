@@ -117,42 +117,13 @@
             {% endif %}
         </div>
     {% endfor %}
-    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-        <button type="button" class="btn small" id="aiDiagBtn"
-                data-url="{{ path('app_flow_run_diagnose', {workspace: workspace.id, flow: flow.id, run: run.id}) }}"
-                data-token="{{ csrf_token('diagnose-run' ~ run.id) }}">{{ ic.i('bot', 13) }}{{ 'Diagnose with AI'|trans }}</button>
-        <span style="font-size:11.5px;color:var(--muted);">{{ 'Claude interprets this evidence and suggests a root cause + fix.'|trans }}</span>
-    </div>
-    <div id="aiDiagOut" class="codebox" style="margin-top:12px;" hidden></div>
+    {% include 'app/_ai_diagnose.html.twig' with {
+        url: path('app_flow_run_diagnose', {workspace: workspace.id, flow: flow.id, run: run.id}),
+        token: csrf_token('diagnose-run' ~ run.id),
+        label: 'Diagnose with AI'|trans,
+        hint: 'Claude interprets this evidence and suggests a root cause + fix.'|trans,
+    } only %}
 </div>
-
-<script>
-(function () {
-    var btn = document.getElementById('aiDiagBtn'); if (!btn) return;
-    var out = document.getElementById('aiDiagOut');
-    btn.addEventListener('click', function () {
-        btn.disabled = true; var label = btn.textContent; btn.textContent = '{{ 'Diagnosing…'|trans|e('js') }}';
-        out.hidden = false; out.className = 'codebox'; out.style.color = ''; out.textContent = '{{ 'Claude is analyzing…'|trans|e('js') }}';
-        var body = new URLSearchParams(); body.set('_token', btn.dataset.token);
-        fetch(btn.dataset.url, { method: 'POST', headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
-            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
-            .then(function (res) {
-                btn.disabled = false; btn.textContent = label;
-                var d = res.d;
-                if (d.configured === false) {
-                    out.className = 'codebox'; out.style.color = ''; out.textContent = '{{ 'AI diagnosis is not connected yet. Set the ANTHROPIC_API_KEY environment variable to enable it (the code is ready).'|trans|e('js') }}';
-                } else if (d.error) {
-                    out.className = 'codebox'; out.style.color = 'var(--fail)'; out.textContent = '{{ 'Error'|trans|e('js') }}: ' + d.error;
-                } else {
-                    out.className = 'codebox'; out.style.color = '';
-                    out.innerHTML = '<span class="eyebrow" style="display:block;margin-bottom:7px;">{{ 'CLAUDE DIAGNOSIS'|trans|e('js') }}</span>';
-                    var p = document.createElement('div'); p.textContent = d.analysis || '{{ '(empty response)'|trans|e('js') }}'; out.appendChild(p);
-                }
-            })
-            .catch(function () { btn.disabled = false; btn.textContent = label; out.className = 'codebox'; out.style.color = 'var(--fail)'; out.textContent = '{{ 'Request failed.'|trans|e('js') }}'; });
-    });
-})();
-</script>
 {% endif %}
 
 {% if sc == 'running' %}

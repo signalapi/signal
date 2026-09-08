@@ -257,6 +257,43 @@ class FlowGroupController extends AbstractAppController
         ]);
     }
 
+    /**
+     * Asks Claude to analyse a finished suite batch: failures grouped by shared
+     * cause, compared against recent batches. Dormant until an API key is set —
+     * returns {configured:false} otherwise, exactly like the run-level action.
+     */
+    #[Route('/{group}/runs/{batchId}/diagnose', name: 'app_flow_group_run_diagnose', methods: ['POST'])]
+    public function runDiagnose(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['group' => 'id'])] FlowGroup $group,
+        string $batchId,
+        Request $httpRequest,
+        \App\Repository\FlowGroupRunRepository $groupRuns,
+        \App\Service\AiDiagnoser $ai,
+    ): JsonResponse {
+        $this->assertWorkspace($workspace, 'edit');
+        $this->assertGroup($workspace, $group);
+        if (!$this->isCsrfTokenValid('diagnose-suite' . $batchId, (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $groupRun = $groupRuns->findOneByBatch($batchId);
+        if (null === $groupRun
+            || $groupRun->getFlowGroup()->getId()?->toRfc4122() !== $group->getId()?->toRfc4122()) {
+            throw $this->createNotFoundException();
+        }
+
+        if (!$ai->isConfigured()) {
+            return new JsonResponse(['configured' => false]);
+        }
+
+        try {
+            return new JsonResponse(['configured' => true, 'analysis' => $ai->diagnoseSuite($groupRun, $httpRequest->getLocale())]);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['configured' => true, 'error' => $e->getMessage()], 502);
+        }
+    }
+
     #[Route('/{group}/runs/{batchId}/status', name: 'app_flow_group_run_status', methods: ['GET'])]
     public function runStatus(
         Workspace $workspace,

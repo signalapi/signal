@@ -2,10 +2,12 @@
 
 namespace App\Controller\App;
 
-use App\Entity\FlowRun;
 use App\Entity\Workspace;
 use App\Repository\FlowRunRepository;
 use App\Repository\TestFlowRepository;
+use App\Service\AiDiagnoser;
+use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
@@ -21,6 +23,83 @@ class TrendController extends AbstractAppController
     {
         $this->assertWorkspace($workspace);
 
+        [$rows, $wsPassed, $wsFinished] = $this->buildRows($workspace, $flows, $runs);
+
+        return $this->render('app/trend/index.html.twig', [
+            'workspace' => $workspace,
+            'rows' => $rows,
+            'ws_pass_rate' => $wsFinished > 0 ? (int) round($wsPassed / $wsFinished * 100) : null,
+            'ws_finished' => $wsFinished,
+        ]);
+    }
+
+    /**
+     * Asks Claude for a health summary of the recent window: what is broken,
+     * what is flaky, what to do first. Same JSON contract as the run/suite
+     * diagnose actions: {configured:false} | {analysis} | {error}.
+     */
+    #[Route('/diagnose', name: 'app_trends_diagnose', methods: ['POST'])]
+    public function diagnose(
+        Workspace $workspace,
+        Request $httpRequest,
+        TestFlowRepository $flows,
+        FlowRunRepository $runs,
+        AiDiagnoser $ai,
+    ): JsonResponse {
+        $this->assertWorkspace($workspace, 'edit');
+        if (!$this->isCsrfTokenValid('diagnose-trends' . $workspace->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        if (!$ai->isConfigured()) {
+            return new JsonResponse(['configured' => false]);
+        }
+
+        [$rows, $wsPassed, $wsFinished] = $this->buildRows($workspace, $flows, $runs);
+
+        $evidence = [
+            'window' => sprintf('last %d runs per test', self::WINDOW),
+            'workspace' => [
+                'passRate' => $wsFinished > 0 ? (int) round($wsPassed / $wsFinished * 100) : null,
+                'finishedRuns' => $wsFinished,
+            ],
+            'tests' => [],
+        ];
+        foreach ($rows as $row) {
+            $statuses = [];
+            foreach ($row['timeline'] as $r) {
+                if ('running' !== $r->getStatus()) {
+                    $statuses[] = $r->getStatus();
+                }
+            }
+            $flips = 0;
+            for ($i = 1; $i < \count($statuses); ++$i) {
+                if ($statuses[$i] !== $statuses[$i - 1]) {
+                    ++$flips;
+                }
+            }
+            $evidence['tests'][] = [
+                'name' => $row['flow']->getName(),
+                'finishedRuns' => \count($statuses),
+                'passRate' => $row['passRate'],
+                'statusFlips' => $flips,
+                'avgMs' => $row['avgMs'],
+                'lastStatus' => null !== $row['last'] ? $row['last']->getStatus() : null,
+            ];
+        }
+
+        try {
+            return new JsonResponse(['configured' => true, 'analysis' => $ai->summarizeTrends($evidence, $httpRequest->getLocale())]);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['configured' => true, 'error' => $e->getMessage()], 502);
+        }
+    }
+
+    /**
+     * @return array{0: list<array<string, mixed>>, 1: int, 2: int}
+     */
+    private function buildRows(Workspace $workspace, TestFlowRepository $flows, FlowRunRepository $runs): array
+    {
         $rows = [];
         $wsPassed = 0;
         $wsFinished = 0;
@@ -52,11 +131,6 @@ class TrendController extends AbstractAppController
             ];
         }
 
-        return $this->render('app/trend/index.html.twig', [
-            'workspace' => $workspace,
-            'rows' => $rows,
-            'ws_pass_rate' => $wsFinished > 0 ? (int) round($wsPassed / $wsFinished * 100) : null,
-            'ws_finished' => $wsFinished,
-        ]);
+        return [$rows, $wsPassed, $wsFinished];
     }
 }

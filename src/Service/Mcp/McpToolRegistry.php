@@ -79,6 +79,23 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'properties' => ['query' => ['type' => 'string', 'description' => 'Text to search for (empty = all)']]]],
             ['name' => 'list_environments', 'description' => 'List environments and their variable names (secret values are masked).',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'create_environment', 'description' => 'Create a new environment. Optionally seed it with variables ({name: value}); names listed in secretNames are stored as secret and masked in every read (including this tool\'s result).',
+                'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => [
+                    'name' => ['type' => 'string'],
+                    'variables' => ['type' => 'object', 'additionalProperties' => ['type' => 'string'], 'description' => 'Initial variables as {name: value}'],
+                    'secretNames' => $strArray,
+                ]]],
+            ['name' => 'set_env_variables', 'description' => 'Add or update variables on an existing environment ({name: value}). Variables not mentioned are kept as they are; a variable that is already secret stays secret. Names listed in secretNames are marked secret. Returns the full variable list with secret values masked.',
+                'inputSchema' => ['type' => 'object', 'required' => ['environmentName', 'variables'], 'properties' => [
+                    'environmentName' => ['type' => 'string'],
+                    'variables' => ['type' => 'object', 'additionalProperties' => ['type' => 'string']],
+                    'secretNames' => $strArray,
+                ]]],
+            ['name' => 'delete_env_variables', 'description' => 'Remove variables by name from an environment. Unknown names are reported back, not treated as an error.',
+                'inputSchema' => ['type' => 'object', 'required' => ['environmentName', 'names'], 'properties' => [
+                    'environmentName' => ['type' => 'string'],
+                    'names' => $strArray,
+                ]]],
             ['name' => 'list_db_connections', 'description' => 'List the database connections (no credentials are returned).',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'list_data_factories', 'description' => 'List the workspace data factories (manageable {{$generator}} tokens) AND the built-in {{$guid}}/{{$randomEmail}}… generators, each with a sample value.',
@@ -363,6 +380,9 @@ class McpToolRegistry
             'list_collections' => $this->listCollections($ws),
             'search_requests' => $this->searchRequests($ws, (string) ($args['query'] ?? '')),
             'list_environments' => $this->listEnvironments($ws),
+            'create_environment' => $this->createEnvironment($ws, $args),
+            'set_env_variables' => $this->setEnvVariables($ws, $args),
+            'delete_env_variables' => $this->deleteEnvVariables($ws, $args),
             'list_db_connections' => $this->listDbConnections($ws),
             'list_data_factories' => $this->listDataFactories($ws),
             'create_data_factory' => $this->createDataFactory($ws, $args),
@@ -454,6 +474,120 @@ class McpToolRegistry
         }
 
         return ['environments' => $out];
+    }
+
+    private function createEnvironment(Workspace $ws, array $args): array
+    {
+        $name = trim((string) ($args['name'] ?? ''));
+        if ('' === $name) {
+            throw new \InvalidArgumentException('name is required.');
+        }
+        if (null !== $this->findEnvironmentByName($ws, $name)) {
+            throw new \InvalidArgumentException('An environment named "' . $name . '" already exists — use set_env_variables to change it.');
+        }
+
+        $environment = new Environment();
+        $environment->setWorkspace($ws);
+        $environment->setName($name);
+        $this->applyEnvVariables($environment, (array) ($args['variables'] ?? []), (array) ($args['secretNames'] ?? []));
+        $this->environments->save($environment);
+
+        return ['ok' => true, 'environment' => $name, 'variables' => $this->maskedVariables($environment)];
+    }
+
+    private function setEnvVariables(Workspace $ws, array $args): array
+    {
+        $environment = $this->findEnvironmentByName($ws, (string) ($args['environmentName'] ?? ''));
+        if (null === $environment) {
+            throw new \InvalidArgumentException('Environment not found: ' . (string) ($args['environmentName'] ?? ''));
+        }
+        $vars = (array) ($args['variables'] ?? []);
+        if ([] === $vars) {
+            throw new \InvalidArgumentException('variables must be a non-empty object of {name: value}.');
+        }
+
+        $this->applyEnvVariables($environment, $vars, (array) ($args['secretNames'] ?? []));
+        $this->environments->save($environment);
+
+        return ['ok' => true, 'environment' => $environment->getName(), 'variables' => $this->maskedVariables($environment)];
+    }
+
+    private function deleteEnvVariables(Workspace $ws, array $args): array
+    {
+        $environment = $this->findEnvironmentByName($ws, (string) ($args['environmentName'] ?? ''));
+        if (null === $environment) {
+            throw new \InvalidArgumentException('Environment not found: ' . (string) ($args['environmentName'] ?? ''));
+        }
+        $names = array_map(strval(...), (array) ($args['names'] ?? []));
+        if ([] === $names) {
+            throw new \InvalidArgumentException('names must be a non-empty list of variable names.');
+        }
+
+        $removed = [];
+        foreach ($environment->getVariables()->toArray() as $v) {
+            if (\in_array($v->getName(), $names, true)) {
+                $environment->getVariables()->removeElement($v);
+                $removed[] = $v->getName();
+            }
+        }
+        $this->environments->save($environment);
+
+        return [
+            'ok' => true,
+            'environment' => $environment->getName(),
+            'removed' => $removed,
+            'notFound' => array_values(array_diff($names, $removed)),
+            'variables' => $this->maskedVariables($environment),
+        ];
+    }
+
+    /**
+     * Upserts variables by name; existing rows keep their identity so per-user
+     * overrides (also keyed by name) stay attached. A variable that is already
+     * secret never falls back to plain just because secretNames omits it.
+     *
+     * @param array<mixed, mixed>  $vars
+     * @param array<mixed, mixed>  $secretNames
+     */
+    private function applyEnvVariables(Environment $environment, array $vars, array $secretNames): void
+    {
+        $secretSet = array_flip(array_map(strval(...), $secretNames));
+
+        $existing = [];
+        foreach ($environment->getVariables() as $v) {
+            $existing[$v->getName()] = $v;
+        }
+
+        foreach ($vars as $name => $value) {
+            $name = trim((string) $name);
+            if ('' === $name) {
+                continue;
+            }
+            $variable = $existing[$name] ?? null;
+            if (null === $variable) {
+                $variable = new \App\Entity\EnvVariable();
+                $variable->setName($name);
+                $environment->addVariable($variable);
+                $existing[$name] = $variable;
+            }
+            $variable->setValue((string) $value);
+            if (isset($secretSet[$name])) {
+                $variable->setSecret(true);
+            }
+        }
+    }
+
+    /**
+     * @return list<array{name: string, value: string|null, secret: bool}>
+     */
+    private function maskedVariables(Environment $environment): array
+    {
+        $out = [];
+        foreach ($environment->getVariables() as $v) {
+            $out[] = ['name' => $v->getName(), 'value' => $v->isSecret() ? '••• (secret)' : $v->getValue(), 'secret' => $v->isSecret()];
+        }
+
+        return $out;
     }
 
     private function listDbConnections(Workspace $ws): array

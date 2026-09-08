@@ -14,6 +14,16 @@
     <div class="empty">{{ 'No flows yet. Create and run a test flow; results will accumulate here.'|trans }}</div>
 {% else %}
 
+<div class="card" style="margin-bottom:14px;">
+    {% include 'app/_ai_diagnose.html.twig' with {
+        url: path('app_trends_diagnose', {workspace: workspace.id}),
+        token: csrf_token('diagnose-trends' ~ workspace.id),
+        label: 'Weekly AI summary'|trans,
+        hint: 'Claude reads the recent window and says what broke, what is flaky and what to fix first.'|trans,
+        eyebrow: 'CLAUDE TREND SUMMARY'|trans,
+    } only %}
+</div>
+
 {% set rateColor = ws_pass_rate is null ? 'var(--muted)' : (ws_pass_rate >= 80 ? 'var(--pass)' : (ws_pass_rate >= 50 ? 'var(--warn)' : 'var(--fail)')) %}
 <div style="display:grid;grid-template-columns:minmax(0,1.45fr) minmax(0,1fr);gap:14px;margin-bottom:14px;align-items:start;">
 

@@ -40,6 +40,10 @@ disagrees with the status code.
   flows can run end to end, headless.
 - **Suites and schedules** — group flows into suites, run them end to end, or
   let cron do it. History, trends, flakiness and p95 out of the box.
+- **AI analysis** — Claude explains a failed run (root cause + suggested fix),
+  analyses a whole suite batch by shared cause, and summarises trends: what
+  broke, what is flaky, what to fix first. Switch it on by adding an Anthropic
+  API key under **Admin → Settings** (sealed at rest) or via `ANTHROPIC_API_KEY`.
 - **Notifications** — run results delivered to a Slack channel (incoming
   webhook) or any HTTP endpoint (n8n, Zapier, your own service), by standing
   rule per workspace/test/suite, per schedule, or ticked for a single run.
@@ -84,8 +88,8 @@ claude mcp add --transport http signal https://your-host/mcp \
 
 The session is scoped to the token's workspace. Tools cover reading
 (`list_flows`, `get_run`, `search_requests`), building (`create_flow`,
-`add_http_step`, `add_db_step`, `add_browser_step`, …) and running
-(`run_flow`, `run_flow_async`, `run_suite`).
+`add_http_step`, `add_db_step`, `add_browser_step`, `create_environment`,
+`set_env_variables`, …) and running (`run_flow`, `run_flow_async`, `run_suite`).
 
 ## Notifications
 

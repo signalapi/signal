@@ -1,0 +1,42 @@
+{# ==========================================================================
+   Shared "analyse with AI" button + output box + fetch script.
+   Used on the run page, the suite-batch page and the trends page — one
+   contract: POST {_token} → {configured:false} | {analysis} | {error}.
+   Params: url, token, label, hint, eyebrow (optional, defaults to diagnosis).
+   Include at most once per page (element ids are fixed).
+   ========================================================================== #}
+{% import '_icons.html.twig' as ic %}
+<div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+    <button type="button" class="btn small" id="aiDiagBtn"
+            data-url="{{ url }}" data-token="{{ token }}">{{ ic.i('bot', 13) }}{{ label }}</button>
+    <span style="font-size:11.5px;color:var(--muted);">{{ hint }}</span>
+</div>
+<div id="aiDiagOut" class="codebox" style="margin-top:12px;white-space:pre-wrap;" hidden></div>
+
+<script>
+(function () {
+    var btn = document.getElementById('aiDiagBtn'); if (!btn) return;
+    var out = document.getElementById('aiDiagOut');
+    btn.addEventListener('click', function () {
+        btn.disabled = true; var label = btn.textContent; btn.textContent = '{{ 'Analyzing…'|trans|e('js') }}';
+        out.hidden = false; out.className = 'codebox'; out.style.color = ''; out.textContent = '{{ 'Claude is analyzing…'|trans|e('js') }}';
+        var body = new URLSearchParams(); body.set('_token', btn.dataset.token);
+        fetch(btn.dataset.url, { method: 'POST', headers: { 'X-Requested-With': 'fetch', 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() })
+            .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+            .then(function (res) {
+                btn.disabled = false; btn.textContent = label;
+                var d = res.d;
+                if (d.configured === false) {
+                    out.className = 'codebox'; out.style.color = ''; out.textContent = '{{ 'AI analysis is not connected yet. A platform admin can add an Anthropic API key under Admin → Settings (or set ANTHROPIC_API_KEY).'|trans|e('js') }}';
+                } else if (d.error) {
+                    out.className = 'codebox'; out.style.color = 'var(--fail)'; out.textContent = '{{ 'Error'|trans|e('js') }}: ' + d.error;
+                } else {
+                    out.className = 'codebox'; out.style.color = '';
+                    out.innerHTML = '<span class="eyebrow" style="display:block;margin-bottom:7px;">{{ eyebrow|default('CLAUDE DIAGNOSIS'|trans)|e('js') }}</span>';
+                    var p = document.createElement('div'); p.textContent = d.analysis || '{{ '(empty response)'|trans|e('js') }}'; out.appendChild(p);
+                }
+            })
+            .catch(function () { btn.disabled = false; btn.textContent = label; out.className = 'codebox'; out.style.color = 'var(--fail)'; out.textContent = '{{ 'Request failed.'|trans|e('js') }}'; });
+    });
+})();
+</script>

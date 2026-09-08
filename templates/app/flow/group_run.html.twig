@@ -37,6 +37,18 @@
     {% endfor %}
 </div>
 
+{% if finished and groupRun %}
+<div class="card" style="margin-top:14px;">
+    {% include 'app/_ai_diagnose.html.twig' with {
+        url: path('app_flow_group_run_diagnose', {workspace: workspace.id, group: group.id, batchId: batchId}),
+        token: csrf_token('diagnose-suite' ~ batchId),
+        label: 'Analyze batch with AI'|trans,
+        hint: 'Claude groups the failures by shared cause and compares against recent batches.'|trans,
+        eyebrow: 'CLAUDE SUITE ANALYSIS'|trans,
+    } only %}
+</div>
+{% endif %}
+
 {% if not finished %}
 <span id="grCfg" data-status-url="{{ path('app_flow_group_run_status', {workspace: workspace.id, group: group.id, batchId: batchId}) }}" data-total="{{ total }}" hidden></span>
 

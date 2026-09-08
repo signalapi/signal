@@ -2,16 +2,29 @@
 
 namespace App\Service;
 
+use App\Entity\FlowGroupRun;
 use App\Entity\FlowRun;
+use App\Repository\FlowGroupRunRepository;
+use App\Repository\FlowRunRepository;
 
 /**
  * Builds the raw evidence for diagnosing a failed run — shared by the MCP
  * diagnose_run tool and the in-panel "Diagnose with AI" action, so both see
- * exactly the same picture.
+ * exactly the same picture. suiteEvidence() widens the same idea to a whole
+ * suite batch (per-flow statuses + failing runs + batch history).
  */
 class RunDiagnostics
 {
     private const BODY_LIMIT = 4000;
+
+    /** Full evidence is heavy; cap how many failed runs a suite batch carries. */
+    private const SUITE_FAILED_RUNS_LIMIT = 5;
+
+    public function __construct(
+        private readonly FlowRunRepository $runs,
+        private readonly FlowGroupRunRepository $groupRuns,
+    ) {
+    }
 
     /**
      * @return array{
@@ -71,6 +84,59 @@ class RunDiagnostics
             'iterationData' => $run->getIterationData(),
             'failingSteps' => $failing,
             'contractDrift' => $drift,
+        ];
+    }
+
+    /**
+     * Evidence for a whole suite batch: every flow's outcome, full evidence for
+     * the first few failed runs, and the suite's recent batch history so the
+     * analysis can tell a fresh regression from a long-standing red.
+     *
+     * @return array<string, mixed>
+     */
+    public function suiteEvidence(FlowGroupRun $groupRun): array
+    {
+        $flows = [];
+        $failingRuns = [];
+        $skippedFailures = 0;
+        foreach ($this->runs->findByBatch($groupRun->getBatchId()) as $r) {
+            $flows[] = [
+                'flow' => $r->getFlow()->getName(),
+                'status' => $r->getStatus(),
+                'passedSteps' => $r->getPassedSteps(),
+                'totalSteps' => $r->getTotalSteps(),
+                'durationMs' => $r->getDurationMs(),
+            ];
+            if (\in_array($r->getStatus(), ['failed', 'error'], true)) {
+                if (\count($failingRuns) < self::SUITE_FAILED_RUNS_LIMIT) {
+                    $failingRuns[] = $this->evidence($r);
+                } else {
+                    ++$skippedFailures;
+                }
+            }
+        }
+
+        $history = [];
+        foreach ($this->groupRuns->recentForGroup($groupRun->getFlowGroup(), 10) as $g) {
+            $history[] = [
+                'at' => $g->getCreatedAt()->format('Y-m-d H:i'),
+                'status' => $g->getStatus(),
+                'trigger' => $g->getTrigger(),
+            ];
+        }
+
+        return [
+            'suite' => [
+                'name' => $groupRun->getFlowGroup()->getName(),
+                'status' => $groupRun->getStatus(),
+                'trigger' => $groupRun->getTrigger(),
+                'totalFlows' => $groupRun->getTotal(),
+                'environmentNote' => 'flows may target different environments; see each run',
+            ],
+            'flows' => $flows,
+            'failingRuns' => $failingRuns,
+            'failingRunsOmitted' => $skippedFailures,
+            'recentBatches' => $history,
         ];
     }
 }
