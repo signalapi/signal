@@ -190,12 +190,16 @@ class ScheduleController extends AbstractAppController
                 $valid[] = (string) $destination->getId();
             }
             $condition = (string) $request->request->get('notify_condition', NotificationSubscription::WHEN_ALWAYS);
-            $schedule->setNotify([] === $valid ? [] : [
+            $notify = [] === $valid ? [] : [
                 'destinations' => $valid,
                 'condition' => \in_array($condition, NotificationSubscription::CONDITIONS, true)
                     ? $condition
                     : NotificationSubscription::WHEN_ALWAYS,
-            ]);
+            ];
+            if ([] !== $notify && $request->request->getBoolean('notify_ai')) {
+                $notify['ai'] = true;
+            }
+            $schedule->setNotify($notify);
 
             if (!$errors) {
                 $schedules->save($schedule);

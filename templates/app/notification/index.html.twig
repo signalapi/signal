@@ -196,8 +196,9 @@
                     <span class="l-name" style="font-size:12px;">{{ s.destination.name }}</span>
                     {% if s.destination.label %}<span class="l-sub" style="font-family:var(--mono);">{{ s.destination.label }}</span>{% endif %}
                 </span>
-                <span style="flex:0 0 130px;">
+                <span style="flex:0 0 130px;display:flex;gap:5px;flex-wrap:wrap;">
                     <span class="chip {{ s.condition == 'always' ? '' : 'retry' }}">{{ s.condition == 'always' ? 'every run'|trans : 'failures only'|trans }}</span>
+                    {% if s.aiAnalysis %}<span class="mpill vio" title="{{ 'Failure messages carry Claude\'s root-cause analysis.'|trans }}">AI</span>{% endif %}
                 </span>
                 <span style="flex:0 0 70px;">
                     {%- if s.enabled -%}
@@ -268,6 +269,12 @@
                         </select>
                     </div>
                 </div>
+                <label style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:12.5px;color:var(--muted);cursor:pointer;">
+                    <input type="checkbox" name="ai_analysis" value="1" style="width:auto;">
+                    {{ 'Attach Claude\'s root-cause analysis to failure messages'|trans }}
+                    <span class="mpill vio">AI</span>
+                </label>
+                <p class="fhint" style="margin:4px 0 0;">{{ 'Needs an Anthropic API key (Admin → Settings). Without one, messages simply go out without the analysis.'|trans }}</p>
                 <div class="fold-actions">
                     <button class="btn" type="submit">{{ 'Add rule'|trans }}</button>
                 </div>

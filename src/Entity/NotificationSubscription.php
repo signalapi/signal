@@ -58,6 +58,10 @@ class NotificationSubscription
     #[ORM\Column]
     private bool $enabled = true;
 
+    /** Attach Claude's root-cause analysis to failure messages (needs an AI key). */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $aiAnalysis = false;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -151,6 +155,18 @@ class NotificationSubscription
     public function setEnabled(bool $enabled): static
     {
         $this->enabled = $enabled;
+
+        return $this;
+    }
+
+    public function isAiAnalysis(): bool
+    {
+        return $this->aiAnalysis;
+    }
+
+    public function setAiAnalysis(bool $aiAnalysis): static
+    {
+        $this->aiAnalysis = $aiAnalysis;
 
         return $this;
     }

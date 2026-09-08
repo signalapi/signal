@@ -1202,3 +1202,7 @@
 "Claude responded — the key works (model: %model%).": "Claude yanıt verdi — anahtar çalışıyor (model: %model%)."
 "Test failed: %error%": "Test başarısız: %error%"
 "Panel API key removed. The ANTHROPIC_API_KEY environment variable, if set, takes over.": "Panel API anahtarı kaldırıldı. Tanımlıysa ANTHROPIC_API_KEY ortam değişkeni devreye girer."
+"Attach Claude's root-cause analysis to failure messages": "Hata mesajlarına Claude'un kök neden analizini ekle"
+"Needs an Anthropic API key (Admin → Settings). Without one, messages simply go out without the analysis.": "Anthropic API anahtarı gerektirir (Admin → Settings). Anahtar yoksa mesajlar analizsiz gönderilmeye devam eder."
+"Failure messages carry Claude's root-cause analysis.": "Hata mesajları Claude'un kök neden analizini taşır."
+"Attach Claude analysis on failure": "Hatada Claude analizini ekle"

@@ -213,6 +213,7 @@ class NotificationController extends AbstractAppController
         $subscription->setScopeType($scopeType);
         $subscription->setScopeId($scopeId);
         $subscription->setCondition($condition);
+        $subscription->setAiAnalysis($request->request->getBoolean('ai_analysis'));
         $subscriptions->save($subscription);
 
         $this->addFlash('success', $this->translator->trans('Rule added.'));

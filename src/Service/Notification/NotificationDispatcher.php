@@ -127,17 +127,18 @@ class NotificationDispatcher
      */
     public function queueTest(NotificationDestination $destination): void
     {
-        $this->queue($destination->getWorkspace(), [$destination], $this->summary->testMessage($destination->getWorkspace()));
+        $this->queue($destination->getWorkspace(), [['destination' => $destination, 'ai' => false]], $this->summary->testMessage($destination->getWorkspace()));
     }
 
     /**
      * The destinations that should hear about this outcome, de-duplicated: a
      * destination reached by both a rule and the run's own choice gets one
-     * message, not two.
+     * message, not two. Each target carries whether anyone asked for Claude's
+     * analysis to ride along (OR-merged when several rules hit one channel).
      *
      * @param array<string, mixed>|null $override
      *
-     * @return NotificationDestination[]
+     * @return list<array{destination: NotificationDestination, ai: bool}>
      */
     private function resolve(
         Workspace $workspace,
@@ -157,7 +158,11 @@ class NotificationDispatcher
             foreach ($this->subscriptions->findMatching($workspace, $scopeType, $scopeId) as $subscription) {
                 if ($subscription->wants($status)) {
                     $destination = $subscription->getDestination();
-                    $targets[(string) $destination->getId()] = $destination;
+                    $key = (string) $destination->getId();
+                    $targets[$key] = [
+                        'destination' => $destination,
+                        'ai' => $subscription->isAiAnalysis() || ($targets[$key]['ai'] ?? false),
+                    ];
                 }
             }
         }
@@ -170,10 +175,15 @@ class NotificationDispatcher
             $condition = (string) ($override['condition'] ?? NotificationSubscription::WHEN_ALWAYS);
             $wanted = NotificationSubscription::WHEN_ALWAYS === $condition || FlowRun::STATUS_PASSED !== $status;
             if ($wanted) {
+                $overrideAi = true === ($override['ai'] ?? false);
                 // Re-read through the workspace so a stale or foreign id in the
                 // override can never point at another workspace's channel.
                 foreach ($this->destinations->findActiveByWorkspaceAndIds($workspace, $ids) as $destination) {
-                    $targets[(string) $destination->getId()] = $destination;
+                    $key = (string) $destination->getId();
+                    $targets[$key] = [
+                        'destination' => $destination,
+                        'ai' => $overrideAi || ($targets[$key]['ai'] ?? false),
+                    ];
                 }
             }
         }
@@ -182,22 +192,29 @@ class NotificationDispatcher
     }
 
     /**
-     * @param NotificationDestination[] $targets
-     * @param array<string, mixed>      $payload
+     * @param list<array{destination: NotificationDestination, ai: bool}> $targets
+     * @param array<string, mixed>                                        $payload
      */
     private function queue(Workspace $workspace, array $targets, array $payload): void
     {
-        foreach ($targets as $destination) {
+        foreach ($targets as $target) {
+            // The flag only marks intent; the Claude call itself happens on the
+            // worker at send time (NotificationSender), never inside the run.
+            $deliveryPayload = $payload;
+            if ($target['ai']) {
+                $deliveryPayload['aiRequested'] = true;
+            }
+
             $delivery = new NotificationDelivery();
             $delivery->setWorkspace($workspace);
-            $delivery->setDestination($destination);
+            $delivery->setDestination($target['destination']);
             $delivery->setEvent((string) ($payload['event'] ?? NotificationDelivery::EVENT_FLOW_RUN));
             $delivery->setSubject(sprintf(
                 '%s · %s',
                 (string) ($payload['title'] ?? '—'),
                 strtoupper((string) ($payload['status'] ?? '')),
             ));
-            $delivery->setPayload($payload);
+            $delivery->setPayload($deliveryPayload);
             $this->deliveries->save($delivery);
 
             $this->bus->dispatch(new SendNotificationMessage((string) $delivery->getId()));

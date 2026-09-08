@@ -107,6 +107,10 @@
                     <option value="always" {{ (schedule.notify.condition|default('always')) == 'always' ? 'selected' }}>{{ 'Every run'|trans }}</option>
                     <option value="on_failure" {{ (schedule.notify.condition|default('always')) == 'on_failure' ? 'selected' }}>{{ 'Only failures'|trans }}</option>
                 </select>
+                <label class="inline" title="{{ 'Needs an Anthropic API key (Admin → Settings). Without one, messages simply go out without the analysis.'|trans }}">
+                    <input type="checkbox" name="notify_ai" value="1" {{ schedule.notify.ai|default(false) ? 'checked' }}>
+                    {{ 'Attach Claude analysis on failure'|trans }} <span class="mpill vio">AI</span>
+                </label>
             </div>
         {% endif %}
     </div>

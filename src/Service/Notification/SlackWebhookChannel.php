@@ -107,6 +107,14 @@ class SlackWebhookChannel implements ChannelInterface
             $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => $this->section($lines)]];
         }
 
+        // Claude's take, when the rule asked for it and the run needed one.
+        if ('' !== trim((string) ($p['aiAnalysis'] ?? ''))) {
+            $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => $this->section([
+                ':robot_face: *Claude analysis*',
+                $this->escape(trim((string) $p['aiAnalysis'])),
+            ])]];
+        }
+
         // The full rundown — suite flows, dataset rows or the run's own steps.
         if ([] !== ($p['items'] ?? [])) {
             $label = match ($p['kind'] ?? '') {
