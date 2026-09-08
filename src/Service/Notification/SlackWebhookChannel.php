@@ -57,6 +57,10 @@ class SlackWebhookChannel implements ChannelInterface
      */
     private function body(array $p): array
     {
+        if ('digest' === ($p['kind'] ?? '')) {
+            return $this->digestBody($p);
+        }
+
         $icon = match ($p['status'] ?? '') {
             FlowRun::STATUS_PASSED => ':white_check_mark:',
             FlowRun::STATUS_CANCELLED => ':black_square_for_stop:',
@@ -155,6 +159,70 @@ class SlackWebhookChannel implements ChannelInterface
             'text' => $headline,
             'blocks' => $blocks,
         ];
+    }
+
+    /**
+     * The workspace digest: health at a glance, then what deserves attention.
+     * Claude's commentary (payload.aiAnalysis, added at send time when a key is
+     * configured) slots in before the link; without it the digest stands alone.
+     *
+     * @param array<string, mixed> $p
+     *
+     * @return array<string, mixed>
+     */
+    private function digestBody(array $p): array
+    {
+        $rate = $p['passRate'] ?? null;
+        $headline = sprintf(
+            ':bar_chart: Digest — %s: %s pass rate over %d runs',
+            (string) ($p['workspace'] ?? '—'),
+            null === $rate ? '—' : $rate . '%',
+            (int) ($p['finishedRuns'] ?? 0),
+        );
+
+        $blocks = [
+            ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => '*' . $this->escape($headline) . '*']],
+            ['type' => 'context', 'elements' => [['type' => 'mrkdwn', 'text' => $this->escape(sprintf('%d tests in the window', (int) ($p['tests'] ?? 0)))]]],
+        ];
+
+        $sections = [
+            ['broken', ':red_circle: *Failing right now*', 'moreBroken'],
+            ['flaky', ':large_yellow_circle: *Looking flaky*', null],
+            ['quarantined', ':no_entry_sign: *In quarantine*', null],
+        ];
+        foreach ($sections as [$key, $label, $moreKey]) {
+            $items = (array) ($p[$key] ?? []);
+            if ([] === $items) {
+                continue;
+            }
+            $lines = [$label];
+            foreach ($items as $name) {
+                $lines[] = '• ' . $this->escape((string) $name);
+            }
+            if (null !== $moreKey && ($p[$moreKey] ?? 0) > 0) {
+                $lines[] = sprintf('• … and %d more', (int) $p[$moreKey]);
+            }
+            $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => $this->section($lines)]];
+        }
+        if ([] === ($p['broken'] ?? []) && [] === ($p['flaky'] ?? []) && [] === ($p['quarantined'] ?? [])) {
+            $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => ':white_check_mark: Nothing needs attention — everything green and steady.']];
+        }
+
+        if ('' !== trim((string) ($p['aiAnalysis'] ?? ''))) {
+            $blocks[] = ['type' => 'section', 'text' => ['type' => 'mrkdwn', 'text' => $this->section([
+                ':robot_face: *Claude analysis*',
+                $this->escape(trim((string) $p['aiAnalysis'])),
+            ])]];
+        }
+
+        if (!empty($p['url'])) {
+            $blocks[] = ['type' => 'context', 'elements' => [[
+                'type' => 'mrkdwn',
+                'text' => sprintf('<%s|Open Trends>', (string) $p['url']),
+            ]]];
+        }
+
+        return ['text' => $headline, 'blocks' => $blocks];
     }
 
     /**

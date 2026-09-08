@@ -35,6 +35,7 @@ class NotificationSender
         private readonly AiDiagnoser $ai,
         private readonly FlowRunRepository $runs,
         private readonly FlowGroupRunRepository $groupRuns,
+        private readonly \App\Service\TrendReport $trends,
     ) {
     }
 
@@ -85,18 +86,24 @@ class NotificationSender
         if (true !== ($payload['aiRequested'] ?? false) || isset($payload['aiAnalysis'])) {
             return $payload;
         }
-        // A pass needs no root-cause analysis; datasets are per-row and skipped for now.
-        if (FlowRun::STATUS_PASSED === ($payload['status'] ?? '') || !$this->ai->isConfigured()) {
+        if (!$this->ai->isConfigured()) {
+            return $payload;
+        }
+        // A pass needs no root-cause analysis (digests always welcome commentary);
+        // datasets are per-row and skipped for now.
+        $kind = (string) ($payload['kind'] ?? '');
+        if ('digest' !== $kind && FlowRun::STATUS_PASSED === ($payload['status'] ?? '')) {
             return $payload;
         }
 
         try {
             $ref = (string) ($payload['runId'] ?? '');
-            $analysis = match ($payload['kind'] ?? '') {
+            $analysis = match ($kind) {
                 'flow' => Uuid::isValid($ref) && null !== ($run = $this->runs->find($ref))
                     ? $this->ai->diagnose($run) : null,
                 'suite' => null !== ($groupRun = $this->groupRuns->findOneByBatch($ref))
                     ? $this->ai->diagnoseSuite($groupRun) : null,
+                'digest' => $this->ai->summarizeTrends($this->trends->evidence($this->trends->build($delivery->getWorkspace()))),
                 default => null,
             };
         } catch (\Throwable) {

@@ -43,6 +43,9 @@ class RunDueSchedulesCommand extends Command
         private readonly FlowGroupRunRepository $groupRuns,
         private readonly MessageBusInterface $bus,
         private readonly EntityManagerInterface $em,
+        private readonly \App\Repository\NotificationDestinationRepository $destinations,
+        private readonly \App\Service\WorkspaceDigest $digest,
+        private readonly \App\Service\Notification\NotificationDispatcher $dispatcher,
     ) {
         parent::__construct();
     }
@@ -60,7 +63,7 @@ class RunDueSchedulesCommand extends Command
         $fired = 0;
 
         foreach ($this->schedules->findEnabled() as $schedule) {
-            if (!$schedule->hasTarget()) {
+            if (!$schedule->hasTarget() && !$schedule->isDigest()) {
                 continue;
             }
 
@@ -107,6 +110,19 @@ class RunDueSchedulesCommand extends Command
     /** Runs the schedule's target and returns a one-line result for the log. */
     private function fire(Schedule $schedule): string
     {
+        if ($schedule->isDigest()) {
+            $workspace = $schedule->getWorkspace();
+            $destinations = $this->destinations->findActiveByWorkspaceAndIds($workspace, $schedule->getNotifyDestinationIds());
+            if ([] === $destinations) {
+                return 'digest has no active destinations, skipped';
+            }
+            // Composition is cheap stats; the optional Claude commentary happens
+            // on the worker at send time (payload.aiRequested), not in this tick.
+            $this->dispatcher->queueDigest($workspace, $destinations, $this->digest->payload($workspace));
+
+            return sprintf('digest queued to %d destination(s)', \count($destinations));
+        }
+
         $group = $schedule->getFlowGroup();
         if (null !== $group) {
             if ($group->getFlows()->isEmpty()) {

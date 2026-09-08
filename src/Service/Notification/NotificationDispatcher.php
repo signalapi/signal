@@ -125,6 +125,21 @@ class NotificationDispatcher
      * Sends one payload to a destination right now (the "send a test message"
      * button), through the same queue and log as a real result.
      */
+    /**
+     * Sends a composed digest payload to explicit destinations — used by digest
+     * schedules, which have no run to resolve rules against.
+     *
+     * @param NotificationDestination[] $destinations
+     * @param array<string, mixed>      $payload
+     */
+    public function queueDigest(Workspace $workspace, array $destinations, array $payload): void
+    {
+        $this->queue($workspace, array_map(
+            static fn (NotificationDestination $d): array => ['destination' => $d, 'ai' => true],
+            $destinations,
+        ), $payload);
+    }
+
     public function queueTest(NotificationDestination $destination): void
     {
         $this->queue($destination->getWorkspace(), [['destination' => $destination, 'ai' => false]], $this->summary->testMessage($destination->getWorkspace()));

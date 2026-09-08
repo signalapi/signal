@@ -76,6 +76,13 @@ class Schedule
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE, nullable: true)]
     private ?\DateTimeImmutable $lastRunAt = null;
 
+    /** What firing means: run a flow/suite, or send the workspace digest. */
+    public const KIND_RUN = 'run';
+    public const KIND_DIGEST = 'digest';
+
+    #[ORM\Column(length: 12, options: ['default' => self::KIND_RUN])]
+    private string $kind = self::KIND_RUN;
+
     #[ORM\Column(type: Types::DATETIME_IMMUTABLE)]
     private \DateTimeImmutable $createdAt;
 
@@ -165,12 +172,36 @@ class Schedule
     /** The display name of whatever this schedule runs. */
     public function getTargetName(): string
     {
+        if ($this->isDigest()) {
+            return 'Workspace digest';
+        }
+
         return $this->flowGroup?->getName() ?? $this->flow?->getName() ?? '—';
     }
 
     public function hasTarget(): bool
     {
         return null !== $this->flow || null !== $this->flowGroup;
+    }
+
+    public function getKind(): string
+    {
+        return $this->kind;
+    }
+
+    public function setKind(string $kind): static
+    {
+        if (!\in_array($kind, [self::KIND_RUN, self::KIND_DIGEST], true)) {
+            throw new \InvalidArgumentException('Unknown schedule kind: ' . $kind);
+        }
+        $this->kind = $kind;
+
+        return $this;
+    }
+
+    public function isDigest(): bool
+    {
+        return self::KIND_DIGEST === $this->kind;
     }
 
     public function getEnvironment(): ?Environment

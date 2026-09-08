@@ -283,6 +283,79 @@
     </details>
 {% endif %}
 
+{# ---------------------------------------------------------------- digest #}
+<div class="section-title">{{ 'Scheduled digest'|trans }}</div>
+
+{% for s in digest_schedules|default([]) %}
+    <div class="lrow" style="background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;{% if not s.enabled %}opacity:.6;{% endif %}">
+        <span class="mpill vio">{{ 'digest'|trans }}</span>
+        <span style="flex:1;min-width:0;">
+            <span class="l-name">{{ s.name }}</span>
+            <span class="l-sub">{{ s.timezone }}{% if s.lastRunAt %} · {{ 'last sent'|trans }} {{ s.lastRunAt|date('d.m H:i') }}{% endif %}</span>
+        </span>
+        <span style="flex:0 0 220px;display:flex;gap:6px;justify-content:flex-end;">
+            <form method="post" action="{{ path('app_schedule_toggle', {workspace: workspace.id, schedule: s.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('schedule-toggle' ~ s.id) }}">
+                <button class="gbtn" type="submit">{{ s.enabled ? 'Turn off'|trans : 'Turn on'|trans }}</button>
+            </form>
+            <form method="post" action="{{ path('app_schedule_delete', {workspace: workspace.id, schedule: s.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('schedule-delete' ~ s.id) }}">
+                <button class="gbtn danger" type="submit">{{ ic.i('trash', 12) }}</button>
+            </form>
+        </span>
+    </div>
+{% endfor %}
+
+{% if destinations is not empty %}
+<details class="fold">
+    <summary>
+        <span class="ic-box vio">{{ ic.i('trends', 15) }}</span>
+        <span>
+            <span class="t" style="display:block;">{{ 'Schedule a digest'|trans }}</span>
+            <span class="s" style="display:block;">{{ 'Pass rate, broken and flaky tests — delivered on a schedule. Claude commentary joins in once AI is connected.'|trans }}</span>
+        </span>
+        <span class="chev">{{ ic.i('chevron-r', 12) }}</span>
+    </summary>
+    <div class="fold-body">
+        <form method="post" action="{{ path('app_notification_digest_create', {workspace: workspace.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('notif-digest') }}">
+            <div class="fgrid">
+                <div class="field">
+                    <label>{{ 'When'|trans }}</label>
+                    <select name="digest_day">
+                        <option value="1">{{ 'Every Monday'|trans }}</option>
+                        <option value="2">{{ 'Every Tuesday'|trans }}</option>
+                        <option value="3">{{ 'Every Wednesday'|trans }}</option>
+                        <option value="4">{{ 'Every Thursday'|trans }}</option>
+                        <option value="5">{{ 'Every Friday'|trans }}</option>
+                        <option value="0">{{ 'Every day'|trans }}</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>{{ 'At'|trans }}</label>
+                    <input type="time" name="digest_time" value="09:00">
+                </div>
+                <div class="field" style="grid-column:span 2;">
+                    <label>{{ 'Sends to'|trans }}</label>
+                    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:center;padding-top:7px;">
+                        {% for d in destinations %}
+                            {% if d.active %}
+                                <label class="inline" style="font-size:12.5px;">
+                                    <input type="checkbox" name="digest_destinations[]" value="{{ d.id }}"> {{ d.label ?: d.name }}
+                                </label>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="fold-actions">
+                <button class="btn" type="submit">{{ 'Schedule digest'|trans }}</button>
+            </div>
+        </form>
+    </div>
+</details>
+{% endif %}
+
 {# ---------------------------------------------------------------- deliveries #}
 <div class="section-title">{{ 'Deliveries'|trans }}</div>
 

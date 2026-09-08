@@ -37,6 +37,7 @@ class NotificationController extends AbstractAppController
         NotificationDeliveryRepository $deliveries,
         TestFlowRepository $flows,
         FlowGroupRepository $groups,
+        \App\Repository\ScheduleRepository $schedules,
     ): Response {
         $this->assertWorkspace($workspace, 'admin');
 
@@ -45,6 +46,7 @@ class NotificationController extends AbstractAppController
 
         return $this->render('app/notification/index.html.twig', [
             'workspace' => $workspace,
+            'digest_schedules' => array_values(array_filter($schedules->findByWorkspace($workspace), static fn ($s) => $s->isDigest())),
             'destinations' => $list,
             'subscriptions' => $subscriptions->findByWorkspace($workspace),
             'deliveries' => $deliveries->findRecentByWorkspace($workspace, 20),
@@ -217,6 +219,61 @@ class NotificationController extends AbstractAppController
         $subscriptions->save($subscription);
 
         $this->addFlash('success', $this->translator->trans('Rule added.'));
+
+        return $this->redirectToRoute('app_notification_index', ['workspace' => $workspace->getId()]);
+    }
+
+    /**
+     * Creates a digest schedule: every week (or day) at a chosen time, the
+     * workspace digest — pass rate, broken, flaky, quarantined, plus Claude's
+     * commentary once AI is configured — goes to the picked destinations.
+     */
+    #[Route('/digest', name: 'app_notification_digest_create', methods: ['POST'])]
+    public function createDigest(
+        Workspace $workspace,
+        Request $request,
+        NotificationDestinationRepository $destinations,
+        \App\Repository\ScheduleRepository $schedules,
+        \App\Service\ScheduleCompiler $compiler,
+    ): Response {
+        $this->assertWorkspace($workspace, 'admin');
+        if (!$this->isCsrfTokenValid('notif-digest', (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $picked = array_map('strval', (array) $request->request->all('digest_destinations'));
+        $valid = [];
+        foreach ($destinations->findActiveByWorkspaceAndIds($workspace, array_values(array_filter($picked, static fn ($id) => Uuid::isValid($id)))) as $destination) {
+            $valid[] = (string) $destination->getId();
+        }
+        if ([] === $valid) {
+            $this->addFlash('error', $this->translator->trans('Pick at least one destination for the digest.'));
+
+            return $this->redirectToRoute('app_notification_index', ['workspace' => $workspace->getId()]);
+        }
+
+        $day = (int) $request->request->get('digest_day', 1);
+        $time = (string) $request->request->get('digest_time', '09:00');
+        $rule = $compiler->normaliseRule([
+            'mode' => 'at',
+            'days' => 0 === $day ? [] : [max(1, min(7, $day))],
+            'at' => [$time],
+        ]);
+        if (null === $rule) {
+            $this->addFlash('error', $this->translator->trans('That is not a valid time.'));
+
+            return $this->redirectToRoute('app_notification_index', ['workspace' => $workspace->getId()]);
+        }
+
+        $schedule = new \App\Entity\Schedule();
+        $schedule->setWorkspace($workspace);
+        $schedule->setKind(\App\Entity\Schedule::KIND_DIGEST);
+        $schedule->setName(0 === $day ? 'Daily digest' : 'Weekly digest');
+        $schedule->setRules([$rule]);
+        $schedule->setNotify(['destinations' => $valid, 'condition' => NotificationSubscription::WHEN_ALWAYS]);
+        $schedules->save($schedule);
+
+        $this->addFlash('success', $this->translator->trans('Digest scheduled. It skips the occurrence that already passed today and starts with the next one.'));
 
         return $this->redirectToRoute('app_notification_index', ['workspace' => $workspace->getId()]);
     }
