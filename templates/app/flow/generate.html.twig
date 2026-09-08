@@ -1,0 +1,58 @@
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Generate with AI'|trans }} · {{ workspace.name }}{% endblock %}
+
+{% block panel %}
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Generate with AI'|trans }}</h1>
+        <p class="subtitle">{{ 'Describe the scenario; Claude drafts the flow from your request catalog. You review it before it runs.'|trans }}</p>
+    </div>
+</div>
+
+{% if not configured %}
+<div class="card" style="display:flex;align-items:center;gap:12px;padding:13px 16px;margin-bottom:14px;background:var(--warn-soft);border-color:var(--warn);">
+    <span class="sq" style="width:30px;height:30px;">{{ ic.i('bot', 15) }}</span>
+    <span style="font-size:12.5px;">{{ 'AI is not connected. A platform admin can add an Anthropic API key under Admin → Settings.'|trans }}</span>
+</div>
+{% endif %}
+
+<div class="formcard" style="max-width:720px;">
+    <form method="post" action="{{ path('app_flow_generate', {workspace: workspace.id}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('flow-generate') }}">
+
+        <div class="field" style="margin-bottom:12px;">
+            <label for="genBrief">{{ 'What should this flow test?'|trans }}</label>
+            <textarea name="brief" id="genBrief" rows="6" required minlength="10"
+                      placeholder="{{ 'e.g. Subscribe a fresh user to the monthly package, assert the subscription is active, cancel it, then verify the profile shows it as cancelled.'|trans }}"></textarea>
+            <p class="fhint" style="margin:5px 0 0;">
+                {{ 'Claude sees the names, methods and URLs of %count% requests in this workspace plus the chosen environment\'s variable names — never any values or secrets.'|trans({'%count%': catalogSize}) }}
+            </p>
+        </div>
+
+        <div class="field" style="margin-bottom:14px;max-width:320px;">
+            <label for="genEnv">{{ 'Environment'|trans }}</label>
+            <select name="environment" id="genEnv">
+                <option value="">{{ '— none —'|trans }}</option>
+                {% for e in environments %}
+                    <option value="{{ e.id }}">{{ e.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button class="btn" type="submit" {{ not configured ? 'disabled' }} id="genBtn">{{ ic.i('bot', 13) }}{{ 'Draft the flow'|trans }}</button>
+        <span style="font-size:11.5px;color:var(--muted);margin-left:10px;">{{ 'Takes 10–30 seconds.'|trans }}</span>
+    </form>
+</div>
+
+<script>
+(function () {
+    var form = document.querySelector('.formcard form'); if (!form) return;
+    form.addEventListener('submit', function () {
+        var b = document.getElementById('genBtn');
+        b.disabled = true; b.textContent = '{{ 'Claude is drafting…'|trans|e('js') }}';
+    });
+})();
+</script>
+{% endblock %}

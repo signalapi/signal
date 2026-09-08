@@ -19,7 +19,7 @@ use Symfony\Contracts\HttpClient\HttpClientInterface;
  */
 class AiDiagnoser
 {
-    private const API_URL = 'https://api.anthropic.com/v1/messages';
+    private const API_BASE = 'https://api.anthropic.com';
     private const API_VERSION = '2023-06-01';
     private const DEFAULT_MODEL = 'claude-sonnet-4-6';
 
@@ -29,6 +29,8 @@ class AiDiagnoser
         private readonly PlatformSettings $settings,
         #[Autowire(env: 'ANTHROPIC_API_KEY')] private readonly string $envApiKey = '',
         #[Autowire(env: 'ANTHROPIC_MODEL')] private readonly string $envModel = '',
+        // Optional: point at an Anthropic-compatible gateway (LiteLLM, a proxy…).
+        #[Autowire(env: 'ANTHROPIC_BASE_URL')] private readonly string $envBaseUrl = '',
     ) {
     }
 
@@ -119,6 +121,15 @@ class AiDiagnoser
         return $this->complete($system, "Trend evidence:\n\n" . $this->json($evidence), 1536);
     }
 
+    /**
+     * Raw completion for other AI features (flow generation etc.). Throws if
+     * not configured or on API error.
+     */
+    public function completeText(string $system, string $user, int $maxTokens = 1024): string
+    {
+        return $this->complete($system, $user, $maxTokens);
+    }
+
     private function complete(string $system, string $user, int $maxTokens = 1024): string
     {
         $apiKey = $this->apiKey();
@@ -126,7 +137,8 @@ class AiDiagnoser
             throw new \RuntimeException('AI analysis is not configured (no API key in the admin panel or ANTHROPIC_API_KEY).');
         }
 
-        $response = $this->httpClient->request('POST', self::API_URL, [
+        $base = '' !== trim($this->envBaseUrl) ? rtrim(trim($this->envBaseUrl), '/') : self::API_BASE;
+        $response = $this->httpClient->request('POST', $base . '/v1/messages', [
             'headers' => [
                 'x-api-key' => $apiKey,
                 'anthropic-version' => self::API_VERSION,

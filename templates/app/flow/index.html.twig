@@ -64,6 +64,7 @@
             <input type="text" name="name" placeholder="{{ 'New suite name'|trans }}" style="width:180px">
             <button class="btn ghost small" type="submit">{{ ic.i('plus', 13, 2.2) }}{{ 'Suite'|trans }}</button>
         </form>
+        <a class="btn ghost" href="{{ path('app_flow_generate', {workspace: workspace.id}) }}">{{ ic.i('bot', 13) }}{{ 'Generate with AI'|trans }}</a>
         <a class="btn" href="{{ path('app_flow_new', {workspace: workspace.id}) }}">{{ ic.i('plus', 13, 2.2) }}{{ 'New flow'|trans }}</a>
     </div>
 </div>

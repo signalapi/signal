@@ -40,10 +40,13 @@ disagrees with the status code.
   flows can run end to end, headless.
 - **Suites and schedules** — group flows into suites, run them end to end, or
   let cron do it. History, trends, flakiness and p95 out of the box.
-- **AI analysis** — Claude explains a failed run (root cause + suggested fix),
-  analyses a whole suite batch by shared cause, and summarises trends: what
-  broke, what is flaky, what to fix first. Switch it on by adding an Anthropic
-  API key under **Admin → Settings** (sealed at rest) or via `ANTHROPIC_API_KEY`.
+- **AI analysis & generation** — Claude explains a failed run (root cause +
+  suggested fix), analyses a whole suite batch by shared cause, summarises
+  trends, rides along on failure notifications, and drafts whole flows from a
+  plain-language brief and your request catalog (values and secrets never leave
+  the box — only names). Switch it on by adding an Anthropic API key under
+  **Admin → Settings** (sealed at rest) or via `ANTHROPIC_API_KEY`;
+  `ANTHROPIC_BASE_URL` points it at a compatible gateway if you use one.
 - **Notifications** — run results delivered to a Slack channel (incoming
   webhook) or any HTTP endpoint (n8n, Zapier, your own service), by standing
   rule per workspace/test/suite, per schedule, or ticked for a single run.
