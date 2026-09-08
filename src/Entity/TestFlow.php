@@ -65,6 +65,14 @@ class TestFlow
     private Collection $runs;
 
     /**
+     * Strict contract mode: when the response shape drifts from the captured
+     * baseline, the step FAILS instead of just noting the drift. Re-baseline
+     * (reset on the step) after an intended API change.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $contractStrict = false;
+
+    /**
      * Set while the flow is quarantined as flaky: its failures no longer turn a
      * suite batch red (they are reported separately). Set/cleared automatically
      * by FlakinessSentry; a person can release it early from the flow page.
@@ -192,6 +200,18 @@ class TestFlow
     public function getRuns(): Collection
     {
         return $this->runs;
+    }
+
+    public function isContractStrict(): bool
+    {
+        return $this->contractStrict;
+    }
+
+    public function setContractStrict(bool $contractStrict): static
+    {
+        $this->contractStrict = $contractStrict;
+
+        return $this;
     }
 
     public function isQuarantined(): bool

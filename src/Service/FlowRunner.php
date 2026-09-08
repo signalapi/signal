@@ -465,6 +465,7 @@ class FlowRunner
                 $decoded = json_decode((string) $response->body, true);
                 $this->checkContract($step, $result, $decoded);
                 $status = $this->applyExtractionsAndAssertions($step, $result, $context, $decoded, (string) $response->body, $response->statusCode, $response->durationMs, $response->headers);
+                $status = $this->enforceContract($step, $result, $status);
             }
 
             if (StepResult::STATUS_PASSED === $status) {
@@ -544,9 +545,34 @@ class FlowRunner
     }
 
     /**
+     * Strict contract mode: a step that drifted from its baseline fails, with a
+     * synthetic assertion naming the first changes so the report says why.
+     * Informational mode (the default) leaves the status untouched.
+     */
+    private function enforceContract(FlowStep $step, StepResult $result, string $status): string
+    {
+        $drift = $result->getShapeDrift();
+        if ([] === $drift || !$step->getFlow()->isContractStrict()) {
+            return $status;
+        }
+
+        $assertions = $result->getAssertionResults();
+        $assertions[] = [
+            'label' => 'contract: response shape matches the baseline',
+            'ok' => false,
+            'actual' => implode(' · ', \array_slice($drift, 0, 3)) . (\count($drift) > 3 ? sprintf(' · +%d more', \count($drift) - 3) : ''),
+        ];
+        $result->setAssertionResults($assertions);
+        $result->setStatus(StepResult::STATUS_FAILED);
+
+        return StepResult::STATUS_FAILED;
+    }
+
+    /**
      * Captures the step's baseline response shape on first success, or records
      * how the current response's shape drifted from that baseline. Drift is
-     * informational — it does not fail the step. Non-JSON responses are skipped.
+     * informational unless the flow runs in strict contract mode (see
+     * enforceContract). Non-JSON responses are skipped.
      */
     private function checkContract(FlowStep $step, StepResult $result, mixed $decoded): void
     {

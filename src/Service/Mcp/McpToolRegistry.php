@@ -126,14 +126,16 @@ class McpToolRegistry
                     'description' => ['type' => 'string'],
                     'environmentName' => ['type' => 'string', 'description' => 'Default environment name'],
                     'stopOnFailure' => ['type' => 'boolean'],
+                    'contractStrict' => ['type' => 'boolean', 'description' => 'Strict contract mode: response-shape drift from the baseline fails the step (default false = informational)'],
                 ]]],
-            ['name' => 'update_flow', 'description' => 'Update a flow: rename, description, stopOnFailure, default environment. Only the fields you pass are changed.',
+            ['name' => 'update_flow', 'description' => 'Update a flow: rename, description, stopOnFailure, contractStrict (shape drift fails the step), default environment. Only the fields you pass are changed.',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
                     'description' => ['type' => 'string'],
                     'environmentName' => ['type' => 'string', 'description' => 'Default environment name'],
                     'stopOnFailure' => ['type' => 'boolean'],
+                    'contractStrict' => ['type' => 'boolean'],
                 ]]],
             ['name' => 'update_step', 'description' => 'Update a step: its name, query/connection for a DB step, and its run-if CONDITION. Pass condition {left, op, right} to make the step run only when the condition holds (branching); pass null to drop the condition. op: eq/ne/contains/matches/gt/lt/ge/le/exists/empty/notEmpty. To edit an HTTP request, use set_step_request.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
@@ -627,6 +629,7 @@ class McpToolRegistry
         $flow->setName((string) $args['name']);
         $flow->setDescription(isset($args['description']) ? (string) $args['description'] : null);
         $flow->setStopOnFailure((bool) ($args['stopOnFailure'] ?? true));
+        $flow->setContractStrict((bool) ($args['contractStrict'] ?? false));
         if (!empty($args['environmentName'])) {
             $flow->setDefaultEnvironment($this->findEnvironmentByName($ws, (string) $args['environmentName']));
         }
@@ -650,6 +653,9 @@ class McpToolRegistry
         }
         if (\array_key_exists('stopOnFailure', $args)) {
             $flow->setStopOnFailure((bool) $args['stopOnFailure']);
+        }
+        if (\array_key_exists('contractStrict', $args)) {
+            $flow->setContractStrict((bool) $args['contractStrict']);
         }
         if (\array_key_exists('environmentName', $args)) {
             $flow->setDefaultEnvironment(
@@ -1365,6 +1371,7 @@ class McpToolRegistry
         $flow->setName((string) $args['name']);
         $flow->setDescription(isset($args['description']) ? (string) $args['description'] : null);
         $flow->setStopOnFailure((bool) ($args['stopOnFailure'] ?? true));
+        $flow->setContractStrict((bool) ($args['contractStrict'] ?? false));
         if (!empty($args['environmentName'])) {
             $flow->setDefaultEnvironment($this->findEnvironmentByName($ws, (string) $args['environmentName']));
         }

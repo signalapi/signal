@@ -53,6 +53,13 @@
     <div style="display:flex;flex-wrap:wrap;gap:7px;margin:-6px 0 4px;">
         <span class="pill"><b style="color:var(--ink);">{{ flow.steps|length }}</b> {{ 'steps'|trans }}</span>
         <span class="pill">{{ flow.stopOnFailure ? 'stops at the first error'|trans : 'runs all steps'|trans }}</span>
+        <form method="post" action="{{ path('app_flow_contract_toggle', {workspace: workspace.id, flow: flow.id}) }}" style="display:inline;">
+            <input type="hidden" name="_token" value="{{ csrf_token('contract-mode' ~ flow.id) }}">
+            <button type="submit" class="pill" style="cursor:pointer;{{ flow.contractStrict ? 'border-color:var(--pri);color:var(--pri);' }}"
+                    title="{{ 'Click to toggle. Strict: response-shape drift fails the step; informational: drift is only reported.'|trans }}">
+                {{ flow.contractStrict ? 'contract: strict'|trans : 'contract: informational'|trans }}
+            </button>
+        </form>
         {% if flow.description %}<span class="subtitle" style="align-self:center;">{{ flow.description }}</span>{% endif %}
     </div>
 

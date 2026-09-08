@@ -81,6 +81,7 @@ class FlowController extends AbstractAppController
             $flow->setName(trim((string) $httpRequest->request->get('name')) ?: $translator->trans('New flow'));
             $flow->setDescription($this->nullable((string) $httpRequest->request->get('description')));
             $flow->setStopOnFailure((bool) $httpRequest->request->get('stopOnFailure'));
+            $flow->setContractStrict((bool) $httpRequest->request->get('contractStrict'));
 
             $envId = (string) $httpRequest->request->get('environment');
             if ('' !== $envId) {
@@ -126,6 +127,33 @@ class FlowController extends AbstractAppController
         ]);
     }
 
+
+    /**
+     * Flips strict contract mode: informational shape drift ↔ drift fails the
+     * step. Rendered as a clickable pill on the flow page.
+     */
+    #[Route('/{flow}/contract-mode', name: 'app_flow_contract_toggle', methods: ['POST'])]
+    public function contractToggle(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
+        Request $httpRequest,
+        TestFlowRepository $flows,
+        TranslatorInterface $translator,
+    ): Response {
+        $this->assertWorkspace($workspace, 'edit');
+        $this->assertFlow($workspace, $flow);
+        if (!$this->isCsrfTokenValid('contract-mode' . $flow->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $flow->setContractStrict(!$flow->isContractStrict());
+        $flows->save($flow);
+        $this->addFlash('success', $flow->isContractStrict()
+            ? $translator->trans('Strict contract mode is ON — shape drift now fails the step. Reset a step\'s baseline after an intended API change.')
+            : $translator->trans('Strict contract mode is OFF — shape drift is informational again.'));
+
+        return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
+    }
 
     /**
      * Releases a flaky flow from quarantine by hand — its failures count again
