@@ -20,11 +20,15 @@ services:
       redis:
         condition: service_started
 
+  # Scale with `docker compose up -d --scale worker=3` (or deploy.replicas) —
+  # the doctrine transport hands each message to exactly one consumer, and
+  # parallel suites fan out one message per flow to feed them all.
   worker:
     build:
       context: .
       dockerfile: docker/php/Dockerfile
-    container_name: signal_worker
+    deploy:
+      replicas: 2
     volumes:
       - ./:/var/www:cached
     environment:

@@ -38,6 +38,9 @@ if [ -z "$SKIP_DB_INIT" ]; then
     echo "[entrypoint] Preparing database..."
     php bin/console doctrine:database:create --if-not-exists --no-interaction || true
     php bin/console doctrine:migrations:migrate --no-interaction --allow-no-migration
+    # Installs the Postgres NOTIFY trigger on messenger_messages — without it,
+    # idle workers only wake on a ~60s fallback timer instead of instantly.
+    php bin/console messenger:setup-transports --no-interaction || true
 
     echo "[entrypoint] Ensuring super admin exists..."
     php bin/console app:create-superadmin || true

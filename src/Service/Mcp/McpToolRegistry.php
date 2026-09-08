@@ -297,10 +297,10 @@ class McpToolRegistry
             // ---- suites (run many flows together) ----
             ['name' => 'list_suites', 'description' => 'List the suites (flow groups), the flows inside them and their last run status.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'create_suite', 'description' => 'Create a new suite (flow group); returns suiteId.',
-                'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => ['name' => ['type' => 'string'], 'description' => ['type' => 'string']]]],
-            ['name' => 'update_suite', 'description' => 'Update a suite: rename and/or change its description. Only the field you pass is changed.',
-                'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string'], 'name' => ['type' => 'string'], 'description' => ['type' => 'string']]]],
+            ['name' => 'create_suite', 'description' => 'Create a new suite (flow group); returns suiteId. parallel=true runs member flows concurrently across workers — only safe when the flows are independent (default false = sequential).',
+                'inputSchema' => ['type' => 'object', 'required' => ['name'], 'properties' => ['name' => ['type' => 'string'], 'description' => ['type' => 'string'], 'parallel' => ['type' => 'boolean']]]],
+            ['name' => 'update_suite', 'description' => 'Update a suite: rename, description and/or parallel mode (concurrent member flows; only for independent flows). Only the fields you pass are changed.',
+                'inputSchema' => ['type' => 'object', 'required' => ['suiteId'], 'properties' => ['suiteId' => ['type' => 'string'], 'name' => ['type' => 'string'], 'description' => ['type' => 'string'], 'parallel' => ['type' => 'boolean']]]],
             ['name' => 'add_flow_to_suite', 'description' => 'Add a flow to a suite (at the end). A flow may belong to several suites; this does not affect its other memberships.',
                 'inputSchema' => ['type' => 'object', 'required' => ['suiteId', 'flowId'], 'properties' => ['suiteId' => ['type' => 'string'], 'flowId' => ['type' => 'string']]]],
             ['name' => 'remove_flow_from_suite', 'description' => 'Remove a flow from the given suite (the flow itself and its other suite memberships are kept).',
@@ -1691,6 +1691,7 @@ class McpToolRegistry
         $group->setWorkspace($ws);
         $group->setName((string) $args['name']);
         $group->setDescription(isset($args['description']) ? (string) $args['description'] : null);
+        $group->setParallel((bool) ($args['parallel'] ?? false));
         $this->groups->save($group);
 
         return ['suiteId' => (string) $group->getId(), 'name' => $group->getName()];
@@ -1708,6 +1709,9 @@ class McpToolRegistry
         }
         if (\array_key_exists('description', $args)) {
             $suite->setDescription(null === $args['description'] ? null : (string) $args['description']);
+        }
+        if (\array_key_exists('parallel', $args)) {
+            $suite->setParallel((bool) $args['parallel']);
         }
         $this->groups->save($suite);
 

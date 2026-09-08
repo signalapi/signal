@@ -258,6 +258,33 @@ class FlowGroupController extends AbstractAppController
     }
 
     /**
+     * Flips a suite between sequential and parallel execution. Parallel is only
+     * safe when the member flows are independent of each other.
+     */
+    #[Route('/{group}/parallel', name: 'app_flow_group_parallel', methods: ['POST'])]
+    public function parallelToggle(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['group' => 'id'])] FlowGroup $group,
+        Request $httpRequest,
+        FlowGroupRepository $groups,
+        TranslatorInterface $translator,
+    ): Response {
+        $this->assertWorkspace($workspace, 'edit');
+        $this->assertGroup($workspace, $group);
+        if (!$this->isCsrfTokenValid('flow-group-parallel' . $group->getId(), (string) $httpRequest->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $group->setParallel(!$group->isParallel());
+        $groups->save($group);
+        $this->addFlash('success', $group->isParallel()
+            ? $translator->trans('Suite now runs in PARALLEL — make sure its flows do not depend on each other.')
+            : $translator->trans('Suite runs sequentially again.'));
+
+        return $this->redirectToRoute('app_flow_index', ['workspace' => $workspace->getId()]);
+    }
+
+    /**
      * Status badge management. "enable" mints (or re-shows) the badge token and
      * flashes the ready-to-paste Markdown; "disable" revokes it — the old badge
      * URL 404s from that moment on.

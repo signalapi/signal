@@ -24,6 +24,7 @@ final class RunFlowGroupMessageHandler
         private readonly FlowRunner $runner,
         private readonly UserRepository $users,
         private readonly EventDispatcherInterface $events,
+        private readonly \Symfony\Component\Messenger\MessageBusInterface $bus,
     ) {
     }
 
@@ -37,6 +38,42 @@ final class RunFlowGroupMessageHandler
         }
 
         $override = $message->environmentId ? $this->environments->find($message->environmentId) : null;
+
+        // Parallel suites fan out: one message per flow, several workers, and
+        // the last member to finish finalises the batch (see the member handler).
+        if ($group->isParallel()) {
+            $groupRun = $this->groupRuns->findOneByBatch($message->batchId);
+            $i = 0;
+            foreach ($group->getFlows() as $flow) {
+                if ($flow->getSteps()->isEmpty()) {
+                    continue;
+                }
+                $this->bus->dispatch(new \App\Message\RunSuiteMemberMessage(
+                    (string) $group->getId(),
+                    $message->batchId,
+                    (string) $flow->getId(),
+                    $i,
+                    $override ? (string) $override->getId() : null,
+                    $message->triggeredByUserId,
+                ));
+                ++$i;
+            }
+            if (null !== $groupRun) {
+                // The member handlers compare against this — count only what was
+                // actually dispatched (flows without steps are skipped).
+                $groupRun->setTotal($i);
+                if (0 === $i) {
+                    $groupRun->setStatus(FlowGroupRun::STATUS_PASSED);
+                    $groupRun->setFinishedAt(new \DateTimeImmutable());
+                }
+                $this->groupRuns->save($groupRun);
+                if (0 === $i) {
+                    $this->events->dispatch(new SuiteRunFinished($groupRun, []));
+                }
+            }
+
+            return;
+        }
 
         $i = 0;
         $allPassed = true;

@@ -40,6 +40,14 @@ class FlowGroup
     private Collection $items;
 
     /**
+     * Run member flows concurrently across workers instead of one after
+     * another. Opt-in per suite: only safe when the flows are independent
+     * (no shared fixtures, no ordering assumptions).
+     */
+    #[ORM\Column(name: 'run_parallel', options: ['default' => false])]
+    private bool $parallel = false;
+
+    /**
      * Public status-badge token: /badge/{token}.svg serves this suite's latest
      * outcome with no login — safe to paste into a README. Null = badge off.
      * Deliberately NOT an API token: it can only read one bit of state.
@@ -145,6 +153,18 @@ class FlowGroup
                 $this->items->removeElement($item);
             }
         }
+
+        return $this;
+    }
+
+    public function isParallel(): bool
+    {
+        return $this->parallel;
+    }
+
+    public function setParallel(bool $parallel): static
+    {
+        $this->parallel = $parallel;
 
         return $this;
     }

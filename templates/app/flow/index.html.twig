@@ -116,6 +116,13 @@
                 {% endif %}
                 <button class="btn ghost small" type="submit" {{ gflows is empty ? 'disabled' }}>{{ ic.i('flows', 11) }}{{ 'Run'|trans }}</button>
             </form>
+            <form method="post" action="{{ path('app_flow_group_parallel', {workspace: workspace.id, group: g.id}) }}">
+                <input type="hidden" name="_token" value="{{ csrf_token('flow-group-parallel' ~ g.id) }}">
+                <button class="btn ghost small" type="submit"
+                        title="{{ g.parallel ? 'Flows run concurrently across workers. Click for sequential.'|trans : 'Flows run one after another. Click for parallel (flows must be independent).'|trans }}"
+                        {% if not g.parallel %}onclick="return confirm('{{ 'Run this suite in parallel? Only safe when its flows do not depend on each other.'|trans|e('js') }}');"{% endif %}>
+                    {{ g.parallel ? '∥ ' ~ 'parallel'|trans : '→ ' ~ 'sequential'|trans }}</button>
+            </form>
             <form method="post" action="{{ path('app_flow_group_badge', {workspace: workspace.id, group: g.id}) }}" style="display:flex;gap:4px;">
                 <input type="hidden" name="_token" value="{{ csrf_token('flow-group-badge' ~ g.id) }}">
                 <button class="btn ghost small" type="submit" name="do" value="enable"
