@@ -36,5 +36,7 @@
         <button class="btn block" type="submit" style="margin-top:4px">{{ 'Create account'|trans }}</button>
     </form>
 
+    {% include 'security/_social.html.twig' with {providers: social_providers|default([])} only %}
+
     <p class="fhint" style="text-align:center;margin-top:16px">{{ 'Already have an account?'|trans }} <a href="{{ path('app_login') }}">{{ 'Sign In'|trans }}</a></p>
 {% endblock %}

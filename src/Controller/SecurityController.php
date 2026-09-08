@@ -12,8 +12,11 @@ class SecurityController extends AbstractController
     // ---- Merchant area (main firewall) ----
 
     #[Route('/login', name: 'app_login')]
-    public function login(AuthenticationUtils $authenticationUtils): Response
-    {
+    public function login(
+        AuthenticationUtils $authenticationUtils,
+        #[\Symfony\Component\DependencyInjection\Attribute\Autowire(env: 'OAUTH_GOOGLE_CLIENT_ID')] string $googleId = '',
+        #[\Symfony\Component\DependencyInjection\Attribute\Autowire(env: 'OAUTH_GITHUB_CLIENT_ID')] string $githubId = '',
+    ): Response {
         if ($this->isGranted('IS_AUTHENTICATED_FULLY')) {
             return $this->redirectToRoute('app_dashboard');
         }
@@ -21,6 +24,7 @@ class SecurityController extends AbstractController
         return $this->render('security/login.html.twig', [
             'last_username' => $authenticationUtils->getLastUsername(),
             'error' => $authenticationUtils->getLastAuthenticationError(),
+            'social_providers' => \App\Controller\SocialAuthController::enabledProviders($googleId, $githubId),
         ]);
     }
 

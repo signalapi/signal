@@ -81,6 +81,13 @@ docker compose exec php php bin/console app:create-superadmin you@example.com 's
 Sign up at `/register` for the app itself; the `/admin` area is a separate
 identity set for platform operators.
 
+**Social sign-in (optional):** set `OAUTH_GOOGLE_CLIENT_ID`/`_SECRET` or
+`OAUTH_GITHUB_CLIENT_ID`/`_SECRET` and "Continue with Google / GitHub" appears
+on the sign-in and sign-up pages (callback URLs:
+`https://your-host/oauth/{google|github}/callback`). Only verified provider
+e-mails are accepted; a first-time social sign-in gets the same personal
+account a form signup does.
+
 For a production deployment (TLS, secrets, hardening) see [DEPLOY.md](DEPLOY.md).
 
 ## Claude / MCP

@@ -29,6 +29,8 @@ class RegistrationController extends AbstractController
         Security $security,
         EntityManagerInterface $em,
         TranslatorInterface $translator,
+        #[\Symfony\Component\DependencyInjection\Attribute\Autowire(env: 'OAUTH_GOOGLE_CLIENT_ID')] string $googleId = '',
+        #[\Symfony\Component\DependencyInjection\Attribute\Autowire(env: 'OAUTH_GITHUB_CLIENT_ID')] string $githubId = '',
     ): Response {
         if ($this->isGranted('IS_AUTHENTICATED_FULLY')) {
             return $this->redirectToRoute('app_dashboard');
@@ -95,6 +97,7 @@ class RegistrationController extends AbstractController
         return $this->render('security/register.html.twig', [
             'errors' => $errors,
             'old' => $old,
+            'social_providers' => \App\Controller\SocialAuthController::enabledProviders($googleId, $githubId),
         ]);
     }
 }
