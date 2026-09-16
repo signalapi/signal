@@ -1,0 +1,89 @@
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ 'Evaluations'|trans }}{% endblock %}
+
+{% block panel %}
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Evaluations'|trans }}</h1>
+        <p class="subtitle">{{ 'A suite asks whether a test still passes. An evaluation asks how often — the question for anything with an LLM, agent or judge step in it.'|trans }}</p>
+    </div>
+</div>
+
+{% if rows is empty %}
+    <div class="empty" style="text-align:left;padding:24px;">{{ 'No evaluations yet. Pick a test below, give it rows and a repeat count.'|trans }}</div>
+{% else %}
+    <table class="data">
+        <thead><tr>
+            <th>{{ 'Name'|trans }}</th><th>{{ 'Test'|trans }}</th><th style="width:130px;">{{ 'Size'|trans }}</th>
+            <th style="width:150px;">{{ 'Last pass rate'|trans }}</th><th style="width:170px;">{{ 'Last result'|trans }}</th><th></th>
+        </tr></thead>
+        <tbody>
+        {% for row in rows %}
+            {% set e = row.evaluation %}{% set l = row.latest %}
+            <tr>
+                <td><a href="{{ path('app_evaluation_show', {workspace: workspace.id, evaluation: e.id}) }}">{{ e.name }}</a></td>
+                <td class="mono" style="color:var(--muted);font-size:11.5px;">{{ e.flow.name }}</td>
+                <td class="mono">{{ e.dataset|length }} × {{ e.repeats }}<span style="color:var(--faint);"> = {{ e.plannedRuns }}</span></td>
+                <td class="mono">
+                    {% if l and l.status == 'done' %}
+                        {{ (l.passRate * 100)|round }}%
+                        <span style="display:inline-block;width:52px;height:5px;border-radius:3px;background:var(--panel2);vertical-align:middle;margin-left:6px;">
+                            <span style="display:block;height:5px;border-radius:3px;width:{{ (l.passRate * 100)|round }}%;background:{{ l.isClean ? 'var(--pass)' : (l.flakyRows > 0 ? 'var(--warn)' : 'var(--fail)') }};"></span>
+                        </span>
+                    {% else %}<span style="color:var(--faint);">—</span>{% endif %}
+                </td>
+                <td>
+                    {% if l is null %}<span class="pill neutral">{{ 'never run'|trans }}</span>
+                    {% elseif l.status == 'running' %}<span class="pill running">{{ 'Running'|trans }}</span>
+                    {% elseif l.status == 'error' %}<span class="pill error">{{ 'Error'|trans }}</span>
+                    {% elseif l.isClean %}<span class="pill passed">{{ 'Reliable'|trans }}</span>
+                    {% else %}
+                        {% if l.flakyRows > 0 %}<span class="pill flaky">{{ '%count% flaky'|trans({'%count%': l.flakyRows}) }}</span>{% endif %}
+                        {% if l.stableFailRows > 0 %}<span class="pill failed">{{ '%count% failing'|trans({'%count%': l.stableFailRows}) }}</span>{% endif %}
+                    {% endif %}
+                </td>
+                <td style="text-align:right;">
+                    <a class="btn ghost small" href="{{ path('app_evaluation_show', {workspace: workspace.id, evaluation: e.id}) }}">{{ 'Details'|trans }}{{ ic.i('chevron-r', 12, 2.4) }}</a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
+<h2 class="section-title">{{ 'New evaluation'|trans }}</h2>
+<div class="card"><div class="card-body">
+    {% if flows is empty %}
+        <div class="empty" style="text-align:left;">{{ 'Create a test first — an evaluation measures one.'|trans }}</div>
+    {% else %}
+        <form method="post" action="{{ path('app_evaluation_create', {workspace: workspace.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('new-evaluation' ~ workspace.id) }}">
+            <div class="row" style="gap:10px;flex-wrap:wrap;">
+                <div class="field" style="flex:1 1 220px;">
+                    <label for="evName">{{ 'Name'|trans }}</label>
+                    <input type="text" name="name" id="evName" placeholder="{{ 'refund policy honoured'|trans }}">
+                </div>
+                <div class="field" style="flex:1 1 220px;">
+                    <label for="evFlow">{{ 'Test'|trans }}</label>
+                    <select name="flow" id="evFlow">
+                        {% for f in flows %}<option value="{{ f.id }}">{{ f.name }}</option>{% endfor %}
+                    </select>
+                </div>
+                <div class="field" style="flex:0 0 130px;">
+                    <label for="evRepeats">{{ 'Runs per row'|trans }}</label>
+                    <input type="number" name="repeats" id="evRepeats" value="5" min="1" max="20">
+                </div>
+            </div>
+            <div class="field">
+                <label for="evDataset">{{ 'Rows (JSON)'|trans }}</label>
+                <textarea name="dataset" id="evDataset" rows="5" class="input-mono" spellcheck="false"
+                          placeholder='[{"question": "can I get a refund after 40 days?"}, {"question": "cancel my plan"}]'></textarea>
+                <p class="fhint">{{ 'One object per row; its keys become the {{variable}}s of that run.'|trans }}</p>
+            </div>
+            <button class="btn" type="submit">{{ ic.i('plus', 13) }}{{ 'Create evaluation'|trans }}</button>
+        </form>
+    {% endif %}
+</div></div>
+{% endblock %}

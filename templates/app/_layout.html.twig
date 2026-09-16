@@ -71,6 +71,8 @@
                 {# Suites live inside this page now — both routes light the same item. #}
                 <a href="{{ path('app_flow_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_flow' ? 'active' }}">
                     {{ ic.i('flows') }}<span class="label">{{ 'Tests'|trans }}</span></a>
+                <a href="{{ path('app_evaluation_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_evaluation' ? 'active' }}">
+                    {{ ic.i('bot') }}<span class="label">{{ 'Evaluations'|trans }}</span></a>
                 <a href="{{ path('app_history_index', {workspace: ws.id}) }}" class="{{ route starts with 'app_history' ? 'active' }}">
                     {{ ic.i('history') }}<span class="label">{{ 'History'|trans }}</span></a>
                 <a href="{{ path('app_trends', {workspace: ws.id}) }}" class="{{ route starts with 'app_trends' ? 'active' }}">

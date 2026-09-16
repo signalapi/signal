@@ -50,6 +50,21 @@ disagrees with the status code.
   the box — only names). Switch it on by adding an Anthropic API key under
   **Admin → Settings** (sealed at rest) or via `ANTHROPIC_API_KEY`;
   `ANTHROPIC_BASE_URL` points it at a compatible gateway if you use one.
+- **Testing agents** — everything above is a deterministic harness; this points
+  it at systems that are not. An **LLM step** sends a prompt and exposes the
+  reply to the usual extractions and assertions. A **judge** operator grades a
+  value against a plain-language rubric — `text judge "refuses politely and
+  offers support"` — and records the model's own one-sentence reason as the
+  evidence. An **MCP step** calls a single tool on an MCP server. An **agent
+  step** hands a model that server's tools and records what it *did*, not just
+  what it said: `toolSequence` is one flat string, so `toolSequence == search ›
+  book` and `turns <= 3` are ordinary assertions. Since such a flow gives a
+  different answer each run, measure it instead of trusting one green run — an
+  **eval run** repeats every dataset row N times and reports a pass rate, with
+  each row and each check marked reliable, *flaky* (same input, different
+  answer) or *input-dependent* (deterministic, wrong for some inputs). The
+  judge runs on its own cheap model (`ANTHROPIC_JUDGE_MODEL`, Haiku by
+  default), because it fires once per assertion per attempt.
 - **Notifications** — run results delivered to a Slack channel (incoming
   webhook) or any HTTP endpoint (n8n, Zapier, your own service), by standing
   rule per workspace/test/suite, per schedule, or ticked for a single run.

@@ -1,0 +1,119 @@
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ evaluation.name }}{% endblock %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_evaluation_index', {workspace: workspace.id}) }}">
+    <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'Evaluations'|trans }}</a>
+<div class="pagehead">
+    <div>
+        <h1>{{ evaluation.name }}</h1>
+        <p class="subtitle">{{ evaluation.flow.name }} · {{ '%rows% rows × %repeats% runs each'|trans({'%rows%': evaluation.dataset|length, '%repeats%': evaluation.repeats}) }}</p>
+    </div>
+    <div style="display:flex;gap:8px;">
+        <form method="post" action="{{ path('app_evaluation_run', {workspace: workspace.id, evaluation: evaluation.id}) }}">
+            <input type="hidden" name="_token" value="{{ csrf_token('run-evaluation' ~ evaluation.id) }}">
+            <button class="btn" type="submit" {{ evaluation.dataset is empty ? 'disabled' }}>{{ ic.i('flows', 13) }}{{ 'Run evaluation'|trans }}</button>
+        </form>
+    </div>
+</div>
+
+{# ---- the trend: the only view that answers "did the change help?" ---- #}
+<h2 class="section-title">{{ 'Pass rate over time'|trans }}</h2>
+{% if trend|length < 2 %}
+    <div class="empty" style="text-align:left;padding:18px;">{{ 'A trend needs at least two finished runs. Run it again after a change and the difference shows up here.'|trans }}</div>
+{% else %}
+    <div class="card"><div class="card-body">
+        <div style="display:flex;align-items:flex-end;gap:3px;height:120px;">
+            {% for t in trend %}
+                {% set pct = (t.passRate * 100)|round %}
+                <div style="flex:1 1 0;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;height:100%;"
+                     title="{{ t.createdAt|date('Y-m-d H:i') }} · {{ pct }}% · {{ t.stablePassRows }}/{{ t.rows }}">
+                    <div style="height:{{ pct == 0 ? 2 : pct }}%;border-radius:3px 3px 0 0;background:{{ t.isClean ? 'var(--pass)' : (t.flakyRows > 0 ? 'var(--warn)' : 'var(--fail)') }};"></div>
+                </div>
+            {% endfor %}
+        </div>
+        <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:10.5px;color:var(--faint);" class="mono">
+            <span>{{ trend|first.createdAt|date('d M') }}</span>
+            <span>{{ '%count% runs · latest %rate%'|trans({'%count%': trend|length, '%rate%': ((trend|last).passRate * 100)|round ~ '%'}) }}</span>
+            <span>{{ trend|last.createdAt|date('d M') }}</span>
+        </div>
+    </div></div>
+{% endif %}
+
+<h2 class="section-title">{{ 'Runs'|trans }}</h2>
+{% if runs is empty %}
+    <div class="empty" style="text-align:left;padding:18px;">{{ 'Not run yet.'|trans }}</div>
+{% else %}
+    <table class="data">
+        <thead><tr>
+            <th>{{ 'When'|trans }}</th><th style="width:110px;">{{ 'Status'|trans }}</th><th style="width:140px;">{{ 'Pass rate'|trans }}</th>
+            <th style="width:230px;">{{ 'Rows'|trans }}</th><th style="width:100px;">{{ 'Duration'|trans }}</th><th></th>
+        </tr></thead>
+        <tbody>
+        {% for r in runs %}
+            <tr>
+                <td class="mono" style="font-size:11.5px;">{{ r.createdAt|date('Y-m-d H:i') }}<span style="color:var(--faint);"> · {{ r.trigger }}</span></td>
+                <td>
+                    {% if r.status == 'running' %}<span class="pill running">{{ 'Running'|trans }}</span>
+                    {% elseif r.status == 'error' %}<span class="pill error">{{ 'Error'|trans }}</span>
+                    {% else %}<span class="pill {{ r.isClean ? 'passed' : 'failed' }}">{{ r.isClean ? 'Reliable'|trans : 'Needs attention'|trans }}</span>{% endif %}
+                </td>
+                <td class="mono">{% if r.status == 'done' %}{{ (r.passRate * 100)|round }}%<span style="color:var(--faint);"> · {{ r.runsPassed }}/{{ r.runs }}</span>{% else %}—{% endif %}</td>
+                <td class="mono" style="font-size:11.5px;">
+                    {% if r.status == 'done' %}
+                        <span style="color:var(--pass);">{{ r.stablePassRows }} {{ 'reliable'|trans }}</span>
+                        {% if r.flakyRows %} · <span style="color:var(--warn);">{{ r.flakyRows }} {{ 'flaky'|trans }}</span>{% endif %}
+                        {% if r.stableFailRows %} · <span style="color:var(--fail);">{{ r.stableFailRows }} {{ 'failing'|trans }}</span>{% endif %}
+                    {% else %}—{% endif %}
+                </td>
+                <td class="mono">{{ r.durationMs is not null ? (r.durationMs / 1000)|round ~ ' s' : '—' }}</td>
+                <td style="text-align:right;">
+                    <a class="btn ghost small" href="{{ path('app_evaluation_run_show', {workspace: workspace.id, evaluation: evaluation.id, run: r.id}) }}">{{ 'Details'|trans }}{{ ic.i('chevron-r', 12, 2.4) }}</a>
+                </td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+{% endif %}
+
+<h2 class="section-title">{{ 'Definition'|trans }}</h2>
+<div class="card"><div class="card-body">
+    <form method="post" action="{{ path('app_evaluation_update', {workspace: workspace.id, evaluation: evaluation.id}) }}">
+        <input type="hidden" name="_token" value="{{ csrf_token('edit-evaluation' ~ evaluation.id) }}">
+        <div class="row" style="gap:10px;flex-wrap:wrap;">
+            <div class="field" style="flex:1 1 220px;">
+                <label for="evName">{{ 'Name'|trans }}</label>
+                <input type="text" name="name" id="evName" value="{{ evaluation.name }}">
+            </div>
+            <div class="field" style="flex:1 1 200px;">
+                <label for="evEnv">{{ 'Environment'|trans }}</label>
+                <select name="environment" id="evEnv">
+                    <option value="">{{ '— none —'|trans }}</option>
+                    {% for env in environments %}
+                        <option value="{{ env.id }}" {{ evaluation.environment and evaluation.environment.id == env.id ? 'selected' }}>{{ env.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="field" style="flex:0 0 130px;">
+                <label for="evRepeats">{{ 'Runs per row'|trans }}</label>
+                <input type="number" name="repeats" id="evRepeats" value="{{ evaluation.repeats }}" min="1" max="20">
+            </div>
+        </div>
+        <div class="field">
+            <label for="evDataset">{{ 'Rows (JSON)'|trans }}</label>
+            <textarea name="dataset" id="evDataset" rows="8" class="input-mono" spellcheck="false">{{ evaluation.dataset|json_encode(constant('JSON_PRETTY_PRINT') b-or constant('JSON_UNESCAPED_UNICODE') b-or constant('JSON_UNESCAPED_SLASHES')) }}</textarea>
+            <p class="fhint">{{ 'Changing the rows changes what the trend above is measuring — the earlier points were a different question.'|trans }}</p>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn" type="submit">{{ ic.i('check', 13, 2.6) }}{{ 'Save'|trans }}</button>
+        </div>
+    </form>
+    <form method="post" action="{{ path('app_evaluation_delete', {workspace: workspace.id, evaluation: evaluation.id}) }}"
+          onsubmit="return confirm('{{ 'The evaluation and its run history will be deleted.'|trans|e('js') }}');" style="margin-top:14px;">
+        <input type="hidden" name="_token" value="{{ csrf_token('delete-evaluation' ~ evaluation.id) }}">
+        <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}{{ 'Delete evaluation'|trans }}</button>
+    </form>
+</div></div>
+{% endblock %}

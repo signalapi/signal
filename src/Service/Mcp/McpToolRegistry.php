@@ -3,6 +3,7 @@
 namespace App\Service\Mcp;
 
 use App\Entity\Environment;
+use App\Entity\Evaluation;
 use App\Entity\FlowGroup;
 use App\Entity\FlowGroupRun;
 use App\Entity\FlowRun;
@@ -53,6 +54,10 @@ class McpToolRegistry
         private readonly FlowExpressionParser $parser,
         private readonly FlowVariableScanner $varScanner,
         private readonly FlowRunReporter $reporter,
+        private readonly \App\Service\EvalReport $evalReport,
+        private readonly \App\Repository\EvaluationRepository $evaluations,
+        private readonly \App\Repository\EvaluationRunRepository $evaluationRuns,
+        private readonly \App\Service\EvaluationRunner $evaluationRunner,
         private readonly MessageBusInterface $bus,
         private readonly \App\Repository\ScheduleRepository $schedules,
         private readonly \App\Service\ScheduleCompiler $scheduleCompiler,
@@ -160,7 +165,7 @@ class McpToolRegistry
                     'stopOnFailure' => ['type' => 'boolean'],
                     'contractStrict' => ['type' => 'boolean'],
                 ]]],
-            ['name' => 'update_step', 'description' => 'Update a step: its name, query/connection for a DB step, and its run-if CONDITION. Pass condition {left, op, right} to make the step run only when the condition holds (branching); pass null to drop the condition. op: eq/ne/contains/matches/gt/lt/ge/le/exists/empty/notEmpty. To edit an HTTP request, use set_step_request.',
+            ['name' => 'update_step', 'description' => 'Update a step: its name, query/connection for a DB step, and its run-if CONDITION. Pass condition {left, op, right} to make the step run only when the condition holds (branching); pass null to drop the condition. op: eq/ne/contains/notContains/matches/gt/lt/ge/le/exists/empty/notEmpty, plus judge (a model grades the left side against the right side as a plain-language rubric — one model call per evaluation, so keep it off hot loops). Both sides resolve {{variables}}. Pass alwaysRun=true to make it a TEARDOWN step: it runs even after the flow has stopped on a failure or was cancelled, so a test that changed something outside itself can put it back. Its own run-if condition still applies, so \"restore only if we got as far as taking a snapshot\" works, and on a call step the whole sub-flow becomes the teardown block. A failing teardown still reddens the run; a passing one never turns a failed run green. To edit an HTTP request, use set_step_request.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
                     'stepId' => ['type' => 'string'],
                     'name' => ['type' => 'string'],
@@ -169,11 +174,12 @@ class McpToolRegistry
                     'condition' => ['type' => ['object', 'null'], 'description' => '{left, op, right} — e.g. {"left":"{{provider}}","op":"eq","right":"Yuno"}. null = remove the condition.', 'properties' => [
                         'left' => ['type' => 'string'], 'op' => ['type' => 'string'], 'right' => ['type' => 'string'],
                     ]],
+                    'alwaysRun' => ['type' => 'boolean', 'description' => 'Teardown: run this step even after the flow has stopped, so cleanup happens whether or not the test passed.'],
                     'loop' => ['type' => ['object', 'null'], 'description' => 'forEach loop {over, as}: over is an expression that resolves to an array ({{pkgs}}), as is the item variable. The step repeats for every item ({{as}}, or {{as.field}} for objects, plus {{as_index}}). null = remove the loop.', 'properties' => [
                         'over' => ['type' => 'string'], 'as' => ['type' => 'string'],
                     ]],
                 ]]],
-            ['name' => 'add_http_step', 'description' => 'Add an HTTP request step to a flow. extractions: ["var = json.path"], assertions: ["status == 200", "data.id exists"].',
+            ['name' => 'add_http_step', 'description' => 'Add an HTTP request step to a flow. extractions: ["var = json.path"], assertions: ["status == 200", "data.id exists"]. For a field whose wording is not fixed, the judge operator grades it against a plain-language rubric: ["data.reply judge \"apologises and gives a refund reference\""].',
                 'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'requestId'], 'properties' => [
                     'flowId' => ['type' => 'string'],
                     'requestId' => ['type' => 'string'],
@@ -201,6 +207,50 @@ class McpToolRegistry
                     'successUrlPattern' => ['type' => 'string', 'description' => 'Regex; session completes when the browser lands on a matching URL (e.g. the return/callback host)'],
                     'actions' => ['type' => 'array', 'description' => 'Optional bespoke gestures before auto-detection: [{"type":"fill"|"click","selector":"…","value":"…"}]', 'items' => ['type' => 'object']],
                     'timeoutMs' => ['type' => 'integer', 'description' => 'Max session time (default 45000, max 120000)'],
+                    'name' => ['type' => 'string'],
+                    'extractions' => $strArray,
+                    'assertions' => $strArray,
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
+                ]]],
+            ['name' => 'add_llm_step', 'description' => 'Add an LLM step to a flow: sends prompt to Claude and exposes the reply to this step\'s extractions and assertions. Use it to test an LLM- or agent-backed system, or to generate input for later steps. prompt/system support {{variable}}. The result exposes text/model/stopReason/inputTokens/outputTokens/durationMs, plus `json` when the reply itself parses as JSON (so "json.intent == refund" works on a structured answer), and sets {{llmText}} for later steps. For a reply with no single correct wording, assert it with the judge operator: ["text judge \"refuses to cancel and offers to contact support\""].',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'prompt'], 'properties' => [
+                    'flowId' => ['type' => 'string'],
+                    'prompt' => ['type' => 'string', 'description' => 'The user message to send; {{variable}} tokens resolve from the run context'],
+                    'system' => ['type' => 'string', 'description' => 'Optional system prompt — the role/rules the reply must follow'],
+                    'model' => ['type' => 'string', 'description' => 'Optional model id override (default: the platform model configured in Admin -> Settings)'],
+                    'maxTokens' => ['type' => 'integer', 'description' => 'Reply length cap (default 1024, max 8000)'],
+                    'name' => ['type' => 'string'],
+                    'extractions' => $strArray,
+                    'assertions' => $strArray,
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
+                ]]],
+            ['name' => 'add_mcp_step', 'description' => 'Add an MCP TOOL CALL step: calls one tool on an MCP server with the arguments you give and asserts the result — the deterministic way to test an MCP server itself. server/tool/headers and every string inside arguments support {{variable}}, so the bearer token belongs in an environment variable, not in the step. The result exposes isError, text, result (the server\'s structuredContent, or its text parsed as JSON), tool, server and durationMs. A tool reporting its own failure comes back as isError rather than erroring the step, so "isError == true" is itself assertable.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'server', 'tool'], 'properties' => [
+                    'flowId' => ['type' => 'string'],
+                    'server' => ['type' => 'string', 'description' => 'MCP endpoint URL, e.g. https://host/mcp'],
+                    'tool' => ['type' => 'string', 'description' => 'Name of the tool to call'],
+                    'arguments' => ['type' => 'object', 'description' => 'Arguments for the tool; strings anywhere inside resolve {{variable}}'],
+                    'headers' => ['type' => 'object', 'description' => 'Extra request headers, e.g. {"Authorization": "Bearer {{mcpToken}}"}'],
+                    'timeoutMs' => ['type' => 'integer', 'description' => 'Per-call timeout (default 30000)'],
+                    'name' => ['type' => 'string'],
+                    'extractions' => $strArray,
+                    'assertions' => $strArray,
+                    'position' => ['type' => 'integer', 'description' => 'Where the step goes: 0-based index, existing steps shift down. Omit to append at the end.'],
+                    'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
+                ]]],
+            ['name' => 'add_agent_step', 'description' => 'Add an AGENT step: hands a model the MCP server\'s tools and a task, runs the loop, and records what it DID. Use it to test agent BEHAVIOUR — the reply is the easy part, the thing that breaks is which tools it reached for and in what order. The result exposes toolSequence ("search_flights › book_flight", one flat string, so ordinary operators test behaviour: "toolSequence == a › b" pins the chain, "toolSequence contains refund" catches a call anywhere, "toolSequence matches ^search" anchors the opener, and "toolSequence notContains delete_user" proves a tool was never reached — asserting what an agent must NOT do is usually the point), toolCalls[] with each input and isError, toolNames, toolCallCount, turns (model calls — "turns <= 3" is a real efficiency test), truncated (it was still working when maxTurns ran out — worth asserting false), text, stopReason and token counts. Sets {{agentText}} and {{agentToolSequence}} for later steps. Agent output varies between runs, so measure it with run_dataset + repeats rather than trusting one green run, and assert the reply with the judge operator. Retry is honoured but off by default: re-running an agent produces a DIFFERENT trace, so it hides the very non-determinism repeats are there to measure — enable it for transient API failures, not to make a flaky agent look green.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'server', 'prompt'], 'properties' => [
+                    'flowId' => ['type' => 'string'],
+                    'server' => ['type' => 'string', 'description' => 'MCP endpoint URL whose tools the agent gets'],
+                    'prompt' => ['type' => 'string', 'description' => 'The task given to the agent; supports {{variable}}'],
+                    'system' => ['type' => 'string', 'description' => 'Optional system prompt — the role and rules under test'],
+                    'tools' => array_merge($strArray, ['description' => 'Allow-list of tool names; empty = every tool the server offers. Narrow it to test how the agent copes when a tool it wants is missing.']),
+                    'model' => ['type' => 'string', 'description' => 'Optional model id override (default: the platform model)'],
+                    'maxTurns' => ['type' => 'integer', 'description' => 'Model calls before the agent is cut off (default 8, max 20)'],
+                    'maxTokens' => ['type' => 'integer', 'description' => 'Reply length cap per turn (default 2048, max 8000)'],
+                    'headers' => ['type' => 'object', 'description' => 'Extra request headers for the MCP server, e.g. {"Authorization": "Bearer {{mcpToken}}"}'],
                     'name' => ['type' => 'string'],
                     'extractions' => $strArray,
                     'assertions' => $strArray,
@@ -258,6 +308,13 @@ class McpToolRegistry
                     'variables' => ['type' => 'object'],
                     'notify' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Report this run to these notification destinations (names or ids from list_notification_destinations), on top of the workspace rules. Pass ["none"] to send nothing at all.'],
                 ]]],
+            ['name' => 'run_dataset', 'description' => 'Run a flow once per dataset row and return an EVAL REPORT — the way to test a flow whose result is not the same every time (an LLM step, an agent\'s tool choice, anything graded by a judge assertion). With repeats > 1 each row runs that many times, so the answer is a pass RATE rather than a single verdict. The report gives: passRate (how often one attempt passes), each row as stable-pass / flaky / stable-fail, and `checks` — every assertion that did not always pass, judged WITHIN each row first so the report separates flaky (the same input gives different answers) from input-dependent (deterministic, but wrong for some rows) and stable-fail (never passes anywhere), each with one real failure message (for a judge assertion, the model\'s own stated reason). Runs synchronously; rows × repeats must be at most 60.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'dataset'], 'properties' => [
+                    'flowId' => ['type' => 'string'],
+                    'dataset' => ['type' => 'array', 'description' => 'The rows to run, each an object of {variableName: value} merged over the environment for that run', 'items' => ['type' => 'object']],
+                    'repeats' => ['type' => 'integer', 'description' => 'How many times to run EACH row (default 1, max 20). Above 1 is what measures flakiness; 5 is a usual starting point.'],
+                    'environmentName' => ['type' => 'string'],
+                ]]],
             ['name' => 'list_runs', 'description' => 'List recent runs (status, passed steps, duration, date). With flowId, only that flow\'s runs; without it, the whole workspace.',
                 'inputSchema' => ['type' => 'object', 'properties' => [
                     'flowId' => ['type' => 'string'],
@@ -307,7 +364,7 @@ class McpToolRegistry
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId', 'var', 'path'], 'properties' => [
                     'stepId' => ['type' => 'string'], 'var' => ['type' => 'string'], 'path' => ['type' => 'string'],
                 ]]],
-            ['name' => 'set_step_checks', 'description' => 'Set a step\'s extractions, assertions and/or JSON schema validation (anything you omit is left unchanged). schema: a JSON Schema object (type/properties/required/items) — the step fails when the response does not match; pass null or an empty value to remove the schema.',
+            ['name' => 'set_step_checks', 'description' => 'Set a step\'s extractions, assertions and/or JSON schema validation (anything you omit is left unchanged). schema: a JSON Schema object (type/properties/required/items) — the step fails when the response does not match; pass null or an empty value to remove the schema. Assertion operators: == != > < >= <= contains notContains matches exists empty notEmpty, plus judge — "<path> judge \"<rubric in plain language>\"" has a model grade the value and records its one-sentence reason in the result, for outputs with no single correct string (an agent reply, a summary). A judge assertion costs one model call per attempt, so pair it with retry sparingly.',
                 'inputSchema' => ['type' => 'object', 'required' => ['stepId'], 'properties' => [
                     'stepId' => ['type' => 'string'], 'extractions' => $strArray, 'assertions' => $strArray,
                     'schema' => ['type' => ['object', 'null'], 'description' => 'JSON Schema object; null = remove'],
@@ -341,10 +398,50 @@ class McpToolRegistry
 
             ['name' => 'list_notification_destinations', 'description' => 'List where run results can be reported: Slack channels and HTTP endpoints defined for this workspace, with the rules that already point at them. Use the names with the notify argument of run_flow/run_suite or with update_schedule. Destinations themselves are created in the Signal UI, because the webhook URL is a secret.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'list_evaluations', 'description' => 'List the workspace\'s evaluations — saved measurements of a flow (its dataset, its repeat count) — each with its most recent pass rate. An evaluation is what makes "is the agent better than last week?" answerable: a suite says whether something still passes, an evaluation says how OFTEN.',
+                'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'create_evaluation', 'description' => 'Save an evaluation: a flow, the dataset rows to feed it, and how many times to repeat each row. repeats above 1 is what turns a verdict into a rate — use it for any flow with an LLM, agent or judge step. Returns evaluationId.',
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'name', 'dataset'], 'properties' => [
+                    'flowId' => ['type' => 'string'],
+                    'name' => ['type' => 'string'],
+                    'description' => ['type' => 'string'],
+                    'dataset' => ['type' => 'array', 'description' => 'Rows, each an object of {variableName: value} merged over the environment for that run', 'items' => ['type' => 'object']],
+                    'repeats' => ['type' => 'integer', 'description' => 'How many times each row runs (default 1, max 20). 5 is a usual starting point for a non-deterministic flow.'],
+                    'environmentName' => ['type' => 'string'],
+                ]]],
+            ['name' => 'update_evaluation', 'description' => 'Change a saved evaluation. Only the fields you pass are changed; pass dataset to replace the whole row list.',
+                'inputSchema' => ['type' => 'object', 'required' => ['evaluationId'], 'properties' => [
+                    'evaluationId' => ['type' => 'string'],
+                    'name' => ['type' => 'string'],
+                    'description' => ['type' => 'string'],
+                    'dataset' => ['type' => 'array', 'items' => ['type' => 'object']],
+                    'repeats' => ['type' => 'integer'],
+                    'environmentName' => ['type' => 'string'],
+                ]]],
+            ['name' => 'run_evaluation', 'description' => 'Run a saved evaluation IN THE BACKGROUND and return evaluationRunId immediately. Always async: rows × repeats is the point of an evaluation and outgrows a synchronous call quickly. Track it with get_evaluation_run. For a one-off measurement with no saved definition, use run_dataset instead.',
+                'inputSchema' => ['type' => 'object', 'required' => ['evaluationId'], 'properties' => [
+                    'evaluationId' => ['type' => 'string'],
+                    'notify' => ['type' => 'array', 'description' => 'Notification destination names to report this run to', 'items' => ['type' => 'string']],
+                ]]],
+            ['name' => 'get_evaluation_run', 'description' => 'Return one evaluation run: its status and, once finished, the full report — passRate (how often a single attempt passed), each row as stable-pass / flaky / stable-fail, and the checks that did not always pass, with flaky (same input, different answer) told apart from input-dependent (deterministic, wrong for some rows). Omit runId for the latest run of that evaluation.',
+                'inputSchema' => ['type' => 'object', 'required' => ['evaluationId'], 'properties' => [
+                    'evaluationId' => ['type' => 'string'],
+                    'runId' => ['type' => 'string', 'description' => 'A specific run; omit for the most recent.'],
+                ]]],
+            ['name' => 'get_evaluation_trend', 'description' => 'The pass rate of an evaluation over its recent runs, oldest first — the answer to "is this getting better or worse?". Each point carries the date, passRate, and the reliable/flaky/failing row counts.',
+                'inputSchema' => ['type' => 'object', 'required' => ['evaluationId'], 'properties' => [
+                    'evaluationId' => ['type' => 'string'],
+                    'limit' => ['type' => 'integer', 'description' => 'How many recent runs (default 30, max 90)'],
+                ]]],
+            ['name' => 'delete_evaluation', 'description' => 'Delete an evaluation and its run history. The flow it measured is not touched.',
+                'inputSchema' => ['type' => 'object', 'required' => ['evaluationId'], 'properties' => [
+                    'evaluationId' => ['type' => 'string'],
+                ]]],
             ['name' => 'list_schedules', 'description' => 'List the workspace\'s schedules: what each one runs (a flow or a suite), its timing rules in plain words, whether it is active, its timezone, and the next and last run.',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
-            ['name' => 'create_schedule', 'description' => 'Schedule a flow or a suite to run by itself. Give EITHER flowId OR suiteId. A schedule holds a LIST of rules, so "Mondays every hour and Tuesdays every two hours" is one schedule with two rules. The smallest unit is a minute. Times are read in the schedule\'s timezone.',
+            ['name' => 'create_schedule', 'description' => 'Schedule a flow, a suite or an EVALUATION to run by itself. Give exactly one of flowId, suiteId or evaluationId. A scheduled evaluation is how an agent gets measured over time rather than spot-checked: it always runs on the worker, and each firing adds a point to its trend. A schedule holds a LIST of rules, so "Mondays every hour and Tuesdays every two hours" is one schedule with two rules. The smallest unit is a minute. Times are read in the schedule\'s timezone.',
                 'inputSchema' => ['type' => 'object', 'required' => ['rules'], 'properties' => [
+                    'evaluationId' => ['type' => 'string', 'description' => 'Run a saved evaluation on this schedule (instead of flowId/suiteId).'],
                     'flowId' => ['type' => 'string'],
                     'suiteId' => ['type' => 'string'],
                     'name' => ['type' => 'string', 'description' => 'Defaults to the target\'s name'],
@@ -372,6 +469,7 @@ class McpToolRegistry
                     'enabled' => ['type' => 'boolean'],
                     'timezone' => ['type' => 'string'],
                     'environmentName' => ['type' => 'string'],
+                    'evaluationId' => ['type' => 'string', 'description' => 'Run a saved evaluation on this schedule (instead of flowId/suiteId).'],
                     'flowId' => ['type' => 'string'],
                     'notify' => ['type' => 'array', 'items' => ['type' => 'string'], 'description' => 'Destinations (names or ids) this schedule reports to, on top of the workspace rules. Pass an empty array to clear.'],
                     'notifyCondition' => ['type' => 'string', 'enum' => ['always', 'on_failure'], 'description' => 'Report every run, or only failures (default: always).'],
@@ -426,6 +524,9 @@ class McpToolRegistry
             'add_http_step' => $this->addHttpStep($ws, $args),
             'add_db_step' => $this->addDbStep($ws, $args),
             'add_browser_step' => $this->addBrowserStep($ws, $args),
+            'add_llm_step' => $this->addLlmStep($ws, $args),
+            'add_mcp_step' => $this->addMcpStep($ws, $args),
+            'add_agent_step' => $this->addAgentStep($ws, $args),
             'add_call_step' => $this->addCallStep($ws, $args),
             'add_setvar_step' => $this->addSetvarStep($ws, $args),
             'add_delay_step' => $this->addDelayStep($ws, $args),
@@ -433,6 +534,14 @@ class McpToolRegistry
             'get_flow_variables' => $this->getFlowVariables($ws, $args),
             'run_flow' => $this->runFlow($ws, $args),
             'run_flow_async' => $this->runFlowAsync($ws, $args),
+            'run_dataset' => $this->runDatasetTool($ws, $args),
+            'list_evaluations' => $this->listEvaluations($ws),
+            'create_evaluation' => $this->createEvaluation($ws, $args),
+            'update_evaluation' => $this->updateEvaluation($ws, $args),
+            'run_evaluation' => $this->runEvaluation($ws, $args),
+            'get_evaluation_run' => $this->getEvaluationRun($ws, $args),
+            'get_evaluation_trend' => $this->getEvaluationTrend($ws, $args),
+            'delete_evaluation' => $this->deleteEvaluation($ws, $args),
             'list_runs' => $this->listRuns($ws, $args),
             'get_run' => $this->getRun($ws, $args),
             'diagnose_run' => $this->diagnoseRun($ws, $args),
@@ -812,6 +921,9 @@ class McpToolRegistry
         if (\array_key_exists('loop', $args)) {
             $step->setLoop($this->normalizeLoop($args['loop']));
         }
+        if (\array_key_exists('alwaysRun', $args)) {
+            $step->setAlwaysRun((bool) $args['alwaysRun']);
+        }
         $this->steps->save($step);
 
         return ['ok' => true, 'stepId' => (string) $step->getId(), 'name' => $step->getName(), 'condition' => $step->getCondition(), 'loop' => $step->getLoop()];
@@ -924,6 +1036,101 @@ class McpToolRegistry
         return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition()];
     }
 
+    private function addLlmStep(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $prompt = trim((string) ($args['prompt'] ?? ''));
+        if ('' === $prompt) {
+            throw new \InvalidArgumentException('prompt is required.');
+        }
+
+        $config = array_filter([
+            'prompt' => $prompt,
+            'system' => trim((string) ($args['system'] ?? '')) ?: null,
+            'model' => trim((string) ($args['model'] ?? '')) ?: null,
+            'maxTokens' => isset($args['maxTokens']) ? (int) $args['maxTokens'] : null,
+        ], static fn ($v) => null !== $v);
+
+        $step = new FlowStep();
+        $step->setFlow($flow);
+        $step->setType(FlowStep::TYPE_LLM);
+        $step->setQuery((string) json_encode($config, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
+        $step->setName((string) ($args['name'] ?? 'LLM'));
+        $this->placeStep($flow, $step, $args);
+        $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'] ?? [])));
+        $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'] ?? [])));
+        $this->steps->save($step);
+
+        return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition()];
+    }
+
+    private function addMcpStep(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $server = trim((string) ($args['server'] ?? ''));
+        $tool = trim((string) ($args['tool'] ?? ''));
+        if ('' === $server || '' === $tool) {
+            throw new \InvalidArgumentException('server and tool are required.');
+        }
+
+        $config = array_filter([
+            'server' => $server,
+            'tool' => $tool,
+            'arguments' => \is_array($args['arguments'] ?? null) && [] !== $args['arguments'] ? $args['arguments'] : null,
+            'headers' => \is_array($args['headers'] ?? null) && [] !== $args['headers'] ? $args['headers'] : null,
+            'timeoutMs' => isset($args['timeoutMs']) ? (int) $args['timeoutMs'] : null,
+        ], static fn ($v) => null !== $v);
+
+        return $this->saveConfiguredStep($flow, FlowStep::TYPE_MCP, $config, (string) ($args['name'] ?? 'MCP: ' . $tool), $args);
+    }
+
+    private function addAgentStep(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $server = trim((string) ($args['server'] ?? ''));
+        $prompt = trim((string) ($args['prompt'] ?? ''));
+        if ('' === $server || '' === $prompt) {
+            throw new \InvalidArgumentException('server and prompt are required.');
+        }
+
+        $allow = array_values(array_filter(array_map('strval', (array) ($args['tools'] ?? []))));
+        $config = array_filter([
+            'server' => $server,
+            'prompt' => $prompt,
+            'system' => trim((string) ($args['system'] ?? '')) ?: null,
+            'tools' => [] !== $allow ? $allow : null,
+            'model' => trim((string) ($args['model'] ?? '')) ?: null,
+            'maxTurns' => isset($args['maxTurns']) ? (int) $args['maxTurns'] : null,
+            'maxTokens' => isset($args['maxTokens']) ? (int) $args['maxTokens'] : null,
+            'headers' => \is_array($args['headers'] ?? null) && [] !== $args['headers'] ? $args['headers'] : null,
+        ], static fn ($v) => null !== $v);
+
+        return $this->saveConfiguredStep($flow, FlowStep::TYPE_AGENT, $config, (string) ($args['name'] ?? 'Agent'), $args);
+    }
+
+    /**
+     * Shared tail of every step whose whole configuration is JSON in `query`.
+     *
+     * @param array<string, mixed> $config
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function saveConfiguredStep(TestFlow $flow, string $type, array $config, string $name, array $args): array
+    {
+        $step = new FlowStep();
+        $step->setFlow($flow);
+        $step->setType($type);
+        $step->setQuery((string) json_encode($config, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
+        $step->setName($name);
+        $this->placeStep($flow, $step, $args);
+        $step->setExtractions($this->parser->parseExtractions($this->joinLines($args['extractions'] ?? [])));
+        $step->setAssertions($this->parser->parseAssertions($this->joinLines($args['assertions'] ?? [])));
+        $this->steps->save($step);
+
+        return ['stepId' => (string) $step->getId(), 'position' => $step->getPosition()];
+    }
+
     private function addCallStep(Workspace $ws, array $args): array
     {
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
@@ -963,6 +1170,44 @@ class McpToolRegistry
         $this->runner->executeInto($run, $flow, $environment, $this->scalarVars($args['variables'] ?? []));
 
         return $this->reporter->toArray($run);
+    }
+
+    private function runDatasetTool(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        if ($flow->getSteps()->isEmpty()) {
+            throw new \InvalidArgumentException('Flow has no steps.');
+        }
+
+        $dataset = $args['dataset'] ?? [];
+        if (!\is_array($dataset) || [] === $dataset) {
+            throw new \InvalidArgumentException('dataset must be a non-empty array of rows.');
+        }
+        $rows = [];
+        foreach ($dataset as $i => $row) {
+            if (!\is_array($row)) {
+                throw new \InvalidArgumentException(sprintf('Dataset row %d is not an object of {variable: value}.', $i + 1));
+            }
+            $rows[] = $row;
+        }
+
+        $repeats = max(1, min(20, (int) ($args['repeats'] ?? 1)));
+        $planned = \count($rows) * $repeats;
+        if ($planned > FlowRunner::MAX_DATASET_RUNS) {
+            throw new \InvalidArgumentException(sprintf(
+                '%d rows × %d repeats is %d runs; this tool runs at most %d synchronously. Use fewer rows or repeats.',
+                \count($rows), $repeats, $planned, FlowRunner::MAX_DATASET_RUNS,
+            ));
+        }
+
+        $environment = $flow->getDefaultEnvironment();
+        if (!empty($args['environmentName'])) {
+            $environment = $this->findEnvironmentByName($ws, (string) $args['environmentName']);
+        }
+
+        $runs = $this->runner->runDataset($flow, $environment, $rows, 'mcp', [], $this->actor(), $repeats);
+
+        return ['batchId' => $runs[0]->getBatchId()] + $this->evalReport->of($runs);
     }
 
     /** The user the MCP bearer token belongs to — the actor behind MCP-triggered runs. */
@@ -1091,8 +1336,13 @@ class McpToolRegistry
                 'id' => (string) $s->getId(),
                 'name' => $s->getName(),
                 'enabled' => $s->isEnabled(),
-                'target' => $s->isSuite() ? 'suite' : 'flow',
-                'targetId' => (string) ($s->getFlowGroup()?->getId() ?? $s->getFlow()?->getId()),
+                'target' => match (true) {
+                    $s->isEvaluation() => 'evaluation',
+                    $s->isSuite() => 'suite',
+                    $s->isDigest() => 'digest',
+                    default => 'flow',
+                },
+                'targetId' => (string) ($s->getEvaluation()?->getId() ?? $s->getFlowGroup()?->getId() ?? $s->getFlow()?->getId()),
                 'targetName' => $s->getTargetName(),
                 'timezone' => $s->getTimezone(),
                 'environment' => $s->getEnvironment()?->getName(),
@@ -1118,7 +1368,7 @@ class McpToolRegistry
             return ['error' => $error];
         }
         if (!$schedule->hasTarget()) {
-            return ['error' => 'Give either flowId or suiteId.'];
+            return ['error' => 'Give one of flowId, suiteId or evaluationId.'];
         }
 
         $rules = $this->normaliseRuleArgs($args['rules'] ?? []);
@@ -1190,6 +1440,12 @@ class McpToolRegistry
     /** Returns an error string, or null when the target is unchanged or valid. */
     private function applyScheduleTarget(Workspace $ws, \App\Entity\Schedule $schedule, array $args): ?string
     {
+        if (!empty($args['evaluationId'])) {
+            $schedule->setEvaluation($this->requireEvaluation($ws, (string) $args['evaluationId']));
+
+            return null;
+        }
+
         if (!empty($args['suiteId'])) {
             $group = $this->groups->find((string) $args['suiteId']);
             if (!$group || $group->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
@@ -2090,6 +2346,242 @@ class McpToolRegistry
         }
 
         return $out;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function listEvaluations(Workspace $ws): array
+    {
+        $out = [];
+        foreach ($this->evaluations->findByWorkspace($ws) as $evaluation) {
+            $latest = $this->evaluationRuns->latestFor($evaluation);
+            $out[] = [
+                'evaluationId' => (string) $evaluation->getId(),
+                'name' => $evaluation->getName(),
+                'flow' => $evaluation->getFlow()->getName(),
+                'rows' => \count($evaluation->getDataset()),
+                'repeats' => $evaluation->getRepeats(),
+                'plannedRuns' => $evaluation->plannedRuns(),
+                'environment' => $evaluation->getEnvironment()?->getName(),
+                'lastRun' => null === $latest ? null : [
+                    'status' => $latest->getStatus(),
+                    'passRate' => $latest->getPassRate(),
+                    'flakyRows' => $latest->getFlakyRows(),
+                    'failingRows' => $latest->getStableFailRows(),
+                    'at' => $latest->getCreatedAt()->format(\DATE_ATOM),
+                ],
+            ];
+        }
+
+        return ['evaluations' => $out];
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function createEvaluation(Workspace $ws, array $args): array
+    {
+        $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
+        $name = trim((string) ($args['name'] ?? ''));
+        if ('' === $name) {
+            throw new \InvalidArgumentException('name is required.');
+        }
+
+        $evaluation = new Evaluation();
+        $evaluation->setWorkspace($ws);
+        $evaluation->setFlow($flow);
+        $evaluation->setName(mb_substr($name, 0, 150));
+        $evaluation->setDescription(trim((string) ($args['description'] ?? '')) ?: null);
+        $evaluation->setDataset($this->evaluationDataset($args['dataset'] ?? []));
+        $evaluation->setRepeats(max(1, min(20, (int) ($args['repeats'] ?? 1))));
+        if (!empty($args['environmentName'])) {
+            $evaluation->setEnvironment($this->findEnvironmentByName($ws, (string) $args['environmentName']));
+        }
+        $this->evaluations->save($evaluation);
+
+        return [
+            'evaluationId' => (string) $evaluation->getId(),
+            'plannedRuns' => $evaluation->plannedRuns(),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function updateEvaluation(Workspace $ws, array $args): array
+    {
+        $evaluation = $this->requireEvaluation($ws, (string) ($args['evaluationId'] ?? ''));
+        if (isset($args['name'])) {
+            $name = trim((string) $args['name']);
+            if ('' === $name) {
+                throw new \InvalidArgumentException('name cannot be empty.');
+            }
+            $evaluation->setName(mb_substr($name, 0, 150));
+        }
+        if (\array_key_exists('description', $args)) {
+            $evaluation->setDescription(trim((string) $args['description']) ?: null);
+        }
+        if (isset($args['dataset'])) {
+            $evaluation->setDataset($this->evaluationDataset($args['dataset']));
+        }
+        if (isset($args['repeats'])) {
+            $evaluation->setRepeats(max(1, min(20, (int) $args['repeats'])));
+        }
+        if (\array_key_exists('environmentName', $args)) {
+            $evaluation->setEnvironment(
+                '' !== trim((string) $args['environmentName'])
+                    ? $this->findEnvironmentByName($ws, (string) $args['environmentName'])
+                    : null,
+            );
+        }
+        $this->evaluations->save($evaluation);
+
+        return [
+            'evaluationId' => (string) $evaluation->getId(),
+            'rows' => \count($evaluation->getDataset()),
+            'repeats' => $evaluation->getRepeats(),
+            'plannedRuns' => $evaluation->plannedRuns(),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function runEvaluation(Workspace $ws, array $args): array
+    {
+        $evaluation = $this->requireEvaluation($ws, (string) ($args['evaluationId'] ?? ''));
+        if ([] === $evaluation->getDataset()) {
+            throw new \InvalidArgumentException('The evaluation has no rows.');
+        }
+        if ($evaluation->getFlow()->getSteps()->isEmpty()) {
+            throw new \InvalidArgumentException('The measured flow has no steps.');
+        }
+
+        $run = $this->evaluationRunner->createRun($evaluation, 'mcp', $this->notifyOverride($ws, $args));
+        $actorId = $this->actor()?->getId();
+        $this->bus->dispatch(new \App\Message\RunEvaluationMessage(
+            (string) $run->getId(),
+            null !== $actorId ? (string) $actorId : null,
+        ));
+
+        return [
+            'evaluationRunId' => (string) $run->getId(),
+            'batchId' => $run->getBatchId(),
+            'plannedRuns' => $evaluation->plannedRuns(),
+            'status' => $run->getStatus(),
+            'note' => 'Running in the background. Poll get_evaluation_run for the report.',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function getEvaluationRun(Workspace $ws, array $args): array
+    {
+        $evaluation = $this->requireEvaluation($ws, (string) ($args['evaluationId'] ?? ''));
+
+        $runId = trim((string) ($args['runId'] ?? ''));
+        $run = '' !== $runId ? $this->evaluationRuns->find($runId) : $this->evaluationRuns->latestFor($evaluation);
+        if (null === $run || $run->getEvaluation()->getId()?->toRfc4122() !== $evaluation->getId()?->toRfc4122()) {
+            throw new \InvalidArgumentException('Evaluation run not found.');
+        }
+
+        return array_filter([
+            'evaluationRunId' => (string) $run->getId(),
+            'evaluation' => $evaluation->getName(),
+            'status' => $run->getStatus(),
+            'trigger' => $run->getTrigger(),
+            'batchId' => $run->getBatchId(),
+            'startedAt' => $run->getCreatedAt()->format(\DATE_ATOM),
+            'finishedAt' => $run->getFinishedAt()?->format(\DATE_ATOM),
+            'durationMs' => $run->getDurationMs(),
+            'error' => $run->getError(),
+            'report' => $run->getReport(),
+        ], static fn ($v) => null !== $v);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function getEvaluationTrend(Workspace $ws, array $args): array
+    {
+        $evaluation = $this->requireEvaluation($ws, (string) ($args['evaluationId'] ?? ''));
+        $limit = max(1, min(90, (int) ($args['limit'] ?? 30)));
+
+        $points = [];
+        foreach ($this->evaluationRuns->trendFor($evaluation, $limit) as $run) {
+            $points[] = [
+                'at' => $run->getCreatedAt()->format(\DATE_ATOM),
+                'passRate' => $run->getPassRate(),
+                'rows' => $run->getRows(),
+                'repeats' => $run->getRepeats(),
+                'reliableRows' => $run->getStablePassRows(),
+                'flakyRows' => $run->getFlakyRows(),
+                'failingRows' => $run->getStableFailRows(),
+            ];
+        }
+
+        return [
+            'evaluation' => $evaluation->getName(),
+            'points' => $points,
+            'note' => 'Oldest first. A pass rate that moves while the dataset is unchanged is a change in the system under test.',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function deleteEvaluation(Workspace $ws, array $args): array
+    {
+        $evaluation = $this->requireEvaluation($ws, (string) ($args['evaluationId'] ?? ''));
+        $name = $evaluation->getName();
+        $this->evaluations->remove($evaluation);
+
+        return ['deleted' => $name];
+    }
+
+    /**
+     * @param mixed $raw
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function evaluationDataset(mixed $raw): array
+    {
+        if (!\is_array($raw) || [] === $raw) {
+            throw new \InvalidArgumentException('dataset must be a non-empty array of rows.');
+        }
+        $rows = [];
+        foreach ($raw as $i => $row) {
+            if (!\is_array($row)) {
+                throw new \InvalidArgumentException(\sprintf('Dataset row %d is not an object of {variable: value}.', $i + 1));
+            }
+            $rows[] = $row;
+        }
+
+        return $rows;
+    }
+
+    private function requireEvaluation(Workspace $ws, string $id): Evaluation
+    {
+        $evaluation = '' !== trim($id) ? $this->evaluations->find($id) : null;
+        if (null === $evaluation || $evaluation->getWorkspace()->getId()?->toRfc4122() !== $ws->getId()?->toRfc4122()) {
+            throw new \InvalidArgumentException('Evaluation not found.');
+        }
+
+        return $evaluation;
     }
 
     private function requireStep(Workspace $ws, string $id): FlowStep

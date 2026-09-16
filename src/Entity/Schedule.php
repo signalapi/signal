@@ -41,7 +41,7 @@ class Schedule
     #[ORM\Column]
     private bool $enabled = true;
 
-    /** Exactly one of flow / flowGroup is set. */
+    /** Exactly one of flow / flowGroup / evaluation is set. */
     #[ORM\ManyToOne(targetEntity: TestFlow::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     private ?TestFlow $flow = null;
@@ -49,6 +49,10 @@ class Schedule
     #[ORM\ManyToOne(targetEntity: FlowGroup::class)]
     #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
     private ?FlowGroup $flowGroup = null;
+
+    #[ORM\ManyToOne(targetEntity: Evaluation::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'CASCADE')]
+    private ?Evaluation $evaluation = null;
 
     /** Overrides the target's own environment when set. */
     #[ORM\ManyToOne(targetEntity: Environment::class)]
@@ -142,23 +146,42 @@ class Schedule
         return $this->flowGroup;
     }
 
-    /** Points the schedule at a flow, clearing any suite target. */
+    /** Points the schedule at a flow, clearing any other target. */
     public function setFlow(?TestFlow $flow): static
     {
         $this->flow = $flow;
         if (null !== $flow) {
             $this->flowGroup = null;
+            $this->evaluation = null;
         }
 
         return $this;
     }
 
-    /** Points the schedule at a suite, clearing any flow target. */
+    /** Points the schedule at a suite, clearing any other target. */
     public function setFlowGroup(?FlowGroup $group): static
     {
         $this->flowGroup = $group;
         if (null !== $group) {
             $this->flow = null;
+            $this->evaluation = null;
+        }
+
+        return $this;
+    }
+
+    public function getEvaluation(): ?Evaluation
+    {
+        return $this->evaluation;
+    }
+
+    /** Points the schedule at an evaluation, clearing any other target. */
+    public function setEvaluation(?Evaluation $evaluation): static
+    {
+        $this->evaluation = $evaluation;
+        if (null !== $evaluation) {
+            $this->flow = null;
+            $this->flowGroup = null;
         }
 
         return $this;
@@ -169,6 +192,11 @@ class Schedule
         return null !== $this->flowGroup;
     }
 
+    public function isEvaluation(): bool
+    {
+        return null !== $this->evaluation;
+    }
+
     /** The display name of whatever this schedule runs. */
     public function getTargetName(): string
     {
@@ -176,12 +204,12 @@ class Schedule
             return 'Workspace digest';
         }
 
-        return $this->flowGroup?->getName() ?? $this->flow?->getName() ?? '—';
+        return $this->evaluation?->getName() ?? $this->flowGroup?->getName() ?? $this->flow?->getName() ?? '—';
     }
 
     public function hasTarget(): bool
     {
-        return null !== $this->flow || null !== $this->flowGroup;
+        return null !== $this->flow || null !== $this->flowGroup || null !== $this->evaluation;
     }
 
     public function getKind(): string

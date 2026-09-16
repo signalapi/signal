@@ -19,8 +19,16 @@
 
 {% block panel %}
 {% set is_new = is_new|default(false) %}
-{% set badge = step.isCall ? 'CALL' : (step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : step.reqMethod))) %}
-{% set kindCls = step.isCall ? 'm-call' : (step.isDb ? 'm-db' : (step.isSetvar ? 'm-set' : (step.isDelay ? 'm-wait' : 'm-' ~ step.reqMethod|lower))) %}
+{% if step.isCall %}{% set badge = 'CALL' %}
+{% elseif step.isDb %}{% set badge = 'DB' %}
+{% elseif step.isSetvar %}{% set badge = 'SET' %}
+{% elseif step.isDelay %}{% set badge = 'WAIT' %}
+{% elseif step.isBrowser %}{% set badge = 'BROWSER' %}
+{% elseif step.isLlm %}{% set badge = 'LLM' %}
+{% elseif step.isMcp %}{% set badge = 'MCP' %}
+{% elseif step.isAgent %}{% set badge = 'AGENT' %}
+{% else %}{% set badge = step.reqMethod %}{% endif %}
+{% set kindCls = 'm-' ~ badge|lower %}
 {% set cond = step.condition %}
 {% set lp = step.loop %}
 {% set verifiable = not step.isSetvar and not step.isDelay and not step.isCall %}
@@ -64,6 +72,9 @@
             <button type="button" class="bchip {{ lp.over ?? '' ? 'set' }}" data-b="loop">
                 {{ ic.i('rerun', 13) }}<strong>{{ 'Loop'|trans }}</strong>
                 <span class="val">{{ lp.over ?? '' ? 'each ' ~ lp.as ~ ' in ' ~ lp.over : 'off'|trans }}</span></button>
+            <button type="button" class="bchip {{ step.alwaysRun ? 'set' }}" data-b="teardown">
+                {{ ic.i('shield', 13) }}<strong>{{ 'Teardown'|trans }}</strong>
+                <span class="val">{{ step.alwaysRun ? 'always runs'|trans : 'off'|trans }}</span></button>
             {% if verifiable %}
             <button type="button" class="bchip {{ step.retryEnabled ? 'set' }}" data-b="retry">
                 {{ ic.i('rerun', 13) }}<strong>{{ 'Retry'|trans }}</strong>
@@ -76,7 +87,7 @@
             <div class="row">
                 <input type="text" name="cond_left" value="{{ cond.left ?? '' }}" placeholder="{{ '{{' }}variable{{ '}}' }}" class="input-mono" style="flex:1.4 1 150px">
                 <select name="cond_op">
-                    {% for val, lbl in {'eq':'equals','ne':'not equal','contains':'contains','matches':'matches regex','gt':'greater than','lt':'less than','ge':'at least (≥)','le':'at most (≤)','exists':'exists (not empty)','empty':'is empty','notEmpty':'is not empty'} %}
+                    {% for val, lbl in {'eq':'equals','ne':'not equal','contains':'contains','notContains':'does not contain','matches':'matches regex','gt':'greater than','lt':'less than','ge':'at least (≥)','le':'at most (≤)','exists':'exists (not empty)','empty':'is empty','notEmpty':'is not empty','judge':'a model judges (rubric)'} %}
                         <option value="{{ val }}" {{ (cond.op ?? 'eq') == val ? 'selected' }}>{{ lbl|trans }}</option>
                     {% endfor %}
                 </select>
@@ -92,6 +103,16 @@
                 <span class="subtitle">{{ 'in'|trans }}</span>
                 <input type="text" name="loop_over" value="{{ lp.over ?? '' }}" placeholder="{{ '{{' }}pkgs{{ '}}' }}" class="input-mono" style="flex:1 1 150px">
             </div>
+        </div>
+
+        <div class="bpanel" data-panel="teardown" hidden>
+            <p class="subtitle" style="margin:0 0 9px">{{ 'Runs even after the flow has stopped on a failure or was cancelled — so a test that changed something outside itself can put it back.'|trans }}</p>
+            <div class="row">
+                <label class="inline-lbl" style="display:inline-flex;align-items:center;gap:7px;font-size:12px">
+                    <input type="checkbox" name="alwaysRun" value="1" {{ step.alwaysRun ? 'checked' }} style="width:auto">
+                    {{ 'Always run this step'|trans }}</label>
+            </div>
+            <p class="fhint" style="margin:8px 0 0;">{{ 'The condition above still applies, so a restore can be made conditional on the setup having got that far. On a sub-flow call the whole called flow becomes the teardown block. A teardown that fails still fails the run; one that passes never turns a failed run green.'|trans }}</p>
         </div>
 
         {% if verifiable %}
@@ -121,6 +142,7 @@
                     {%- if step.isDb %}{{ 'read query — writes are blocked'|trans }}
                     {%- elseif step.isCall %}{{ 'called by reference'|trans }}
                     {%- elseif step.isSetvar %}{{ 'for the steps that follow'|trans }}
+                    {%- elseif step.isBrowser or step.isLlm or step.isMcp or step.isAgent %}{{ 'JSON configuration'|trans }}
                     {%- else %}{{ 'this copy belongs to this step only'|trans }}{% endif -%}
                 </span>
             </div>
@@ -191,6 +213,29 @@
                 </div>
                 <div class="hintbox" style="background:var(--teal-soft);color:var(--teal)">
                     {{ ic.i('shield', 15) }}{{ 'Variables from earlier steps work here.'|trans }}
+                </div>
+
+            {% elseif step.isBrowser or step.isLlm or step.isMcp or step.isAgent %}
+                {# Without this branch these steps fell through to the HTTP request
+                   form below — a method, a URL and a body that no runner reads. #}
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+                    <label style="margin:0">{{ 'Configuration'|trans }}</label><div class="grow"></div>
+                    <span class="mono subtitle" style="font-size:10.5px">
+                        {%- if step.isMcp %}server · tool · arguments
+                        {%- elseif step.isAgent %}server · prompt · tools
+                        {%- elseif step.isLlm %}prompt · system · model
+                        {%- else %}url · successUrlPattern{% endif -%}
+                    </span>
+                </div>
+                <div class="code-ed hl" data-hl="query">
+                    <div class="cb-gutter" aria-hidden="true">1</div>
+                    <div class="cb-area">
+                        <pre class="cb-hl" aria-hidden="true"></pre>
+                        <textarea name="query" rows="8" data-vc spellcheck="false">{{ step.query }}</textarea>
+                    </div>
+                </div>
+                <div class="hintbox" style="background:var(--vio-soft);color:var(--vio)">
+                    {{ ic.i('shield', 15) }}{{ 'Must stay valid JSON — an invalid edit is refused and the previous configuration kept. Variables from earlier steps work inside it.'|trans }}
                 </div>
 
             {% else %}
@@ -456,13 +501,13 @@
     //   <path> <op> <expected>        e.g.  body.status == active
     //   status == 200
     // One transfer per line:  <name> = <path>
-    var OPS = ['==','!=','contains','matches','>','<','>=','<=','exists','empty','notEmpty'];
+    var OPS = ['==','!=','contains','notContains','matches','>','<','>=','<=','exists','empty','notEmpty'];
     var rules = parseRules(document.getElementById('assertionsText').value);
     var exts  = parseExts(document.getElementById('extractionsText').value);
 
     function parseRules(text) {
         return (text || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean).map(function (l) {
-            var m = l.match(/^(\S+)\s+(==|!=|contains|matches|>=|<=|>|<|exists|empty|notEmpty)\s*(.*)$/);
+            var m = l.match(/^(\S+)\s+(==|!=|notContains|contains|matches|>=|<=|>|<|exists|empty|notEmpty)\s*(.*)$/);
             return m ? { path: m[1], op: m[2], expected: m[3] } : { path: l, op: '==', expected: '' };
         });
     }
@@ -527,12 +572,14 @@
         if (!lastProbe || !r.path) return null;
         if ((r.expected || '').indexOf('{' + '{') !== -1) return null;
         var a = resolvePath(r.path), e = r.expected;
-        if (a === undefined && r.op !== 'empty' && r.op !== 'exists') return { pass: false, actual: '—' };
+        if (a === undefined && r.op !== 'empty' && r.op !== 'exists' && r.op !== 'notContains') return { pass: false, actual: '—' };
         var an = parseFloat(a), en = parseFloat(e), pass;
         switch (r.op) {
             case '==': pass = String(a).replace(/^"|"$/g, '') === e; break;
             case '!=': pass = String(a).replace(/^"|"$/g, '') !== e; break;
             case 'contains': pass = String(a).indexOf(e) !== -1; break;
+            // mirrors applyOp(): empty expected fails, missing target passes
+            case 'notContains': pass = e !== '' && !(a !== undefined && String(a).indexOf(e) !== -1); break;
             case 'matches': try { pass = new RegExp(e).test(String(a)); } catch (err) { return null; } break;
             case '>': pass = an > en; break;
             case '<': pass = an < en; break;

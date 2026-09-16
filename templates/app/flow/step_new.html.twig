@@ -43,6 +43,26 @@
                 <span style="min-width:0"><span class="t">{{ 'Call sub-flow'|trans }}</span>
                     <span class="s" style="display:block">{{ 'Run another flow here'|trans }}</span></span>
             </button>
+            <button type="button" class="typebtn" data-type="mcp">
+                <span class="ic-box">{{ ic.i('token', 15) }}</span>
+                <span style="min-width:0"><span class="t">{{ 'MCP tool call'|trans }}</span>
+                    <span class="s" style="display:block">{{ 'Call one tool on an MCP server'|trans }}</span></span>
+            </button>
+            <button type="button" class="typebtn" data-type="agent">
+                <span class="ic-box">{{ ic.i('bot', 15) }}</span>
+                <span style="min-width:0"><span class="t">{{ 'Agent'|trans }}</span>
+                    <span class="s" style="display:block">{{ 'Give a model those tools, record what it did'|trans }}</span></span>
+            </button>
+            <button type="button" class="typebtn" data-type="llm">
+                <span class="ic-box">{{ ic.i('bot', 15) }}</span>
+                <span style="min-width:0"><span class="t">{{ 'LLM'|trans }}</span>
+                    <span class="s" style="display:block">{{ 'Send a prompt, assert the reply'|trans }}</span></span>
+            </button>
+            <button type="button" class="typebtn" data-type="browser">
+                <span class="ic-box">{{ ic.i('link', 15) }}</span>
+                <span style="min-width:0"><span class="t">{{ 'Browser'|trans }}</span>
+                    <span class="s" style="display:block">{{ 'Drive a real browser through a redirect page'|trans }}</span></span>
+            </button>
         </div>
 
         {# ---- contextual detail ---- #}
@@ -89,6 +109,42 @@
                 <p class="subtitle">{{ 'Set a variable to a fixed value or with <code>{{expression}}</code>; it is used in later steps.'|trans|raw }}</p>
                 <p class="fhint" style="margin-bottom:14px;">{{ 'You will edit the assignments after the step is added.'|trans }}</p>
                 <button type="button" class="btn" data-submit="setvar">{{ ic.i('wrench', 13) }}{{ 'Add variable step'|trans }}</button>
+            </div>
+        </div>
+        {# MCP tool call #}
+        <div data-pane="mcp" hidden>
+            <div class="card-body">
+                <h2>{{ 'MCP tool call'|trans }}</h2>
+                <p class="subtitle">{{ 'Calls one tool on an MCP server with the arguments you write, and asserts the result — the deterministic way to test the server itself.'|trans }}</p>
+                <p class="fhint" style="margin-bottom:14px;">{{ 'You will fill in the server, tool and arguments next. Keep the bearer token in an environment variable, not in the step.'|trans }}</p>
+                <button type="button" class="btn" data-submit="mcp">{{ ic.i('token', 13) }}{{ 'Add MCP step'|trans }}</button>
+            </div>
+        </div>
+        {# agent #}
+        <div data-pane="agent" hidden>
+            <div class="card-body">
+                <h2>{{ 'Agent'|trans }}</h2>
+                <p class="subtitle">{{ 'Hands a model the MCP server\'s tools and a task, then records what it DID — which tools it called and in what order, not just what it said.'|trans }}</p>
+                <p class="fhint" style="margin-bottom:14px;">{{ 'An agent answers differently each run, so measure it with a data-driven run and repeats rather than trusting one green result.'|trans }}</p>
+                <button type="button" class="btn" data-submit="agent">{{ ic.i('bot', 13) }}{{ 'Add agent step'|trans }}</button>
+            </div>
+        </div>
+        {# LLM #}
+        <div data-pane="llm" hidden>
+            <div class="card-body">
+                <h2>{{ 'LLM'|trans }}</h2>
+                <p class="subtitle">{{ 'Sends a prompt and exposes the reply to the usual extractions and assertions — including the judge operator, for a reply with no single correct wording.'|trans }}</p>
+                <p class="fhint" style="margin-bottom:14px;">{{ 'Needs an Anthropic API key under Admin → Settings.'|trans }}</p>
+                <button type="button" class="btn" data-submit="llm">{{ ic.i('bot', 13) }}{{ 'Add LLM step'|trans }}</button>
+            </div>
+        </div>
+        {# browser #}
+        <div data-pane="browser" hidden>
+            <div class="card-body">
+                <h2>{{ 'Browser'|trans }}</h2>
+                <p class="subtitle">{{ 'Opens a page in headless Chromium and completes known 3-D Secure / redirect challenges, for the flows plain HTTP steps cannot pass.'|trans }}</p>
+                <p class="fhint" style="margin-bottom:14px;">{{ 'You will set the URL and the success pattern next.'|trans }}</p>
+                <button type="button" class="btn" data-submit="browser">{{ ic.i('link', 13) }}{{ 'Add browser step'|trans }}</button>
             </div>
         </div>
         {# call sub-flow #}

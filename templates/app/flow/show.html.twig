@@ -80,8 +80,19 @@
             {% else %}
             <div class="track" id="runtrack">
                 {% for step in flow.steps %}
-                    {% set badge = step.isCall ? 'CALL' : (step.isDb ? 'DB' : (step.isSetvar ? 'SET' : (step.isDelay ? 'WAIT' : step.reqMethod))) %}
-                    {% set kindCls = step.isCall ? 'm-call' : (step.isDb ? 'm-db' : (step.isSetvar ? 'm-set' : (step.isDelay ? 'm-wait' : 'm-' ~ step.reqMethod|lower))) %}
+                    {# Steps whose whole setup is JSON in `query` have no request method;
+                       without a badge of their own they fell through to reqMethod and
+                       every one of them read as a GET. #}
+                    {% if step.isCall %}{% set badge = 'CALL' %}
+                    {% elseif step.isDb %}{% set badge = 'DB' %}
+                    {% elseif step.isSetvar %}{% set badge = 'SET' %}
+                    {% elseif step.isDelay %}{% set badge = 'WAIT' %}
+                    {% elseif step.isBrowser %}{% set badge = 'BROWSER' %}
+                    {% elseif step.isLlm %}{% set badge = 'LLM' %}
+                    {% elseif step.isMcp %}{% set badge = 'MCP' %}
+                    {% elseif step.isAgent %}{% set badge = 'AGENT' %}
+                    {% else %}{% set badge = step.reqMethod %}{% endif %}
+                    {% set kindCls = 'm-' ~ badge|lower %}
                     <div class="track-row" data-pos="{{ loop.index0 }}">
                         <div class="track-rail"><div class="node" data-pos="{{ loop.index0 }}" data-idx="{{ loop.index }}">{{ loop.index }}</div></div>
                         <div class="step-card" data-pos="{{ loop.index0 }}" style="cursor:default;">
@@ -112,16 +123,23 @@
                                 {% elseif step.isDelay %}{{ 'wait %ms% ms'|trans({'%ms%': step.query ?: 0}) }}
                                 {% elseif step.isSetvar %}{{ (step.query ?: '(no assignment)'|trans)|slice(0, 90) }}
                                 {% elseif step.isDb %}{% if step.dbConnection %}{{ step.dbConnection.type }} · {{ (step.query ?: '(no query)'|trans)|slice(0, 80) }}{% else %}<span style="color:var(--fail);">{{ 'connection deleted'|trans }}</span>{% endif %}
+                                {% elseif step.isBrowser %}{{ (step.config.url ?? '(no URL)'|trans)|slice(0, 90) }}
+                                {% elseif step.isLlm %}{{ (step.config.prompt ?? '(no prompt)'|trans)|slice(0, 90) }}
+                                {% elseif step.isMcp %}{{ step.config.server ?? '(no server)'|trans }} · {{ step.config.tool ?? '(no tool)'|trans }}
+                                {% elseif step.isAgent %}{{ step.config.server ?? '(no server)'|trans }} · {{ (step.config.prompt ?? '(no prompt)'|trans)|slice(0, 60) }}
                                 {% else %}{{ step.reqMethod }} {{ step.reqUrl ?: '(URL empty)'|trans }}{% endif %}
                             </div>
                             {% set verifiable = not step.isDelay and not step.isSetvar and not step.isCall %}
-                            {% if step.hasCondition or step.hasLoop or verifiable %}
+                            {% if step.hasCondition or step.hasLoop or step.alwaysRun or verifiable %}
                             <div class="chips">
                                 {% if step.hasCondition %}
                                     <span class="chip">{{ 'only if:'|trans }} {{ step.condition.left }} {{ step.condition.op }} {{ step.condition.right }}</span>
                                 {% endif %}
                                 {% if step.hasLoop %}
                                     <span class="chip var">{{ 'each'|trans }} {{ step.loop.as }} ∈ {{ step.loop.over }}</span>
+                                {% endif %}
+                                {% if step.alwaysRun %}
+                                    <span class="chip">{{ 'teardown — always runs'|trans }}</span>
                                 {% endif %}
                                 {% if verifiable %}
                                     <span class="chip">{{ '%count% extraction'|trans({'%count%': step.extractions|length}) }}</span>
@@ -225,6 +243,11 @@
                                     <option value="">{{ flow.defaultEnvironment ? '(default: %name%)'|trans({'%name%': flow.defaultEnvironment.name}) : '— none —'|trans }}</option>
                                     {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
                                 </select>
+                            </div>
+                            <div class="field">
+                                <label for="ddRepeats">{{ 'Runs per row'|trans }}</label>
+                                <input type="number" name="repeats" id="ddRepeats" value="1" min="1" max="20" style="width:90px;">
+                                <p class="fhint" style="margin:6px 0 0;">{{ 'Above 1, every row runs that many times and the batch is reported as a pass rate — the way to test a flow whose result is not the same every time.'|trans }}</p>
                             </div>
                             <div style="overflow-x:auto;"><table class="data" id="ddTable"></table></div>
                             <div style="display:flex;gap:8px;margin:10px 0;">
