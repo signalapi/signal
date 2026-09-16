@@ -10,6 +10,7 @@ use App\Message\RunFlowMessage;
 use App\Repository\EnvironmentRepository;
 use App\Repository\FlowRunRepository;
 use App\Service\EnvironmentResolver;
+use App\Service\EvalReport;
 use App\Service\FlowRunner;
 use Symfony\Bridge\Doctrine\Attribute\MapEntity;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -334,6 +335,7 @@ class FlowRunController extends AbstractAppController
         FlowRunner $runner,
         TranslatorInterface $translator,
         EnvironmentResolver $envResolver,
+        EvalReport $evalReport,
     ): Response {
         $this->assertWorkspace($workspace, 'edit');
         $this->assertFlow($workspace, $flow);
@@ -369,6 +371,25 @@ class FlowRunController extends AbstractAppController
             }
         }
 
+        // Repeats turn the batch into a measurement rather than a single verdict:
+        // the same row run K times says how OFTEN a non-deterministic flow passes.
+        $repeats = max(1, min(20, (int) $httpRequest->request->get('repeats', 1)));
+
+        // The batch runs inline in this request. A plain one-run-per-row dataset
+        // is left as unbounded as it has always been; only the repeat multiplier
+        // is capped, because that is what turns a workable batch into hundreds of
+        // runs that outlive the request — the rows would be written and the user
+        // would never reach the report.
+        $planned = \count($dataset) * $repeats;
+        if ($repeats > 1 && $planned > FlowRunner::MAX_DATASET_RUNS) {
+            $this->addFlash('error', $translator->trans(
+                '%rows% rows × %repeats% runs is %planned% runs; at most %max% can run at once. Use fewer rows or repeats.',
+                ['%rows%' => \count($dataset), '%repeats%' => $repeats, '%planned%' => $planned, '%max%' => FlowRunner::MAX_DATASET_RUNS],
+            ));
+
+            return $this->redirectToRoute('app_flow_show', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
+        }
+
         $runs = $runner->runDataset(
             $flow,
             $environment,
@@ -376,9 +397,25 @@ class FlowRunController extends AbstractAppController
             'manual',
             $envResolver->overridesFor($environment, $this->currentUser()),
             $this->currentUser(),
+            $repeats,
         );
         $passed = \count(array_filter($runs, static fn (FlowRun $r) => FlowRun::STATUS_PASSED === $r->getStatus()));
-        $this->addFlash($passed === \count($runs) ? 'success' : 'error', $translator->trans('Data-driven run: %passed%/%total% iterations passed.', ['%passed%' => $passed, '%total%' => \count($runs)]));
+        if ($repeats > 1) {
+            $report = $evalReport->of($runs);
+            $this->addFlash(
+                $report['flakyRows'] + $report['stableFailRows'] > 0 ? 'error' : 'success',
+                $translator->trans('Eval: %rows% rows × %repeats% runs · %rate% pass rate · %flaky% flaky, %failed% failing.', [
+                    '%rows%' => $report['rows'],
+                    '%repeats%' => $report['repeats'],
+                    // The sign travels with the value: "%%" is sprintf syntax, not the translator's.
+                    '%rate%' => round($report['passRate'] * 100) . '%',
+                    '%flaky%' => $report['flakyRows'],
+                    '%failed%' => $report['stableFailRows'],
+                ]),
+            );
+        } else {
+            $this->addFlash($passed === \count($runs) ? 'success' : 'error', $translator->trans('Data-driven run: %passed%/%total% iterations passed.', ['%passed%' => $passed, '%total%' => \count($runs)]));
+        }
 
         return $this->redirectToRoute('app_flow_batch_show', [
             'workspace' => $workspace->getId(),
@@ -393,6 +430,7 @@ class FlowRunController extends AbstractAppController
         #[MapEntity(mapping: ['flow' => 'id'])] TestFlow $flow,
         string $batchId,
         FlowRunRepository $runs,
+        EvalReport $evalReport,
     ): Response {
         $this->assertWorkspace($workspace);
         $this->assertFlow($workspace, $flow);
@@ -409,6 +447,7 @@ class FlowRunController extends AbstractAppController
             'runs' => $list,
             'passed' => $passed,
             'total' => \count($list),
+            'report' => $evalReport->of($list),
         ]);
     }
 

@@ -51,8 +51,17 @@ class FlowRun
     #[ORM\Column(length: 36, nullable: true)]
     private ?string $batchId = null;
 
+    /** Which dataset row this run used (repeats of one row share it). */
     #[ORM\Column]
     private int $iteration = 0;
+
+    /**
+     * Which attempt of that row this is (0-based). A dataset can be run K times
+     * per row to measure a flow whose outcome is not deterministic; the row is
+     * `iteration`, the attempt is this.
+     */
+    #[ORM\Column(options: ['default' => 0])]
+    private int $repeatIndex = 0;
 
     /** The dataset row (variables) used for this iteration. */
     #[ORM\Column(type: Types::JSON)]
@@ -216,6 +225,18 @@ class FlowRun
     public function setIteration(int $iteration): static
     {
         $this->iteration = $iteration;
+
+        return $this;
+    }
+
+    public function getRepeatIndex(): int
+    {
+        return $this->repeatIndex;
+    }
+
+    public function setRepeatIndex(int $repeatIndex): static
+    {
+        $this->repeatIndex = $repeatIndex;
 
         return $this;
     }

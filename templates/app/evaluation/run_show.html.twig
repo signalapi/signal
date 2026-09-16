@@ -1,0 +1,75 @@
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ evaluation.name }} · {{ run.createdAt|date('Y-m-d H:i') }}{% endblock %}
+
+{% set verdictPill = {'stable-pass': 'passed', 'flaky': 'flaky', 'stable-fail': 'failed', 'input-dependent': 'failed'} %}
+{% set verdictLabel = {'stable-pass': 'Reliable', 'flaky': 'Flaky', 'stable-fail': 'Failing', 'input-dependent': 'Input-dependent'} %}
+
+{% block panel %}
+<a class="backlink" href="{{ path('app_evaluation_show', {workspace: workspace.id, evaluation: evaluation.id}) }}">
+    <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ evaluation.name }}</a>
+<div class="pagehead">
+    <div>
+        <h1>{{ 'Evaluation run'|trans }}</h1>
+        <p class="subtitle">{{ run.createdAt|date('Y-m-d H:i') }} · {{ run.trigger }}{% if run.environmentName %} · {{ run.environmentName }}{% endif %}</p>
+    </div>
+</div>
+
+{% if run.status == 'running' %}
+    <div class="empty" style="text-align:left;padding:24px;">{{ 'Still running — this page shows the report once it finishes.'|trans }}</div>
+{% elseif run.status == 'error' %}
+    <div class="hintbox" style="background:var(--fail-soft);color:var(--fail);">{{ ic.i('alert', 15) }}{{ run.error }}</div>
+{% else %}
+    <div class="ru-sum">
+        <div class="ru-stat"><div class="n">{{ (run.passRate * 100)|round }}%</div><div class="l">{{ 'Pass rate'|trans }}</div></div>
+        <div class="ru-stat"><div class="n" style="color:var(--pass);">{{ run.stablePassRows }}</div><div class="l">{{ 'Reliable rows'|trans }}</div></div>
+        <div class="ru-stat"><div class="n" style="color:{{ run.flakyRows > 0 ? 'var(--warn)' : 'var(--muted)' }};">{{ run.flakyRows }}</div><div class="l">{{ 'Flaky rows'|trans }}</div></div>
+        <div class="ru-stat"><div class="n" style="color:{{ run.stableFailRows > 0 ? 'var(--fail)' : 'var(--muted)' }};">{{ run.stableFailRows }}</div><div class="l">{{ 'Failing rows'|trans }}</div></div>
+    </div>
+
+    <h2 class="section-title">{{ 'Rows'|trans }}</h2>
+    <table class="data">
+        <thead><tr><th style="width:50px;">#</th><th>{{ 'Data'|trans }}</th><th style="width:150px;">{{ 'Passed'|trans }}</th><th style="width:120px;">{{ 'Verdict'|trans }}</th></tr></thead>
+        <tbody>
+        {% for row in report.rowDetail ?? [] %}
+            <tr>
+                <td class="mono" style="color:var(--muted);">{{ row.index + 1 }}</td>
+                <td class="mono" style="font-size:11.5px;max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted);" title="{{ row.data|json_encode }}">{{ row.data|json_encode }}</td>
+                <td class="mono">
+                    {{ row.passed }}/{{ row.runs }}
+                    <span style="display:inline-block;width:56px;height:5px;border-radius:3px;background:var(--panel2);vertical-align:middle;margin-left:6px;">
+                        <span style="display:block;height:5px;border-radius:3px;width:{{ (row.passRate * 100)|round }}%;background:{{ row.verdict == 'stable-pass' ? 'var(--pass)' : (row.verdict == 'flaky' ? 'var(--warn)' : 'var(--fail)') }};"></span>
+                    </span>
+                </td>
+                <td><span class="pill {{ verdictPill[row.verdict] ?? 'neutral' }}">{{ (verdictLabel[row.verdict] ?? row.verdict)|trans }}</span></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <h2 class="section-title">{{ 'Checks that did not always pass'|trans }}</h2>
+    {% if report.checks ?? [] is empty %}
+        <div class="empty" style="text-align:left;padding:18px;">{{ 'Every check passed in every run.'|trans }}</div>
+    {% else %}
+        <table class="data">
+            <thead><tr><th>{{ 'Check'|trans }}</th><th style="width:100px;">{{ 'Passed'|trans }}</th><th style="width:130px;">{{ 'Verdict'|trans }}</th><th>{{ 'A failure it gave'|trans }}</th></tr></thead>
+            <tbody>
+            {% for check in report.checks %}
+                <tr>
+                    <td class="mono" style="font-size:11.5px;">{{ check.label }}</td>
+                    <td class="mono">{{ check.passed }}/{{ check.total }}</td>
+                    <td><span class="pill {{ verdictPill[check.verdict] ?? 'neutral' }}"
+                              title="{{ '%flaky% rows flip, %failed% rows always fail'|trans({'%flaky%': check.flakyRows ?? 0, '%failed%': check.failedRows ?? 0}) }}">{{ (verdictLabel[check.verdict] ?? check.verdict)|trans }}</span></td>
+                    <td style="font-size:11.5px;color:var(--muted);max-width:420px;">{{ check.sample }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <p class="fhint" style="margin-top:14px;">
+        <a href="{{ path('app_flow_batch_show', {workspace: workspace.id, flow: evaluation.flow.id, batchId: run.batchId}) }}">{{ 'See every individual run'|trans }}</a>
+    </p>
+{% endif %}
+{% endblock %}

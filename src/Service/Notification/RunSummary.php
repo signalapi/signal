@@ -2,6 +2,7 @@
 
 namespace App\Service\Notification;
 
+use App\Entity\EvaluationRun;
 use App\Entity\FlowGroupRun;
 use App\Entity\FlowRun;
 use App\Entity\NotificationDelivery;
@@ -206,6 +207,84 @@ class RunSummary
                 'workspace' => (string) $workspace->getId(),
                 'flow' => (string) $flow->getId(),
                 'batchId' => $batchId,
+            ]),
+        ];
+    }
+
+    /**
+     * An evaluation's result, framed as a RATE rather than a verdict.
+     *
+     * The dataset payload above answers "did every row pass?", which is the
+     * wrong question here: an agent that honours the policy nine times out of
+     * ten reads as a plain failure and the nine is never mentioned. So the
+     * headline is the pass rate and how many inputs are decided either way, and
+     * the detail lists the checks that did not always pass — with the flaky ones
+     * (same input, different answer) told apart from the merely broken.
+     *
+     * @return array<string, mixed>
+     */
+    public function fromEvaluationRun(EvaluationRun $run): array
+    {
+        $evaluation = $run->getEvaluation();
+        $workspace = $evaluation->getWorkspace();
+        $report = $run->getReport() ?? [];
+
+        $failures = [];
+        foreach (\array_slice((array) ($report['checks'] ?? []), 0, self::MAX_FAILURES) as $check) {
+            $failures[] = [
+                'name' => (string) ($check['label'] ?? ''),
+                'detail' => sprintf(
+                    '%d/%d · %s%s',
+                    (int) ($check['passed'] ?? 0),
+                    (int) ($check['total'] ?? 0),
+                    (string) ($check['verdict'] ?? ''),
+                    '' !== (string) ($check['sample'] ?? '') ? ' — ' . mb_substr((string) $check['sample'], 0, 160) : '',
+                ),
+            ];
+        }
+
+        $items = [];
+        foreach (\array_slice((array) ($report['rowDetail'] ?? []), 0, self::MAX_ITEMS) as $row) {
+            $items[] = [
+                'name' => sprintf('row %d', (int) ($row['index'] ?? 0) + 1),
+                'status' => (string) ($row['verdict'] ?? ''),
+                'passed' => (int) ($row['passed'] ?? 0),
+                'total' => (int) ($row['runs'] ?? 0),
+                'durationMs' => null,
+            ];
+        }
+
+        return [
+            'event' => NotificationDelivery::EVENT_FLOW_RUN,
+            'kind' => 'evaluation',
+            // Binary only for routing: rules fire on pass/fail, and an evaluation
+            // with a flaky or failing row is the one worth waking someone for.
+            'status' => $run->isClean() ? FlowRun::STATUS_PASSED : FlowRun::STATUS_FAILED,
+            'title' => $evaluation->getName(),
+            'workspace' => $workspace->getName(),
+            'environment' => $run->getEnvironmentName(),
+            'trigger' => $run->getTrigger(),
+            'unit' => 'row',
+            // Reliable rows out of rows — the number a person can act on. The
+            // rate is carried separately because it answers a different question.
+            'passed' => $run->getStablePassRows(),
+            'total' => $run->getRows(),
+            'passRate' => $run->getPassRate(),
+            'flakyRows' => $run->getFlakyRows(),
+            'failingRows' => $run->getStableFailRows(),
+            'repeats' => $run->getRepeats(),
+            'runs' => $run->getRuns(),
+            'durationMs' => $run->getDurationMs(),
+            'runId' => (string) $run->getId(),
+            'finishedAt' => $run->getFinishedAt()?->format(\DATE_ATOM),
+            'failures' => $failures,
+            'moreFailures' => max(0, \count((array) ($report['checks'] ?? [])) - self::MAX_FAILURES),
+            'items' => $items,
+            'moreItems' => max(0, \count((array) ($report['rowDetail'] ?? [])) - self::MAX_ITEMS),
+            'url' => $this->absolute('app_evaluation_run_show', [
+                'workspace' => (string) $workspace->getId(),
+                'evaluation' => (string) $evaluation->getId(),
+                'run' => (string) $run->getId(),
             ]),
         ];
     }

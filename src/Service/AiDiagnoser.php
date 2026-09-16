@@ -4,60 +4,40 @@ namespace App\Service;
 
 use App\Entity\FlowGroupRun;
 use App\Entity\FlowRun;
-use Symfony\Component\DependencyInjection\Attribute\Autowire;
-use Symfony\Contracts\HttpClient\HttpClientInterface;
 
 /**
  * Asks Claude to explain WHY a run failed and propose a fix, from the same
  * evidence the diagnose_run MCP tool exposes — plus suite-level and trend-level
  * analysis over the same data.
  *
- * The key is resolved from the admin panel first (PlatformSettings, sealed at
- * rest) and falls back to the ANTHROPIC_API_KEY environment variable, so a
- * self-hosted install can still be configured entirely from .env. With neither
- * set, isConfigured() is false and the UI shows a "not connected" note.
+ * The transport (key resolution, model choice, gateway base URL) lives in
+ * AnthropicClient; this class owns only the prompts and the evidence they are
+ * given. With no key configured, isConfigured() is false and the UI shows a
+ * "not connected" note.
  */
 class AiDiagnoser
 {
-    private const API_BASE = 'https://api.anthropic.com';
-    private const API_VERSION = '2023-06-01';
-    private const DEFAULT_MODEL = 'claude-sonnet-4-6';
-
     public function __construct(
-        private readonly HttpClientInterface $httpClient,
+        private readonly AnthropicClient $claude,
         private readonly RunDiagnostics $diagnostics,
-        private readonly PlatformSettings $settings,
-        #[Autowire(env: 'ANTHROPIC_API_KEY')] private readonly string $envApiKey = '',
-        #[Autowire(env: 'ANTHROPIC_MODEL')] private readonly string $envModel = '',
-        // Optional: point at an Anthropic-compatible gateway (LiteLLM, a proxy…).
-        #[Autowire(env: 'ANTHROPIC_BASE_URL')] private readonly string $envBaseUrl = '',
     ) {
     }
 
     public function isConfigured(): bool
     {
-        return '' !== $this->apiKey();
+        return $this->claude->isConfigured();
     }
 
     /** Where the active key comes from: 'panel', 'env' or null. */
     public function keySource(): ?string
     {
-        if ('' !== trim((string) $this->settings->get(PlatformSettings::AI_API_KEY))) {
-            return 'panel';
-        }
-
-        return '' !== trim($this->envApiKey) ? 'env' : null;
+        return $this->claude->keySource();
     }
 
     /** The model requests are sent with (panel setting > env > default). */
     public function activeModel(): string
     {
-        $panel = trim((string) $this->settings->get(PlatformSettings::AI_MODEL));
-        if ('' !== $panel) {
-            return $panel;
-        }
-
-        return '' !== trim($this->envModel) ? trim($this->envModel) : self::DEFAULT_MODEL;
+        return $this->claude->activeModel();
     }
 
     /**
@@ -65,7 +45,7 @@ class AiDiagnoser
      */
     public function ping(): void
     {
-        $this->complete('Reply with the single word: ok', 'ping', 16);
+        $this->claude->text('Reply with the single word: ok', 'ping', 16);
     }
 
     /**
@@ -82,7 +62,7 @@ class AiDiagnoser
             . 'change — distinguish a wrong assertion from a genuine bug or business-logic problem). '
             . 'Write in ' . $this->language($locale) . ', as short bullet points, without padding.';
 
-        return $this->complete($system, "Failed run evidence:\n\n" . $this->json($evidence));
+        return $this->claude->text($system, "Failed run evidence:\n\n" . $this->json($evidence));
     }
 
     /**
@@ -101,7 +81,7 @@ class AiDiagnoser
             . '(4) a SUGGESTED FIX per cause (distinguish a wrong assertion from a genuine bug, an environment '
             . 'problem or a third-party outage). Write in ' . $this->language($locale) . ', as short bullet points.';
 
-        return $this->complete($system, "Suite batch evidence:\n\n" . $this->json($evidence), 1536);
+        return $this->claude->text($system, "Suite batch evidence:\n\n" . $this->json($evidence), 1536);
     }
 
     /**
@@ -118,7 +98,7 @@ class AiDiagnoser
             . 'few actions with the highest impact. Ignore tests with too few runs to judge. '
             . 'Write in ' . $this->language($locale) . ', as short bullet points, without padding.';
 
-        return $this->complete($system, "Trend evidence:\n\n" . $this->json($evidence), 1536);
+        return $this->claude->text($system, "Trend evidence:\n\n" . $this->json($evidence), 1536);
     }
 
     /**
@@ -127,54 +107,7 @@ class AiDiagnoser
      */
     public function completeText(string $system, string $user, int $maxTokens = 1024): string
     {
-        return $this->complete($system, $user, $maxTokens);
-    }
-
-    private function complete(string $system, string $user, int $maxTokens = 1024): string
-    {
-        $apiKey = $this->apiKey();
-        if ('' === $apiKey) {
-            throw new \RuntimeException('AI analysis is not configured (no API key in the admin panel or ANTHROPIC_API_KEY).');
-        }
-
-        $base = '' !== trim($this->envBaseUrl) ? rtrim(trim($this->envBaseUrl), '/') : self::API_BASE;
-        $response = $this->httpClient->request('POST', $base . '/v1/messages', [
-            'headers' => [
-                'x-api-key' => $apiKey,
-                'anthropic-version' => self::API_VERSION,
-                'content-type' => 'application/json',
-            ],
-            'json' => [
-                'model' => $this->activeModel(),
-                'max_tokens' => $maxTokens,
-                'system' => $system,
-                'messages' => [
-                    ['role' => 'user', 'content' => $user],
-                ],
-            ],
-            'timeout' => 60,
-        ]);
-
-        $data = $response->toArray(false);
-        if (isset($data['error'])) {
-            throw new \RuntimeException('Anthropic API error: ' . ($data['error']['message'] ?? 'unknown'));
-        }
-
-        $text = '';
-        foreach ($data['content'] ?? [] as $block) {
-            if (($block['type'] ?? '') === 'text') {
-                $text .= $block['text'];
-            }
-        }
-
-        return '' !== trim($text) ? $text : 'The model returned an empty response.';
-    }
-
-    private function apiKey(): string
-    {
-        $panel = trim((string) $this->settings->get(PlatformSettings::AI_API_KEY));
-
-        return '' !== $panel ? $panel : trim($this->envApiKey);
+        return $this->claude->text($system, $user, $maxTokens);
     }
 
     private function language(string $locale): string

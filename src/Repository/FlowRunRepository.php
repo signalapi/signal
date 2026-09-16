@@ -27,7 +27,9 @@ class FlowRunRepository extends ServiceEntityRepository
     /** @return FlowRun[] */
     public function findByBatch(string $batchId): array
     {
-        return $this->findBy(['batchId' => $batchId], ['iteration' => 'ASC']);
+        // repeatIndex too: the batch view prints it per row, and without a
+        // second sort key the repeats of one row come back in any order.
+        return $this->findBy(['batchId' => $batchId], ['iteration' => 'ASC', 'repeatIndex' => 'ASC']);
     }
 
     /**

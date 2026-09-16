@@ -133,24 +133,57 @@ class FlowStepController extends AbstractAppController
         }
 
         $type = (string) $httpRequest->request->get('type');
-        if (!\in_array($type, [FlowStep::TYPE_SETVAR, FlowStep::TYPE_DELAY], true)) {
+        $seeds = $this->stepSeeds();
+        if (!isset($seeds[$type])) {
             $this->addFlash('error', $this->translator->trans('Invalid step type.'));
 
             return $this->redirectToRoute('app_flow_step_new', ['workspace' => $workspace->getId(), 'flow' => $flow->getId()]);
         }
 
+        [$name, $query] = $seeds[$type];
         $step = new FlowStep();
         $step->setFlow($flow);
         $step->setType($type);
-        if (FlowStep::TYPE_DELAY === $type) {
-            $step->setName($this->translator->trans('Wait'));
-            $step->setQuery('1000');
-        } else {
-            $step->setName($this->translator->trans('Set variable'));
-            $step->setQuery('');
-        }
+        $step->setName($this->translator->trans($name));
+        $step->setQuery($query);
 
         return $this->renderEditor($workspace, $flow, $step, $parser, $connections, true, ['type' => $type]);
+    }
+
+    /**
+     * Starter name and configuration for every step type that carries its whole
+     * setup on the step itself. The seeds are deliberately runnable or
+     * self-describing rather than empty: the JSON shape is the documentation,
+     * and a step created from here should show what belongs in it — including
+     * that a bearer token belongs in a {{variable}}, never in the step.
+     *
+     * @return array<string, array{0: string, 1: string}>
+     */
+    private function stepSeeds(): array
+    {
+        return [
+            FlowStep::TYPE_DELAY => ['Wait', '1000'],
+            FlowStep::TYPE_SETVAR => ['Set variable', ''],
+            FlowStep::TYPE_LLM => ['LLM', (string) json_encode([
+                'prompt' => 'Reply with the single word: ok',
+            ], \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)],
+            FlowStep::TYPE_MCP => ['MCP tool call', (string) json_encode([
+                'server' => 'https://your-host/mcp',
+                'tool' => '',
+                'arguments' => new \stdClass(),
+                'headers' => ['Authorization' => 'Bearer {{mcpToken}}'],
+            ], \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)],
+            FlowStep::TYPE_AGENT => ['Agent', (string) json_encode([
+                'server' => 'https://your-host/mcp',
+                'prompt' => '',
+                'maxTurns' => 8,
+                'headers' => ['Authorization' => 'Bearer {{mcpToken}}'],
+            ], \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)],
+            FlowStep::TYPE_BROWSER => ['Browser', (string) json_encode([
+                'url' => '{{redirectUrl}}',
+                'successUrlPattern' => '',
+            ], \JSON_PRETTY_PRINT | \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE)],
+        ];
     }
 
     #[Route('/add-call', name: 'app_flow_step_add_call', methods: ['POST'])]
@@ -218,7 +251,10 @@ class FlowStepController extends AbstractAppController
             $step->setType(FlowStep::TYPE_HTTP);
             $step->setApiRequest($apiRequest);
             $step->copyRequestFrom($apiRequest);
-        } elseif (\in_array($type, [FlowStep::TYPE_DB, FlowStep::TYPE_SETVAR, FlowStep::TYPE_DELAY, FlowStep::TYPE_CALL], true)) {
+        } elseif (\in_array($type, [
+            FlowStep::TYPE_DB, FlowStep::TYPE_SETVAR, FlowStep::TYPE_DELAY, FlowStep::TYPE_CALL,
+            FlowStep::TYPE_LLM, FlowStep::TYPE_MCP, FlowStep::TYPE_AGENT, FlowStep::TYPE_BROWSER,
+        ], true)) {
             $step->setType($type);
         } else {
             throw $this->createNotFoundException();
@@ -298,6 +334,10 @@ class FlowStepController extends AbstractAppController
             ]);
         }
 
+        // Set before the call-step early return below: a teardown is most often a
+        // sub-flow call, and that branch returns before the shared fields are read.
+        $step->setAlwaysRun((bool) $r->request->get('alwaysRun'));
+
         if ($step->isCall()) {
             // A call step delegates everything to the referenced flow; only the target matters.
             $calledId = (string) $r->request->get('calledFlow');
@@ -335,6 +375,16 @@ class FlowStepController extends AbstractAppController
             }
         } elseif ($step->isSetvar() || $step->isDelay()) {
             $step->setQuery($this->nullable((string) $r->request->get('query')));
+        } elseif ($step->isBrowser() || $step->isLlm() || $step->isMcp() || $step->isAgent()) {
+            // These steps keep their whole setup as JSON in `query`. A malformed
+            // edit would leave a step no runner can read, so the previous config
+            // is kept and the user is told — better a stale step than a dead one.
+            $posted = trim((string) $r->request->get('query', ''));
+            if ('' !== $posted && \is_array(json_decode($posted, true))) {
+                $step->setQuery($posted);
+            } elseif ('' !== $posted) {
+                $this->addFlash('error', $this->translator->trans('The configuration is not valid JSON — the previous one was kept.'));
+            }
         } else {
             // HTTP: this step's own flow-owned request copy.
             $step->setReqMethod((string) $r->request->get('method', $step->getReqMethod()));

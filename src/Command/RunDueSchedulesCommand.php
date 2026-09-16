@@ -4,6 +4,7 @@ namespace App\Command;
 
 use App\Entity\FlowGroupRun;
 use App\Entity\Schedule;
+use App\Message\RunEvaluationMessage;
 use App\Message\RunFlowGroupMessage;
 use App\Repository\FlowGroupRunRepository;
 use App\Repository\ScheduleRepository;
@@ -46,6 +47,7 @@ class RunDueSchedulesCommand extends Command
         private readonly \App\Repository\NotificationDestinationRepository $destinations,
         private readonly \App\Service\WorkspaceDigest $digest,
         private readonly \App\Service\Notification\NotificationDispatcher $dispatcher,
+        private readonly \App\Service\EvaluationRunner $evaluations,
     ) {
         parent::__construct();
     }
@@ -121,6 +123,20 @@ class RunDueSchedulesCommand extends Command
             $this->dispatcher->queueDigest($workspace, $destinations, $this->digest->payload($workspace));
 
             return sprintf('digest queued to %d destination(s)', \count($destinations));
+        }
+
+        $evaluation = $schedule->getEvaluation();
+        if (null !== $evaluation) {
+            if ([] === $evaluation->getDataset()) {
+                return 'evaluation has no rows, skipped';
+            }
+
+            // Always on the worker: rows × repeats is the whole point of an
+            // evaluation and is far past what a scheduler tick should hold open.
+            $run = $this->evaluations->createRun($evaluation, 'schedule', $schedule->getNotify() ?: null);
+            $this->bus->dispatch(new RunEvaluationMessage((string) $run->getId()));
+
+            return sprintf('evaluation queued (%d runs)', $evaluation->plannedRuns());
         }
 
         $group = $schedule->getFlowGroup();

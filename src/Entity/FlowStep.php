@@ -18,6 +18,9 @@ class FlowStep
     public const TYPE_DELAY = 'delay';
     public const TYPE_CALL = 'call';
     public const TYPE_BROWSER = 'browser';
+    public const TYPE_LLM = 'llm';
+    public const TYPE_MCP = 'mcp';
+    public const TYPE_AGENT = 'agent';
 
     #[ORM\Id]
     #[ORM\Column(type: UuidType::NAME, unique: true)]
@@ -64,6 +67,16 @@ class FlowStep
 
     #[ORM\Column]
     private int $position = 0;
+
+    /**
+     * Run this step even after the flow has stopped — the teardown escape hatch.
+     * A test that changes state outside itself (a config row, a feature flag, a
+     * seeded record) needs to put it back whether or not the assertion in the
+     * middle passed; an ordinary step is marked SKIPPED once the run stops, and
+     * the cleanup never happens.
+     */
+    #[ORM\Column(options: ['default' => false])]
+    private bool $alwaysRun = false;
 
     /** Retry the step until its assertions pass (or attempts run out). */
     #[ORM\Column]
@@ -365,6 +378,35 @@ class FlowStep
         return self::TYPE_BROWSER === $this->type;
     }
 
+    public function isLlm(): bool
+    {
+        return self::TYPE_LLM === $this->type;
+    }
+
+    /**
+     * The JSON configuration of a step whose whole setup lives in `query`
+     * (browser, llm, mcp, agent). Returns [] when there is none or it is not
+     * valid JSON, so a broken step renders as empty rather than exploding.
+     *
+     * @return array<string, mixed>
+     */
+    public function getConfig(): array
+    {
+        $decoded = json_decode((string) $this->query, true);
+
+        return \is_array($decoded) ? $decoded : [];
+    }
+
+    public function isMcp(): bool
+    {
+        return self::TYPE_MCP === $this->type;
+    }
+
+    public function isAgent(): bool
+    {
+        return self::TYPE_AGENT === $this->type;
+    }
+
     /** @return array{left: string, op: string, right: string}|null */
     public function getCondition(): ?array
     {
@@ -495,6 +537,18 @@ class FlowStep
     public function setPosition(int $position): static
     {
         $this->position = $position;
+
+        return $this;
+    }
+
+    public function isAlwaysRun(): bool
+    {
+        return $this->alwaysRun;
+    }
+
+    public function setAlwaysRun(bool $alwaysRun): static
+    {
+        $this->alwaysRun = $alwaysRun;
 
         return $this;
     }

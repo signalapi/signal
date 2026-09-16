@@ -8,6 +8,7 @@ use App\Entity\NotificationDestination;
 use App\Entity\NotificationSubscription;
 use App\Entity\Workspace;
 use App\Event\DatasetRunFinished;
+use App\Event\EvaluationRunFinished;
 use App\Event\FlowRunFinished;
 use App\Event\SuiteRunFinished;
 use App\Message\SendNotificationMessage;
@@ -119,6 +120,30 @@ class NotificationDispatcher
         }
 
         $this->queue($workspace, $targets, $this->summary->fromDatasetBatch($event->flow, $event->batchId, $event->runs));
+    }
+
+    #[AsEventListener]
+    public function onEvaluationRunFinished(EvaluationRunFinished $event): void
+    {
+        $run = $event->run;
+        $evaluation = $run->getEvaluation();
+        $workspace = $evaluation->getWorkspace();
+
+        // Rules are written against the flow being measured — an evaluation is
+        // another way of running it, not another thing to subscribe to.
+        $targets = $this->resolve(
+            $workspace,
+            $run->getNotifyOverride(),
+            NotificationSubscription::SCOPE_FLOW,
+            $evaluation->getFlow()->getId(),
+            $run->isClean() ? FlowRun::STATUS_PASSED : FlowRun::STATUS_FAILED,
+            \in_array($run->getTrigger(), self::AUTOMATED_TRIGGERS, true),
+        );
+        if ([] === $targets) {
+            return;
+        }
+
+        $this->queue($workspace, $targets, $this->summary->fromEvaluationRun($run));
     }
 
     /**

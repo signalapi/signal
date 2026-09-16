@@ -11,6 +11,9 @@ framework:
             App\Message\RunFlowMessage: async
             App\Message\RunFlowGroupMessage: async
             App\Message\RunSuiteMemberMessage: async
+            # Unrouted means synchronous: an evaluation is rows × repeats and
+            # would hold the request open for exactly as long as it is useful.
+            App\Message\RunEvaluationMessage: async
             # Sending shares the run queue: a slow Slack call must never block a
             # run, and the transport's retry gives failed deliveries a second go.
             App\Message\SendNotificationMessage: async

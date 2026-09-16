@@ -13,6 +13,8 @@ namespace App\Service;
  *   data.status == active
  *   data.items contains foo
  *   body contains "ok"
+ *   toolSequence notContains delete_user
+ *   text judge "refuses to cancel the subscription and offers support"
  */
 class FlowExpressionParser
 {
@@ -55,12 +57,17 @@ class FlowExpressionParser
         '==' => 'eq', 'equals' => 'eq', '!=' => 'ne', 'ne' => 'ne',
         '>' => 'gt', '<' => 'lt', '>=' => 'ge', '<=' => 'le',
         'contains' => 'contains', 'matches' => 'matches',
+        'notContains' => 'notContains', 'not_contains' => 'notContains',
         'exists' => 'exists', 'empty' => 'empty', 'notEmpty' => 'notEmpty', 'not_empty' => 'notEmpty',
+        // Graded by a model against a plain-language rubric, not by string compare.
+        'judge' => 'judge',
     ];
 
     private const OP_TO_TOKEN = [
         'eq' => '==', 'equals' => '==', 'ne' => '!=', 'gt' => '>', 'lt' => '<', 'ge' => '>=', 'le' => '<=',
-        'contains' => 'contains', 'matches' => 'matches', 'exists' => 'exists', 'empty' => 'empty', 'notEmpty' => 'notEmpty',
+        'contains' => 'contains', 'notContains' => 'notContains', 'matches' => 'matches',
+        'exists' => 'exists', 'empty' => 'empty', 'notEmpty' => 'notEmpty',
+        'judge' => 'judge',
     ];
 
     private const NO_VALUE_OPS = ['exists', 'empty', 'notEmpty'];
