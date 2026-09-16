@@ -8,6 +8,7 @@ use App\Entity\FlowGroup;
 use App\Entity\FlowGroupRun;
 use App\Entity\FlowRun;
 use App\Entity\FlowStep;
+use App\Entity\McpServer;
 use App\Entity\TestFlow;
 use App\Entity\Workspace;
 use App\Message\RunFlowGroupMessage;
@@ -58,6 +59,8 @@ class McpToolRegistry
         private readonly \App\Repository\EvaluationRepository $evaluations,
         private readonly \App\Repository\EvaluationRunRepository $evaluationRuns,
         private readonly \App\Service\EvaluationRunner $evaluationRunner,
+        private readonly \App\Repository\McpServerRepository $mcpServers,
+        private readonly McpCatalog $mcpCatalog,
         private readonly MessageBusInterface $bus,
         private readonly \App\Repository\ScheduleRepository $schedules,
         private readonly \App\Service\ScheduleCompiler $scheduleCompiler,
@@ -124,6 +127,36 @@ class McpToolRegistry
                 ]]],
             ['name' => 'delete_mock_route', 'description' => 'Delete a mock route by id (from list_mock_routes).',
                 'inputSchema' => ['type' => 'object', 'required' => ['routeId'], 'properties' => ['routeId' => ['type' => 'string']]]],
+            ['name' => 'list_mcp_servers', 'description' => 'List the MCP servers this workspace tests against, with how many tools each publishes and when its catalogue was last read. A server is the MCP equivalent of a collection: one place for the endpoint and its auth header, so a step names a tool instead of repeating the URL and token.',
+                'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
+            ['name' => 'create_mcp_server', 'description' => 'Catalogue an MCP server. url and header VALUES may contain {{variables}} — put the bearer token in an environment variable rather than here, so one server row works across environments and the secret stays where secrets are masked. Reads the tool catalogue immediately when environmentName is given.',
+                'inputSchema' => ['type' => 'object', 'required' => ['name', 'url'], 'properties' => [
+                    'name' => ['type' => 'string'],
+                    'url' => ['type' => 'string', 'description' => 'Endpoint, e.g. https://host/mcp or {{mcpUrl}}'],
+                    'headers' => ['type' => 'object', 'description' => 'Sent with every request, e.g. {"Authorization": "Bearer {{mcpToken}}"}'],
+                    'description' => ['type' => 'string'],
+                    'environmentName' => ['type' => 'string', 'description' => 'Resolve {{variables}} with this environment and read the catalogue now.'],
+                ]]],
+            ['name' => 'update_mcp_server', 'description' => 'Change a catalogued MCP server. Only the fields you pass are changed.',
+                'inputSchema' => ['type' => 'object', 'required' => ['serverName'], 'properties' => [
+                    'serverName' => ['type' => 'string'],
+                    'name' => ['type' => 'string'],
+                    'url' => ['type' => 'string'],
+                    'headers' => ['type' => 'object'],
+                    'description' => ['type' => 'string'],
+                ]]],
+            ['name' => 'refresh_mcp_tools', 'description' => 'Re-read a server\'s tool catalogue through an environment\'s values (the url and headers carry {{variables}}, so the catalogue is what those credentials can see). A server that fails to answer keeps its previous catalogue and records why.',
+                'inputSchema' => ['type' => 'object', 'required' => ['serverName'], 'properties' => [
+                    'serverName' => ['type' => 'string'],
+                    'environmentName' => ['type' => 'string', 'description' => 'Whose variable values to resolve with. Omit only when the url and headers carry no variables.'],
+                ]]],
+            ['name' => 'get_mcp_tools', 'description' => 'The catalogued tools of a server with their input schemas — read this before writing an mcp or agent step, so the arguments match what the tool actually takes instead of being guessed.',
+                'inputSchema' => ['type' => 'object', 'required' => ['serverName'], 'properties' => [
+                    'serverName' => ['type' => 'string'],
+                    'tool' => ['type' => 'string', 'description' => 'Just this one tool, with its full schema.'],
+                ]]],
+            ['name' => 'delete_mcp_server', 'description' => 'Delete a catalogued MCP server. Steps pointing at it are kept but left without a server, so they fail visibly rather than vanishing.',
+                'inputSchema' => ['type' => 'object', 'required' => ['serverName'], 'properties' => ['serverName' => ['type' => 'string']]]],
             ['name' => 'list_db_connections', 'description' => 'List the database connections (no credentials are returned).',
                 'inputSchema' => ['type' => 'object', 'properties' => new \stdClass()]],
             ['name' => 'list_data_factories', 'description' => 'List the workspace data factories (manageable {{$generator}} tokens) AND the built-in {{$guid}}/{{$randomEmail}}… generators, each with a sample value.',
@@ -227,9 +260,10 @@ class McpToolRegistry
                     'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
                 ]]],
             ['name' => 'add_mcp_step', 'description' => 'Add an MCP TOOL CALL step: calls one tool on an MCP server with the arguments you give and asserts the result — the deterministic way to test an MCP server itself. server/tool/headers and every string inside arguments support {{variable}}, so the bearer token belongs in an environment variable, not in the step. The result exposes isError, text, result (the server\'s structuredContent, or its text parsed as JSON), tool, server and durationMs. A tool reporting its own failure comes back as isError rather than erroring the step, so "isError == true" is itself assertable.',
-                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'server', 'tool'], 'properties' => [
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'tool'], 'properties' => [
                     'flowId' => ['type' => 'string'],
-                    'server' => ['type' => 'string', 'description' => 'MCP endpoint URL, e.g. https://host/mcp'],
+                    'serverName' => ['type' => 'string', 'description' => 'A catalogued MCP server (list_mcp_servers). Preferred: the URL and auth header come from it, and the tool name is checked against its catalogue.'],
+                    'server' => ['type' => 'string', 'description' => 'Inline endpoint URL instead of a catalogued server, e.g. https://host/mcp'],
                     'tool' => ['type' => 'string', 'description' => 'Name of the tool to call'],
                     'arguments' => ['type' => 'object', 'description' => 'Arguments for the tool; strings anywhere inside resolve {{variable}}'],
                     'headers' => ['type' => 'object', 'description' => 'Extra request headers, e.g. {"Authorization": "Bearer {{mcpToken}}"}'],
@@ -241,9 +275,10 @@ class McpToolRegistry
                     'afterStepId' => ['type' => 'string', 'description' => 'Insert directly after this step instead of at the end (alternative to position).'],
                 ]]],
             ['name' => 'add_agent_step', 'description' => 'Add an AGENT step: hands a model the MCP server\'s tools and a task, runs the loop, and records what it DID. Use it to test agent BEHAVIOUR — the reply is the easy part, the thing that breaks is which tools it reached for and in what order. The result exposes toolSequence ("search_flights › book_flight", one flat string, so ordinary operators test behaviour: "toolSequence == a › b" pins the chain, "toolSequence contains refund" catches a call anywhere, "toolSequence matches ^search" anchors the opener, and "toolSequence notContains delete_user" proves a tool was never reached — asserting what an agent must NOT do is usually the point), toolCalls[] with each input and isError, toolNames, toolCallCount, turns (model calls — "turns <= 3" is a real efficiency test), truncated (it was still working when maxTurns ran out — worth asserting false), text, stopReason and token counts. Sets {{agentText}} and {{agentToolSequence}} for later steps. Agent output varies between runs, so measure it with run_dataset + repeats rather than trusting one green run, and assert the reply with the judge operator. Retry is honoured but off by default: re-running an agent produces a DIFFERENT trace, so it hides the very non-determinism repeats are there to measure — enable it for transient API failures, not to make a flaky agent look green.',
-                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'server', 'prompt'], 'properties' => [
+                'inputSchema' => ['type' => 'object', 'required' => ['flowId', 'prompt'], 'properties' => [
                     'flowId' => ['type' => 'string'],
-                    'server' => ['type' => 'string', 'description' => 'MCP endpoint URL whose tools the agent gets'],
+                    'serverName' => ['type' => 'string', 'description' => 'A catalogued MCP server whose tools the agent gets (list_mcp_servers). Preferred over an inline URL.'],
+                    'server' => ['type' => 'string', 'description' => 'Inline endpoint URL instead of a catalogued server'],
                     'prompt' => ['type' => 'string', 'description' => 'The task given to the agent; supports {{variable}}'],
                     'system' => ['type' => 'string', 'description' => 'Optional system prompt — the role and rules under test'],
                     'tools' => array_merge($strArray, ['description' => 'Allow-list of tool names; empty = every tool the server offers. Narrow it to test how the agent copes when a tool it wants is missing.']),
@@ -535,6 +570,12 @@ class McpToolRegistry
             'run_flow' => $this->runFlow($ws, $args),
             'run_flow_async' => $this->runFlowAsync($ws, $args),
             'run_dataset' => $this->runDatasetTool($ws, $args),
+            'list_mcp_servers' => $this->listMcpServers($ws),
+            'create_mcp_server' => $this->createMcpServer($ws, $args),
+            'update_mcp_server' => $this->updateMcpServer($ws, $args),
+            'refresh_mcp_tools' => $this->refreshMcpTools($ws, $args),
+            'get_mcp_tools' => $this->getMcpTools($ws, $args),
+            'delete_mcp_server' => $this->deleteMcpServer($ws, $args),
             'list_evaluations' => $this->listEvaluations($ws),
             'create_evaluation' => $this->createEvaluation($ws, $args),
             'update_evaluation' => $this->updateEvaluation($ws, $args),
@@ -1067,10 +1108,18 @@ class McpToolRegistry
     private function addMcpStep(Workspace $ws, array $args): array
     {
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
-        $server = trim((string) ($args['server'] ?? ''));
         $tool = trim((string) ($args['tool'] ?? ''));
-        if ('' === $server || '' === $tool) {
-            throw new \InvalidArgumentException('server and tool are required.');
+        if ('' === $tool) {
+            throw new \InvalidArgumentException('tool is required.');
+        }
+        [$catalogued, $server] = $this->stepServer($ws, $args);
+        // A tool name that is not in the catalogue is a typo caught now rather
+        // than at run time, and the error names what the server does publish.
+        if (null !== $catalogued && [] !== $catalogued->getTools() && null === $catalogued->tool($tool)) {
+            throw new \InvalidArgumentException(sprintf(
+                'The server "%s" publishes no tool named "%s". Known: %s',
+                $catalogued->getName(), $tool, implode(', ', $catalogued->toolNames()),
+            ));
         }
 
         $config = array_filter([
@@ -1081,17 +1130,17 @@ class McpToolRegistry
             'timeoutMs' => isset($args['timeoutMs']) ? (int) $args['timeoutMs'] : null,
         ], static fn ($v) => null !== $v);
 
-        return $this->saveConfiguredStep($flow, FlowStep::TYPE_MCP, $config, (string) ($args['name'] ?? 'MCP: ' . $tool), $args);
+        return $this->saveConfiguredStep($flow, FlowStep::TYPE_MCP, $config, (string) ($args['name'] ?? 'MCP: ' . $tool), $args, $catalogued);
     }
 
     private function addAgentStep(Workspace $ws, array $args): array
     {
         $flow = $this->requireFlow($ws, (string) ($args['flowId'] ?? ''));
-        $server = trim((string) ($args['server'] ?? ''));
         $prompt = trim((string) ($args['prompt'] ?? ''));
-        if ('' === $server || '' === $prompt) {
-            throw new \InvalidArgumentException('server and prompt are required.');
+        if ('' === $prompt) {
+            throw new \InvalidArgumentException('prompt is required.');
         }
+        [$catalogued, $server] = $this->stepServer($ws, $args);
 
         $allow = array_values(array_filter(array_map('strval', (array) ($args['tools'] ?? []))));
         $config = array_filter([
@@ -1105,7 +1154,30 @@ class McpToolRegistry
             'headers' => \is_array($args['headers'] ?? null) && [] !== $args['headers'] ? $args['headers'] : null,
         ], static fn ($v) => null !== $v);
 
-        return $this->saveConfiguredStep($flow, FlowStep::TYPE_AGENT, $config, (string) ($args['name'] ?? 'Agent'), $args);
+        return $this->saveConfiguredStep($flow, FlowStep::TYPE_AGENT, $config, (string) ($args['name'] ?? 'Agent'), $args, $catalogued);
+    }
+
+    /**
+     * Resolves where a step points: a catalogued server, or an inline URL kept
+     * in the step's own config.
+     *
+     * @param array<string, mixed> $args
+     *
+     * @return array{0: ?McpServer, 1: ?string} the server to link, and the URL to inline
+     */
+    private function stepServer(Workspace $ws, array $args): array
+    {
+        $named = trim((string) ($args['serverName'] ?? ''));
+        if ('' !== $named) {
+            return [$this->requireMcpServer($ws, $named), null];
+        }
+
+        $inline = trim((string) ($args['server'] ?? ''));
+        if ('' === $inline) {
+            throw new \InvalidArgumentException('Give either serverName (a catalogued server) or server (an endpoint URL).');
+        }
+
+        return [null, $inline];
     }
 
     /**
@@ -1116,11 +1188,12 @@ class McpToolRegistry
      *
      * @return array<string, mixed>
      */
-    private function saveConfiguredStep(TestFlow $flow, string $type, array $config, string $name, array $args): array
+    private function saveConfiguredStep(TestFlow $flow, string $type, array $config, string $name, array $args, ?McpServer $server = null): array
     {
         $step = new FlowStep();
         $step->setFlow($flow);
         $step->setType($type);
+        $step->setMcpServer($server);
         $step->setQuery((string) json_encode($config, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE));
         $step->setName($name);
         $this->placeStep($flow, $step, $args);
@@ -2582,6 +2655,196 @@ class McpToolRegistry
         }
 
         return $evaluation;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function listMcpServers(Workspace $ws): array
+    {
+        $out = [];
+        foreach ($this->mcpServers->findByWorkspace($ws) as $server) {
+            $out[] = array_filter([
+                'name' => $server->getName(),
+                'url' => $server->getUrl(),
+                'serverName' => $server->getServerName(),
+                'protocolVersion' => $server->getProtocolVersion(),
+                'tools' => \count($server->getTools()),
+                'refreshedAt' => $server->getToolsRefreshedAt()?->format(\DATE_ATOM),
+                'refreshError' => $server->getRefreshError(),
+                'description' => $server->getDescription(),
+            ], static fn ($v) => null !== $v);
+        }
+
+        return ['servers' => $out];
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function createMcpServer(Workspace $ws, array $args): array
+    {
+        $name = trim((string) ($args['name'] ?? ''));
+        $url = trim((string) ($args['url'] ?? ''));
+        if ('' === $name || '' === $url) {
+            throw new \InvalidArgumentException('name and url are required.');
+        }
+        if (null !== $this->mcpServers->findOneByName($ws, $name)) {
+            throw new \InvalidArgumentException(sprintf('An MCP server named "%s" already exists.', $name));
+        }
+
+        $server = new McpServer();
+        $server->setWorkspace($ws);
+        $server->setName(mb_substr($name, 0, 150));
+        $server->setUrl($url);
+        $server->setDescription(trim((string) ($args['description'] ?? '')) ?: null);
+        $server->setHeaders($this->headerMap($args['headers'] ?? []));
+        $this->mcpServers->save($server);
+
+        $refresh = null;
+        if (!empty($args['environmentName'])) {
+            $refresh = $this->mcpCatalog->refresh($server, $this->findEnvironmentByName($ws, (string) $args['environmentName']));
+        }
+
+        return array_filter([
+            'name' => $server->getName(),
+            'tools' => \count($server->getTools()),
+            'refreshed' => $refresh,
+            'note' => null === $refresh
+                ? 'Catalogue not read yet — call refresh_mcp_tools with an environmentName.'
+                : null,
+        ], static fn ($v) => null !== $v);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function updateMcpServer(Workspace $ws, array $args): array
+    {
+        $server = $this->requireMcpServer($ws, (string) ($args['serverName'] ?? ''));
+        if (isset($args['name'])) {
+            $name = trim((string) $args['name']);
+            if ('' === $name) {
+                throw new \InvalidArgumentException('name cannot be empty.');
+            }
+            $server->setName(mb_substr($name, 0, 150));
+        }
+        if (isset($args['url'])) {
+            $server->setUrl(trim((string) $args['url']));
+        }
+        if (\array_key_exists('description', $args)) {
+            $server->setDescription(trim((string) $args['description']) ?: null);
+        }
+        if (isset($args['headers'])) {
+            $server->setHeaders($this->headerMap($args['headers']));
+        }
+        $this->mcpServers->save($server);
+
+        return ['name' => $server->getName(), 'url' => $server->getUrl(), 'tools' => \count($server->getTools())];
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function refreshMcpTools(Workspace $ws, array $args): array
+    {
+        $server = $this->requireMcpServer($ws, (string) ($args['serverName'] ?? ''));
+        $environment = !empty($args['environmentName'])
+            ? $this->findEnvironmentByName($ws, (string) $args['environmentName'])
+            : null;
+
+        $result = $this->mcpCatalog->refresh($server, $environment);
+
+        return array_filter([
+            'server' => $server->getName(),
+            'ok' => $result['ok'],
+            'tools' => $result['tools'],
+            'toolNames' => $result['ok'] ? $server->toolNames() : null,
+            'error' => $result['error'],
+            'note' => $result['ok'] ? null : 'The previous catalogue was kept.',
+        ], static fn ($v) => null !== $v);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function getMcpTools(Workspace $ws, array $args): array
+    {
+        $server = $this->requireMcpServer($ws, (string) ($args['serverName'] ?? ''));
+
+        $one = trim((string) ($args['tool'] ?? ''));
+        if ('' !== $one) {
+            $tool = $server->tool($one);
+            if (null === $tool) {
+                throw new \InvalidArgumentException(sprintf(
+                    'The server "%s" publishes no tool named "%s". Known: %s',
+                    $server->getName(), $one, implode(', ', $server->toolNames()) ?: '(catalogue empty)',
+                ));
+            }
+
+            return ['server' => $server->getName(), 'tool' => $tool];
+        }
+
+        return array_filter([
+            'server' => $server->getName(),
+            'refreshedAt' => $server->getToolsRefreshedAt()?->format(\DATE_ATOM),
+            'tools' => $server->getTools(),
+            'note' => [] === $server->getTools()
+                ? 'Catalogue is empty — call refresh_mcp_tools with an environmentName.'
+                : null,
+        ], static fn ($v) => null !== $v);
+    }
+
+    /**
+     * @param array<string, mixed> $args
+     *
+     * @return array<string, mixed>
+     */
+    private function deleteMcpServer(Workspace $ws, array $args): array
+    {
+        $server = $this->requireMcpServer($ws, (string) ($args['serverName'] ?? ''));
+        $name = $server->getName();
+        $this->mcpServers->remove($server);
+
+        return ['deleted' => $name];
+    }
+
+    /**
+     * @param mixed $raw
+     *
+     * @return array<string, string>
+     */
+    private function headerMap(mixed $raw): array
+    {
+        $out = [];
+        foreach ((array) $raw as $name => $value) {
+            if (\is_string($name) && \is_scalar($value)) {
+                $out[$name] = (string) $value;
+            }
+        }
+
+        return $out;
+    }
+
+    private function requireMcpServer(Workspace $ws, string $name): McpServer
+    {
+        $server = '' !== trim($name) ? $this->mcpServers->findOneByName($ws, $name) : null;
+        if (null === $server) {
+            $known = array_map(static fn (McpServer $s): string => $s->getName(), $this->mcpServers->findByWorkspace($ws));
+            throw new \InvalidArgumentException(sprintf(
+                'MCP server "%s" not found. Known: %s', $name, implode(', ', $known) ?: '(none)',
+            ));
+        }
+
+        return $server;
     }
 
     private function requireStep(Workspace $ws, string $id): FlowStep

@@ -58,6 +58,17 @@ class FlowStep
     #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
     private ?TestFlow $calledFlow = null;
 
+    /**
+     * The catalogued MCP server this step talks to (mcp / agent steps). SET NULL
+     * so deleting a server leaves the step visible and clearly broken rather
+     * than cascading. When null the step falls back to the `server`/`headers`
+     * in its own JSON config, which is how steps were written before servers
+     * were a thing.
+     */
+    #[ORM\ManyToOne(targetEntity: McpServer::class)]
+    #[ORM\JoinColumn(nullable: true, onDelete: 'SET NULL')]
+    private ?McpServer $mcpServer = null;
+
     /** SQL / Redis command / Mongo JSON spec (db steps), with {{var}} support. */
     #[ORM\Column(type: Types::TEXT, nullable: true)]
     private ?string $query = null;
@@ -489,6 +500,18 @@ class FlowStep
     public function setApiRequest(?ApiRequest $apiRequest): static
     {
         $this->apiRequest = $apiRequest;
+
+        return $this;
+    }
+
+    public function getMcpServer(): ?McpServer
+    {
+        return $this->mcpServer;
+    }
+
+    public function setMcpServer(?McpServer $mcpServer): static
+    {
+        $this->mcpServer = $mcpServer;
 
         return $this;
     }
