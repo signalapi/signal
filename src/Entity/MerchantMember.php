@@ -30,7 +30,7 @@ class MerchantMember
     #[ORM\CustomIdGenerator(class: 'doctrine.uuid_generator')]
     private ?Uuid $id = null;
 
-    #[ORM\ManyToOne(targetEntity: Merchant::class)]
+    #[ORM\ManyToOne(targetEntity: Merchant::class, inversedBy: 'members')]
     #[ORM\JoinColumn(nullable: false, onDelete: 'CASCADE')]
     private Merchant $merchant;
 
