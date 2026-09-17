@@ -218,25 +218,68 @@
             {% elseif step.isBrowser or step.isLlm or step.isMcp or step.isAgent %}
                 {# Without this branch these steps fell through to the HTTP request
                    form below — a method, a URL and a body that no runner reads. #}
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
-                    <label style="margin:0">{{ 'Configuration'|trans }}</label><div class="grow"></div>
-                    <span class="mono subtitle" style="font-size:10.5px">
-                        {%- if step.isMcp %}server · tool · arguments
-                        {%- elseif step.isAgent %}server · prompt · tools
-                        {%- elseif step.isLlm %}prompt · system · model
-                        {%- else %}url · successUrlPattern{% endif -%}
-                    </span>
-                </div>
-                <div class="code-ed hl" data-hl="query">
-                    <div class="cb-gutter" aria-hidden="true">1</div>
-                    <div class="cb-area">
-                        <pre class="cb-hl" aria-hidden="true"></pre>
-                        <textarea name="query" rows="8" data-vc spellcheck="false">{{ step.query }}</textarea>
+                {% if step.isMcp or step.isAgent %}
+                    {# The catalogue turns the endpoint, the tool name and the
+                       argument shape from things you remember into things you pick. #}
+                    <label for="mcpServerSel">{{ 'MCP server'|trans }}</label>
+                    <select name="mcpServer" id="mcpServerSel" style="margin-bottom:12px;">
+                        <option value="">{{ '— endpoint written in the configuration below —'|trans }}</option>
+                        {% for srv in mcp_servers %}
+                            <option value="{{ srv.id }}" {{ step.mcpServer and step.mcpServer.id == srv.id ? 'selected' }}>
+                                {{ srv.name }}{% if srv.tools|length %} · {{ '%count% tools'|trans({'%count%': srv.tools|length}) }}{% endif %}</option>
+                        {% endfor %}
+                    </select>
+                    {% if mcp_servers is empty %}
+                        <div class="hintbox" style="background:var(--warn-soft);color:var(--warn);margin-bottom:12px;">
+                            {{ ic.i('alert', 15) }}{{ 'No MCP server catalogued yet — add one under MCP servers to pick tools instead of typing them.'|trans }}
+                        </div>
+                    {% endif %}
+                {% endif %}
+
+                {% if step.isMcp %}
+                    <label for="mcpToolSel">{{ 'Tool'|trans }}</label>
+                    <select id="mcpToolSel" style="margin-bottom:6px;"></select>
+                    <p class="fhint" id="mcpToolDesc" style="margin:0 0 12px;"></p>
+                    <label>{{ 'Arguments'|trans }}</label>
+                    <div id="mcpArgs" style="margin-bottom:12px;"></div>
+                {% endif %}
+
+                {% if step.isAgent %}
+                    <label for="agentPrompt">{{ 'Task'|trans }}</label>
+                    <textarea id="agentPrompt" rows="3" data-vc spellcheck="false" style="margin-bottom:10px;"></textarea>
+                    <label for="agentSystem">{{ 'System prompt'|trans }}</label>
+                    <textarea id="agentSystem" rows="2" data-vc spellcheck="false" style="margin-bottom:10px;"></textarea>
+                    <div class="row" style="gap:10px;margin-bottom:10px;">
+                        <div class="field" style="flex:0 0 130px;margin:0;">
+                            <label for="agentTurns">{{ 'Max turns'|trans }}</label>
+                            <input type="number" id="agentTurns" min="1" max="20">
+                        </div>
+                        <div class="field" style="flex:1;margin:0;">
+                            <label for="agentModel">{{ 'Model (optional)'|trans }}</label>
+                            <input type="text" id="agentModel" class="input-mono" placeholder="{{ 'platform default'|trans }}">
+                        </div>
                     </div>
-                </div>
-                <div class="hintbox" style="background:var(--vio-soft);color:var(--vio)">
-                    {{ ic.i('shield', 15) }}{{ 'Must stay valid JSON — an invalid edit is refused and the previous configuration kept. Variables from earlier steps work inside it.'|trans }}
-                </div>
+                    <label>{{ 'Tools the agent may use'|trans }}</label>
+                    <div id="agentTools" style="margin-bottom:6px;"></div>
+                    <p class="fhint" style="margin:0 0 12px;">{{ 'Nothing ticked means every tool the server offers. Narrow it to test how the agent copes when a tool it wants is missing.'|trans }}</p>
+                {% endif %}
+
+                <details class="fold" {{ step.isMcp or step.isAgent ? '' : 'open' }}>
+                    <summary><span class="ic-box">{{ ic.i('terminal', 15) }}</span>
+                        <span><span class="t">{{ 'Configuration (JSON)'|trans }}</span></span><span class="chev">{{ ic.i('chevron-r', 12) }}</span></summary>
+                    <div class="fold-body">
+                        <div class="code-ed hl" data-hl="query">
+                            <div class="cb-gutter" aria-hidden="true">1</div>
+                            <div class="cb-area">
+                                <pre class="cb-hl" aria-hidden="true"></pre>
+                                <textarea name="query" id="cfgJson" rows="8" data-vc spellcheck="false">{{ step.query }}</textarea>
+                            </div>
+                        </div>
+                        <div class="hintbox" style="background:var(--vio-soft);color:var(--vio)">
+                            {{ ic.i('shield', 15) }}{{ 'This is what gets saved. The fields above write into it; edit it here for anything they do not cover. Must stay valid JSON — an invalid edit is refused and the previous configuration kept.'|trans }}
+                        </div>
+                    </div>
+                </details>
 
             {% else %}
                 <div style="display:flex;gap:7px;align-items:center;margin-bottom:12px">
@@ -450,6 +493,17 @@
     </div>
 
     <script type="application/json" id="vcCatalog">{{ vc_catalog|json_encode|raw }}</script>
+    {# The JS below is inside {% verbatim %}, so anything Twig must evaluate —
+       the catalogue and every translated label — is handed over as JSON here. #}
+    {% set jsonFlags = constant('JSON_HEX_TAG') b-or constant('JSON_HEX_AMP') b-or constant('JSON_HEX_APOS') b-or constant('JSON_HEX_QUOT') %}
+    <script type="application/json" id="mcpCatalog">{{ mcp_servers|default([])|json_encode(jsonFlags)|raw }}</script>
+    <script type="application/json" id="mcpLabels">{{ {
+        'noArgs': 'This tool takes no arguments.'|trans,
+        'pickTool': 'Pick a tool to see its arguments.'|trans,
+        'pickServer': 'Pick a catalogued server to list its tools.'|trans,
+        'chooseTool': '— pick a tool —'|trans,
+        'notInCatalogue': '(not in catalogue)'|trans,
+    }|json_encode(jsonFlags)|raw }}</script>
 </form>
 {% endblock %}
 
@@ -657,6 +711,189 @@
     });
 
     form.addEventListener('submit', serialise);
+
+    // ---- MCP server / tool / argument pickers -------------------------
+    // The catalogue the server itself published; picking a tool builds its
+    // argument fields from that schema instead of asking anyone to remember it.
+    // The JSON below stays the saved value — these fields write into it, so
+    // anything the pickers do not model survives untouched.
+    function jsonTag(id, fallback) {
+        var el = document.getElementById(id);
+        try { return el ? JSON.parse(el.textContent) : fallback; } catch (e) { return fallback; }
+    }
+    var MCP_SERVERS = jsonTag('mcpCatalog', []);
+    var MCP_T = jsonTag('mcpLabels', {});
+    var cfgJson = document.getElementById('cfgJson');
+    var srvSel = document.getElementById('mcpServerSel');
+
+    if (cfgJson && (srvSel || document.getElementById('agentPrompt'))) {
+        var toolSel = document.getElementById('mcpToolSel');
+        var toolDesc = document.getElementById('mcpToolDesc');
+        var argsHost = document.getElementById('mcpArgs');
+        var agentHost = document.getElementById('agentTools');
+
+        function cfgRead() {
+            try { var o = JSON.parse(cfgJson.value || '{}'); return (o && typeof o === 'object' && !Array.isArray(o)) ? o : {}; }
+            catch (e) { return null; }   // invalid JSON: leave it alone, the server refuses it
+        }
+        function cfgWrite(o) { cfgJson.value = JSON.stringify(o, null, 2); }
+        function serverOf() {
+            if (!srvSel || !srvSel.value) return null;
+            for (var i = 0; i < MCP_SERVERS.length; i++) if (MCP_SERVERS[i].id === srvSel.value) return MCP_SERVERS[i];
+            return null;
+        }
+        function toolOf(server, name) {
+            if (!server) return null;
+            for (var i = 0; i < server.tools.length; i++) if (server.tools[i].name === name) return server.tools[i];
+            return null;
+        }
+
+        function buildArgs(tool, values) {
+            if (!argsHost) return;
+            argsHost.innerHTML = '';
+            var props = (tool && tool.inputSchema && tool.inputSchema.properties) || {};
+            var required = (tool && tool.inputSchema && tool.inputSchema.required) || [];
+            var names = Object.keys(props);
+            if (!names.length) {
+                argsHost.innerHTML = '<p class="fhint" style="margin:0;">' +
+                    (tool ? MCP_T.noArgs : MCP_T.pickTool) + '</p>';
+                return;
+            }
+            names.forEach(function (n) {
+                var pr = props[n] || {};
+                var kind = pr.type || 'string';
+                var isText = kind === 'object' || kind === 'array';
+                var row = document.createElement('div');
+                row.className = 'row';
+                row.style.cssText = 'gap:8px;margin-bottom:6px;align-items:flex-start;';
+                var v = values && values[n] !== undefined ? values[n] : '';
+                if (isText && typeof v !== 'string') v = JSON.stringify(v);
+                row.innerHTML =
+                    '<label style="flex:0 0 170px;margin:6px 0 0;font-size:11.5px;" class="mono">' + n +
+                    (required.indexOf(n) !== -1 ? ' <span style="color:var(--fail)">*</span>' : '') +
+                    '<span style="display:block;color:var(--faint);font-size:10px;font-weight:400;">' + kind + '</span></label>' +
+                    (isText
+                        ? '<textarea class="input-mono" data-arg="' + n + '" data-kind="' + kind + '" rows="2" data-vc></textarea>'
+                        : '<input type="text" class="input-mono" data-arg="' + n + '" data-kind="' + kind + '" data-vc>');
+                argsHost.appendChild(row);
+                var field = row.querySelector('[data-arg]');
+                field.value = (v === null || v === undefined) ? '' : String(v);
+                if (pr.description) field.title = pr.description;
+                field.addEventListener('input', collect);
+            });
+        }
+
+        function buildAgentTools(server, chosen) {
+            if (!agentHost) return;
+            agentHost.innerHTML = '';
+            var tools = (server && server.tools) || [];
+            if (!tools.length) {
+                agentHost.innerHTML = '<p class="fhint" style="margin:0;">' + MCP_T.pickServer + '</p>';
+                return;
+            }
+            var wrap = document.createElement('div');
+            wrap.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px 14px;';
+            tools.forEach(function (t) {
+                var lbl = document.createElement('label');
+                lbl.style.cssText = 'display:inline-flex;align-items:center;gap:6px;font-size:11.5px;';
+                lbl.className = 'mono';
+                lbl.title = t.description || '';
+                lbl.innerHTML = '<input type="checkbox" data-tool="' + t.name + '" style="width:auto">' + t.name;
+                wrap.appendChild(lbl);
+            });
+            agentHost.appendChild(wrap);
+            wrap.querySelectorAll('[data-tool]').forEach(function (cb) {
+                cb.checked = chosen.indexOf(cb.dataset.tool) !== -1;
+                cb.addEventListener('change', collect);
+            });
+        }
+
+        function collect() {
+            var cfg = cfgRead();
+            if (cfg === null) return;           // do not clobber JSON we cannot parse
+
+            if (toolSel) {
+                if (toolSel.value) cfg.tool = toolSel.value; else delete cfg.tool;
+                var args = {};
+                argsHost.querySelectorAll('[data-arg]').forEach(function (f) {
+                    var raw = f.value.trim();
+                    if (raw === '') return;
+                    var kind = f.dataset.kind;
+                    if (kind === 'object' || kind === 'array') { try { args[f.dataset.arg] = JSON.parse(raw); } catch (e) { args[f.dataset.arg] = raw; } }
+                    else if (kind === 'integer' || kind === 'number') { args[f.dataset.arg] = isNaN(Number(raw)) ? raw : Number(raw); }
+                    else if (kind === 'boolean') { args[f.dataset.arg] = (raw === 'true'); }
+                    else { args[f.dataset.arg] = raw; }
+                });
+                if (Object.keys(args).length) cfg.arguments = args; else delete cfg.arguments;
+            }
+
+            var p = document.getElementById('agentPrompt');
+            if (p) {
+                if (p.value.trim()) cfg.prompt = p.value; else delete cfg.prompt;
+                var sysv = document.getElementById('agentSystem').value;
+                if (sysv.trim()) cfg.system = sysv; else delete cfg.system;
+                var turns = document.getElementById('agentTurns').value;
+                if (turns) cfg.maxTurns = Number(turns); else delete cfg.maxTurns;
+                var model = document.getElementById('agentModel').value.trim();
+                if (model) cfg.model = model; else delete cfg.model;
+                var picked = [];
+                agentHost.querySelectorAll('[data-tool]').forEach(function (cb) { if (cb.checked) picked.push(cb.dataset.tool); });
+                if (picked.length) cfg.tools = picked; else delete cfg.tools;
+            }
+
+            // A catalogued server supplies the endpoint; leaving a stale inline
+            // one behind would be a second, invisible source of truth.
+            if (srvSel && srvSel.value) { delete cfg.server; delete cfg.headers; }
+            cfgWrite(cfg);
+        }
+
+        function syncFromCfg() {
+            var cfg = cfgRead() || {};
+            var server = serverOf();
+            if (toolSel) {
+                toolSel.innerHTML = '';
+                var blank = document.createElement('option');
+                blank.value = ''; blank.textContent = MCP_T.chooseTool;
+                toolSel.appendChild(blank);
+                ((server && server.tools) || []).forEach(function (t) {
+                    var o = document.createElement('option');
+                    o.value = t.name; o.textContent = t.name;
+                    toolSel.appendChild(o);
+                });
+                if (cfg.tool) {
+                    // A tool the catalogue does not list is still shown, so an
+                    // existing step never silently loses what it was calling.
+                    if (!toolOf(server, cfg.tool)) {
+                        var o = document.createElement('option');
+                        o.value = cfg.tool; o.textContent = cfg.tool + ' ' + MCP_T.notInCatalogue;
+                        toolSel.appendChild(o);
+                    }
+                    toolSel.value = cfg.tool;
+                }
+                var t = toolOf(server, toolSel.value);
+                toolDesc.textContent = t && t.description ? t.description : '';
+                buildArgs(t, cfg.arguments || {});
+            }
+            var p = document.getElementById('agentPrompt');
+            if (p) {
+                p.value = cfg.prompt || '';
+                document.getElementById('agentSystem').value = cfg.system || '';
+                document.getElementById('agentTurns').value = cfg.maxTurns || '';
+                document.getElementById('agentModel').value = cfg.model || '';
+                buildAgentTools(server, cfg.tools || []);
+            }
+        }
+
+        if (srvSel) srvSel.addEventListener('change', function () { syncFromCfg(); collect(); });
+        if (toolSel) toolSel.addEventListener('change', function () { syncFromCfg(); collect(); });
+        ['agentPrompt', 'agentSystem', 'agentTurns', 'agentModel'].forEach(function (id) {
+            var el = document.getElementById(id);
+            if (el) el.addEventListener('input', collect);
+        });
+        // Editing the JSON by hand is allowed; the pickers follow it back.
+        cfgJson.addEventListener('change', syncFromCfg);
+        syncFromCfg();
+    }
     renderRules(); renderExts();
 
     // ---- probe: run the step, render the response as clickable fields --
