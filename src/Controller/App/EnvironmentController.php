@@ -44,6 +44,79 @@ class EnvironmentController extends AbstractAppController
         ]);
     }
 
+    /**
+     * Copies an environment's shared definition into a new one.
+     *
+     * Personal values are deliberately not copied: they belong to whoever set
+     * them, and a new shared environment that quietly starts life holding one
+     * person's credentials is a surprise nobody wants. The copy lands on its
+     * own page, named and ready to be edited, because the first thing anyone
+     * does after duplicating is change something.
+     */
+    #[Route('/{environment}/duplicate', name: 'app_environment_duplicate', methods: ['POST'])]
+    public function duplicate(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['environment' => 'id'])] Environment $environment,
+        Request $request,
+        EnvironmentRepository $environments,
+        TranslatorInterface $translator,
+    ): Response {
+        $this->assertWorkspace($workspace, 'edit');
+        $this->assertEnvironment($workspace, $environment);
+
+        if (!$this->isCsrfTokenValid('duplicate' . $environment->getId(), (string) $request->request->get('_token'))) {
+            throw $this->createAccessDeniedException();
+        }
+
+        $copy = new Environment();
+        $copy->setWorkspace($workspace);
+        $copy->setName($this->freeName($workspace, $environment->getName(), $environments));
+
+        $secrets = 0;
+        foreach ($environment->getVariables() as $variable) {
+            $clone = new EnvVariable();
+            $clone->setName($variable->getName());
+            $clone->setValue($variable->getValue());
+            $clone->setSecret($variable->isSecret());
+            if ($variable->isSecret()) {
+                ++$secrets;
+            }
+            $copy->addVariable($clone);
+        }
+        $environments->save($copy);
+
+        $this->addFlash('success', $secrets > 0
+            ? $translator->trans('Copied %count% variables, %secrets% of them secret. Change what differs before you use it.', [
+                '%count%' => $copy->getVariables()->count(), '%secrets%' => $secrets,
+            ])
+            : $translator->trans('Copied %count% variables.', ['%count%' => $copy->getVariables()->count()]));
+
+        return $this->redirectToRoute('app_environment_edit', [
+            'workspace' => $workspace->getId(),
+            'environment' => $copy->getId(),
+        ]);
+    }
+
+    /**
+     * "Staging" becomes "Staging (copy)", then "Staging (copy 2)" — duplicating
+     * twice should not fail, and should not silently produce two identical names.
+     */
+    private function freeName(Workspace $workspace, string $base, EnvironmentRepository $environments): string
+    {
+        $taken = [];
+        foreach ($environments->findByWorkspace($workspace) as $existing) {
+            $taken[mb_strtolower($existing->getName())] = true;
+        }
+
+        $candidate = $base . ' (copy)';
+        $n = 2;
+        while (isset($taken[mb_strtolower($candidate)])) {
+            $candidate = sprintf('%s (copy %d)', $base, $n++);
+        }
+
+        return mb_substr($candidate, 0, 200);
+    }
+
     #[Route('/import', name: 'app_environment_import', methods: ['POST'])]
     public function import(Workspace $workspace, Request $request, PostmanImporter $importer, TranslatorInterface $translator): Response
     {
