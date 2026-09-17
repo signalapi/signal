@@ -23,8 +23,10 @@ use Symfony\Contracts\Translation\TranslatorInterface;
 #[IsGranted('ROLE_USER')]
 class McpServerController extends AbstractAppController
 {
-    public function __construct(private readonly McpServerRepository $servers)
-    {
+    public function __construct(
+        private readonly McpServerRepository $servers,
+        private readonly \App\Repository\FlowStepRepository $steps,
+    ) {
     }
 
     #[Route('', name: 'app_mcpserver_index', methods: ['GET'])]
@@ -35,8 +37,52 @@ class McpServerController extends AbstractAppController
         return $this->render('app/mcp_server/index.html.twig', [
             'workspace' => $workspace,
             'servers' => $this->servers->findByWorkspace($workspace),
+            'step_counts' => $this->stepCounts($workspace),
+        ]);
+    }
+
+    #[Route('/new', name: 'app_mcpserver_new', methods: ['GET'])]
+    public function new(Workspace $workspace, EnvironmentRepository $environments): Response
+    {
+        $this->assertWorkspace($workspace, 'edit');
+
+        return $this->render('app/mcp_server/edit.html.twig', [
+            'workspace' => $workspace,
+            'server' => null,
             'environments' => $environments->findByWorkspace($workspace),
         ]);
+    }
+
+    #[Route('/{server}', name: 'app_mcpserver_edit', methods: ['GET'])]
+    public function edit(
+        Workspace $workspace,
+        #[MapEntity(mapping: ['server' => 'id'])] McpServer $server,
+        EnvironmentRepository $environments,
+    ): Response {
+        $this->assertWorkspace($workspace);
+        $this->assertServer($workspace, $server);
+
+        return $this->render('app/mcp_server/edit.html.twig', [
+            'workspace' => $workspace,
+            'server' => $server,
+            'environments' => $environments->findByWorkspace($workspace),
+        ]);
+    }
+
+    /**
+     * How many steps point at each server — the number that says whether a
+     * server is actually in use before someone deletes it.
+     *
+     * @return array<string, int>
+     */
+    private function stepCounts(Workspace $workspace): array
+    {
+        $out = [];
+        foreach ($this->servers->findByWorkspace($workspace) as $server) {
+            $out[(string) $server->getId()] = $this->steps->countByMcpServer($server);
+        }
+
+        return $out;
     }
 
     #[Route('/new', name: 'app_mcpserver_create', methods: ['POST'])]
@@ -75,7 +121,7 @@ class McpServerController extends AbstractAppController
 
         $this->refreshWith($server, $workspace, $request, $environments, $catalog, $translator);
 
-        return $this->redirectToRoute('app_mcpserver_index', ['workspace' => $workspace->getId()]);
+        return $this->redirectToRoute('app_mcpserver_edit', ['workspace' => $workspace->getId(), 'server' => $server->getId()]);
     }
 
     #[Route('/{server}/update', name: 'app_mcpserver_update', methods: ['POST'])]
@@ -105,7 +151,7 @@ class McpServerController extends AbstractAppController
 
         $this->addFlash('success', $translator->trans('MCP server saved.'));
 
-        return $this->redirectToRoute('app_mcpserver_index', ['workspace' => $workspace->getId()]);
+        return $this->redirectToRoute('app_mcpserver_edit', ['workspace' => $workspace->getId(), 'server' => $server->getId()]);
     }
 
     #[Route('/{server}/refresh', name: 'app_mcpserver_refresh', methods: ['POST'])]
@@ -125,7 +171,7 @@ class McpServerController extends AbstractAppController
 
         $this->refreshWith($server, $workspace, $request, $environments, $catalog, $translator);
 
-        return $this->redirectToRoute('app_mcpserver_index', ['workspace' => $workspace->getId()]);
+        return $this->redirectToRoute('app_mcpserver_edit', ['workspace' => $workspace->getId(), 'server' => $server->getId()]);
     }
 
     #[Route('/{server}/delete', name: 'app_mcpserver_delete', methods: ['POST'])]

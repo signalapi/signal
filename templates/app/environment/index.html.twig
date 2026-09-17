@@ -32,6 +32,10 @@
                 </span>
                 {% if mine %}<span class="mpill vio">{{ '%count% yours'|trans({'%count%': mine}) }}</span>{% endif %}
                 <a class="gbtn" href="{{ path('app_environment_edit', {workspace: workspace.id, environment: env.id}) }}">{{ 'Open'|trans }}</a>
+                <form method="post" action="{{ path('app_environment_duplicate', {workspace: workspace.id, environment: env.id}) }}">
+                    <input type="hidden" name="_token" value="{{ csrf_token('duplicate' ~ env.id) }}">
+                    <button class="gbtn" type="submit" title="{{ 'Copies the shared variables into a new environment. Your personal values are not copied.'|trans }}">{{ 'Duplicate'|trans }}</button>
+                </form>
                 <form method="post" action="{{ path('app_environment_delete', {workspace: workspace.id, environment: env.id}) }}" onsubmit="return confirm('{{ 'The environment will be deleted. Are you sure?'|trans|e('js') }}');">
                     <input type="hidden" name="_token" value="{{ csrf_token('delete' ~ env.id) }}">
                     <button class="gbtn danger" type="submit">{{ 'Delete'|trans }}</button>

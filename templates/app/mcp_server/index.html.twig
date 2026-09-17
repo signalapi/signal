@@ -1,147 +1,47 @@
 {% extends 'app/_layout.html.twig' %}
 {% import '_icons.html.twig' as ic %}
 
-{% block title %}{{ 'MCP servers'|trans }}{% endblock %}
-
-{% macro headerRows(headers) %}
-    {% set pairs = headers|length ? headers : {'Authorization': ''} %}
-    {% for name, value in pairs %}
-        <div class="row" style="gap:7px;margin-bottom:6px;">
-            <input type="text" name="header_name[]" value="{{ name }}" placeholder="Authorization" class="input-mono" style="flex:0 0 190px;">
-            <input type="text" name="header_value[]" value="{{ value }}" placeholder="Bearer {{ '{{' }}mcpToken{{ '}}' }}" class="input-mono" style="flex:1;">
-        </div>
-    {% endfor %}
-{% endmacro %}
-{% import _self as f %}
+{% block title %}{{ 'MCP servers'|trans }} · {{ workspace.name }}{% endblock %}
 
 {% block panel %}
 <div class="pagehead">
     <div>
         <h1>{{ 'MCP servers'|trans }}</h1>
-        <p class="subtitle">{{ 'The endpoints this workspace tests against, and the tools they publish. A server is to an MCP step what a collection is to an HTTP one: the endpoint and its auth header live here, so a step names a tool instead of repeating the URL and the token.'|trans }}</p>
+        <p class="subtitle">{{ 'The endpoints your MCP and agent steps call, and the tools each one publishes'|trans }}</p>
+    </div>
+    <div class="actions">
+        <a class="btn" href="{{ path('app_mcpserver_new', {workspace: workspace.id}) }}">{{ ic.i('plus', 13, 2.2) }}{{ 'Server'|trans }}</a>
     </div>
 </div>
 
 {% if servers is empty %}
-    <div class="empty" style="text-align:left;padding:24px;">{{ 'No MCP servers yet. Add one below and read its catalogue.'|trans }}</div>
+    <div class="empty">{{ 'No servers yet. Add one, read its tools, and MCP steps can pick a tool instead of naming a URL.'|trans }}</div>
 {% else %}
+<div class="list-card">
     {% for s in servers %}
-        <div class="card" style="margin-bottom:14px;"><div class="card-body">
-            <div style="display:flex;align-items:flex-start;gap:10px;">
-                <span class="kind m-mcp">MCP</span>
-                <div style="flex:1;min-width:0;">
-                    <div style="font-size:14.5px;font-weight:700;color:var(--ink);">{{ s.name }}</div>
-                    <div class="mono" style="font-size:11.5px;color:var(--muted);margin-top:2px;">{{ s.url }}</div>
-                    {% if s.description %}<p style="margin:6px 0 0;font-size:12.5px;color:var(--muted);">{{ s.description }}</p>{% endif %}
-                </div>
-                <div style="text-align:right;flex-shrink:0;">
-                    {% if s.refreshError %}
-                        <span class="pill failed">{{ 'unreachable'|trans }}</span>
-                    {% elseif s.toolsRefreshedAt %}
-                        <span class="pill passed">{{ '%count% tools'|trans({'%count%': s.tools|length}) }}</span>
-                    {% else %}
-                        <span class="pill neutral">{{ 'not read yet'|trans }}</span>
-                    {% endif %}
-                    {% if s.toolsRefreshedAt %}<div class="mono" style="font-size:10px;color:var(--faint);margin-top:4px;">{{ s.toolsRefreshedAt|date('Y-m-d H:i') }}</div>{% endif %}
-                </div>
-            </div>
-
-            {% if s.refreshError %}
-                <div class="hintbox" style="background:var(--fail-soft);color:var(--fail);margin-top:10px;">
-                    {{ ic.i('alert', 15) }}{{ s.refreshError }}{% if s.tools|length %} · {{ 'the previous catalogue is still in use'|trans }}{% endif %}
-                </div>
-            {% endif %}
-
-            {% if s.tools|length %}
-                <details class="fold" style="margin-top:10px;">
-                    <summary><span class="ic-box">{{ ic.i('token', 15) }}</span>
-                        <span><span class="t">{{ 'Tools'|trans }}</span></span><span class="chev">{{ ic.i('chevron-r', 12) }}</span></summary>
-                    <div class="fold-body">
-                        <table class="data">
-                            <thead><tr><th style="width:230px;">{{ 'Tool'|trans }}</th><th style="width:230px;">{{ 'Arguments'|trans }}</th><th>{{ 'Description'|trans }}</th></tr></thead>
-                            <tbody>
-                            {% for t in s.tools %}
-                                <tr>
-                                    <td class="mono" style="font-size:11.5px;">{{ t.name }}</td>
-                                    <td class="mono" style="font-size:11px;color:var(--muted);">{{ (t.inputSchema.properties ?? {})|keys|join(', ') ?: '—' }}</td>
-                                    <td style="font-size:12px;color:var(--muted);">{{ t.description|default('')|slice(0, 150) }}</td>
-                                </tr>
-                            {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                </details>
-            {% endif %}
-
-            <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:flex-end;">
-                <form method="post" action="{{ path('app_mcpserver_refresh', {workspace: workspace.id, server: s.id}) }}" style="display:flex;gap:7px;align-items:flex-end;">
-                    <input type="hidden" name="_token" value="{{ csrf_token('refresh-mcp-server' ~ s.id) }}">
-                    <div class="field" style="margin:0;">
-                        <label style="font-size:10.5px;">{{ 'Read with'|trans }}</label>
-                        <select name="environment">
-                            <option value="">{{ '— no environment —'|trans }}</option>
-                            {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
-                        </select>
-                    </div>
-                    <button class="btn ghost small" type="submit">{{ ic.i('rerun', 12) }}{{ 'Refresh tools'|trans }}</button>
-                </form>
-                <div class="grow"></div>
-                <form method="post" action="{{ path('app_mcpserver_delete', {workspace: workspace.id, server: s.id}) }}"
-                      onsubmit="return confirm('{{ 'The server will be deleted. Steps that used it are kept, without a server.'|trans|e('js') }}');">
-                    <input type="hidden" name="_token" value="{{ csrf_token('delete-mcp-server' ~ s.id) }}">
-                    <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}{{ 'Delete'|trans }}</button>
-                </form>
-            </div>
-
-            <details class="fold" style="margin-top:10px;">
-                <summary><span class="ic-box">{{ ic.i('pencil', 15) }}</span>
-                    <span><span class="t">{{ 'Edit'|trans }}</span></span><span class="chev">{{ ic.i('chevron-r', 12) }}</span></summary>
-                <div class="fold-body">
-                    <form method="post" action="{{ path('app_mcpserver_update', {workspace: workspace.id, server: s.id}) }}">
-                        <input type="hidden" name="_token" value="{{ csrf_token('edit-mcp-server' ~ s.id) }}">
-                        <div class="row" style="gap:10px;flex-wrap:wrap;">
-                            <div class="field" style="flex:1 1 200px;"><label>{{ 'Name'|trans }}</label>
-                                <input type="text" name="name" value="{{ s.name }}"></div>
-                            <div class="field" style="flex:2 1 300px;"><label>{{ 'Endpoint'|trans }}</label>
-                                <input type="text" name="url" value="{{ s.url }}" class="input-mono"></div>
-                        </div>
-                        <div class="field"><label>{{ 'Description'|trans }}</label>
-                            <input type="text" name="description" value="{{ s.description }}"></div>
-                        <label>{{ 'Headers'|trans }}</label>
-                        {{ f.headerRows(s.headers) }}
-                        <button class="btn small" type="submit">{{ ic.i('check', 12, 2.6) }}{{ 'Save'|trans }}</button>
-                    </form>
-                </div>
-            </details>
-        </div></div>
+        <div class="lrow">
+            <span class="tbadge teal">MCP</span>
+            <span style="flex:1.6; min-width:0;">
+                <span class="l-name">{{ s.name }}</span>
+                <span class="l-sub">{{ s.url }}</span>
+            </span>
+            <span style="flex:0 0 150px; display:inline-flex; align-items:center; gap:6px; min-width:0;">
+                {% if s.refreshError %}
+                    <span class="sq fail" style="width:16px;height:16px;border-radius:5px;">{{ ic.i('alert', 10, 3) }}</span>
+                    <span class="l-meta">{{ 'unreachable'|trans }}</span>
+                {% elseif s.toolsRefreshedAt %}
+                    <span class="sq pass" style="width:16px;height:16px;border-radius:5px;">{{ ic.i('check', 10, 3) }}</span>
+                    <span class="l-meta">{{ '%count% tools'|trans({'%count%': s.tools|length}) }}</span>
+                {% else %}
+                    <span class="sq" style="width:16px;height:16px;border-radius:5px;">{{ ic.i('minus', 10, 3) }}</span>
+                    <span class="l-meta">{{ 'not read yet'|trans }}</span>
+                {% endif %}
+            </span>
+            <span class="l-meta" style="flex:0 0 80px;">{{ '%count% steps'|trans({'%count%': step_counts[s.id ~ ''] ?? 0}) }}</span>
+            <div style="flex:1 1 0;min-width:0;"></div>
+            <a class="gbtn" href="{{ path('app_mcpserver_edit', {workspace: workspace.id, server: s.id}) }}">{{ 'Open'|trans }}</a>
+        </div>
     {% endfor %}
+</div>
 {% endif %}
-
-<h2 class="section-title">{{ 'Add a server'|trans }}</h2>
-<div class="card"><div class="card-body">
-    <form method="post" action="{{ path('app_mcpserver_create', {workspace: workspace.id}) }}">
-        <input type="hidden" name="_token" value="{{ csrf_token('new-mcp-server' ~ workspace.id) }}">
-        <div class="row" style="gap:10px;flex-wrap:wrap;">
-            <div class="field" style="flex:1 1 200px;"><label for="msName">{{ 'Name'|trans }}</label>
-                <input type="text" name="name" id="msName" placeholder="{{ 'Support MCP (stage)'|trans }}"></div>
-            <div class="field" style="flex:2 1 300px;"><label for="msUrl">{{ 'Endpoint'|trans }}</label>
-                <input type="text" name="url" id="msUrl" class="input-mono" placeholder="https://host/mcp"></div>
-        </div>
-        <div class="field"><label for="msDesc">{{ 'Description'|trans }}</label>
-            <input type="text" name="description" id="msDesc"></div>
-        <label>{{ 'Headers'|trans }}</label>
-        {{ f.headerRows({}) }}
-        <p class="fhint" style="margin:0 0 12px;">{{ 'Values take {{variables}}: keep the bearer token in an environment variable so one server works across environments and the secret stays masked.'|trans }}</p>
-        <div class="row" style="gap:10px;align-items:flex-end;">
-            <div class="field" style="flex:0 0 220px;margin:0;">
-                <label for="msEnv">{{ 'Read the catalogue with'|trans }}</label>
-                <select name="environment" id="msEnv">
-                    <option value="">{{ '— later —'|trans }}</option>
-                    {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
-                </select>
-            </div>
-            <button class="btn" type="submit">{{ ic.i('plus', 13) }}{{ 'Add server'|trans }}</button>
-        </div>
-    </form>
-</div></div>
 {% endblock %}

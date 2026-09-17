@@ -34,6 +34,7 @@ final class RunSuiteMemberMessageHandler
         private readonly FlowRunRepository $flowRuns,
         private readonly EnvironmentRepository $environments,
         private readonly UserRepository $users,
+        private readonly \App\Service\EnvironmentResolver $envResolver,
         private readonly FlowRunner $runner,
         private readonly EntityManagerInterface $em,
         private readonly EventDispatcherInterface $events,
@@ -53,7 +54,9 @@ final class RunSuiteMemberMessageHandler
         $actor = $message->triggeredByUserId ? $this->users->find($message->triggeredByUserId) : null;
 
         $run = $this->runner->createRun($flow, $environment, 'group', $message->batchId, $message->iteration, [], $actor);
-        $this->runner->executeInto($run, $flow, $environment);
+        // The acting user's personal environment values apply here too: a suite
+        // is a way of running their flows, not a different set of credentials.
+        $this->runner->executeInto($run, $flow, $environment, $this->envResolver->overridesFor($environment, $actor));
 
         $this->finalizeIfComplete($message->batchId);
     }
