@@ -29,6 +29,7 @@ class FlowStepController extends AbstractAppController
         private readonly \App\Repository\DataFactoryRepository $dataFactories,
         private readonly \App\Service\DynamicVariableGenerator $dynamic,
         private readonly \App\Service\FlowVariableScanner $varScanner,
+        private readonly \App\Repository\McpServerRepository $mcpServers,
     ) {
     }
 
@@ -338,6 +339,16 @@ class FlowStepController extends AbstractAppController
         // sub-flow call, and that branch returns before the shared fields are read.
         $step->setAlwaysRun((bool) $r->request->get('alwaysRun'));
 
+        if ($step->isMcp() || $step->isAgent()) {
+            $serverId = trim((string) $r->request->get('mcpServer'));
+            $server = '' !== $serverId ? $this->mcpServers->find($serverId) : null;
+            $step->setMcpServer(
+                null !== $server && $server->getWorkspace()->getId()?->toRfc4122() === $workspace->getId()?->toRfc4122()
+                    ? $server
+                    : null,
+            );
+        }
+
         if ($step->isCall()) {
             // A call step delegates everything to the referenced flow; only the target matters.
             $calledId = (string) $r->request->get('calledFlow');
@@ -410,11 +421,34 @@ class FlowStepController extends AbstractAppController
             'extractions_text' => $parser->renderExtractions($step->getExtractions()),
             'assertions_text' => $parser->renderAssertions($step->getAssertions()),
             'connections' => $connections->findByWorkspace($workspace),
+            'mcp_servers' => $this->mcpCatalogue($workspace),
             'flows' => $this->callableFlows($workspace, $flow),
             'vc_catalog' => $this->vcCatalog($workspace, $flow),
             'is_new' => $isNew,
             'create_ctx' => $createCtx,
         ]);
+    }
+
+    /**
+     * The workspace's MCP servers and what each publishes, shaped for the step
+     * editor's pickers: choosing a server narrows the tools, and choosing a
+     * tool builds its argument fields from the schema the server itself gave.
+     *
+     * @return array<int, array{id: string, name: string, url: string, tools: array<int, array<string, mixed>>}>
+     */
+    private function mcpCatalogue(Workspace $workspace): array
+    {
+        $out = [];
+        foreach ($this->mcpServers->findByWorkspace($workspace) as $server) {
+            $out[] = [
+                'id' => (string) $server->getId(),
+                'name' => $server->getName(),
+                'url' => $server->getUrl(),
+                'tools' => $server->getTools(),
+            ];
+        }
+
+        return $out;
     }
 
     /**

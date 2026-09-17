@@ -916,16 +916,22 @@ class FlowRunner
         $result->setRequestMethod('MCP');
 
         $config = json_decode((string) $step->getQuery(), true);
-        if (!\is_array($config) || '' === trim((string) ($config['server'] ?? '')) || '' === trim((string) ($config['tool'] ?? ''))) {
+        $config = \is_array($config) ? $config : [];
+        if ('' === trim((string) ($config['tool'] ?? ''))) {
             $result->setStatus(StepResult::STATUS_ERROR);
-            $result->setError('MCP step config must be JSON with "server" and "tool" fields.');
+            $result->setError('MCP step config must name a "tool".');
 
             return StepResult::STATUS_ERROR;
         }
 
-        $server = (string) $this->resolver->resolve((string) $config['server'], $context);
+        [$server, $headers] = $this->mcpEndpoint($step, $config, $context);
+        if ('' === trim($server)) {
+            $result->setStatus(StepResult::STATUS_ERROR);
+            $result->setError('The step has no MCP server: link one, or put a "server" URL in its config.');
+
+            return StepResult::STATUS_ERROR;
+        }
         $tool = (string) $this->resolver->resolve((string) $config['tool'], $context);
-        $headers = $this->resolveHeaders($config['headers'] ?? [], $context);
         $arguments = (array) $this->resolveDeep($config['arguments'] ?? [], $context);
         $timeout = max(1, (int) round(((int) ($config['timeoutMs'] ?? 30000)) / 1000));
         $result->setRequestUrl($server . ' · ' . $tool);
@@ -1011,9 +1017,10 @@ class FlowRunner
         $result->setRequestMethod('AGENT');
 
         $config = json_decode((string) $step->getQuery(), true);
-        if (!\is_array($config) || '' === trim((string) ($config['server'] ?? '')) || '' === trim((string) ($config['prompt'] ?? ''))) {
+        $config = \is_array($config) ? $config : [];
+        if ('' === trim((string) ($config['prompt'] ?? ''))) {
             $result->setStatus(StepResult::STATUS_ERROR);
-            $result->setError('Agent step config must be JSON with "server" and "prompt" fields.');
+            $result->setError('Agent step config must carry a "prompt".');
 
             return StepResult::STATUS_ERROR;
         }
@@ -1024,10 +1031,15 @@ class FlowRunner
             return StepResult::STATUS_ERROR;
         }
 
-        $server = (string) $this->resolver->resolve((string) $config['server'], $context);
+        [$server, $headers] = $this->mcpEndpoint($step, $config, $context);
+        if ('' === trim($server)) {
+            $result->setStatus(StepResult::STATUS_ERROR);
+            $result->setError('The step has no MCP server: link one, or put a "server" URL in its config.');
+
+            return StepResult::STATUS_ERROR;
+        }
         $prompt = (string) $this->resolver->resolve((string) $config['prompt'], $context);
         $system = (string) $this->resolver->resolve((string) ($config['system'] ?? ''), $context);
-        $headers = $this->resolveHeaders($config['headers'] ?? [], $context);
         $model = trim((string) ($config['model'] ?? ''));
         $maxTokens = max(256, min(8000, (int) ($config['maxTokens'] ?? 2048)));
         $maxTurns = max(1, min(self::MAX_AGENT_TURNS, (int) ($config['maxTurns'] ?? 8)));
@@ -1184,6 +1196,31 @@ class FlowRunner
         $result->setAttempts($attempt);
 
         return $status;
+    }
+
+    /**
+     * Where an mcp/agent step points: the catalogued server when one is linked,
+     * otherwise the `server`/`headers` in the step's own config — which is how
+     * steps were written before servers were catalogued, and still works.
+     *
+     * @param array<string, mixed>  $config
+     * @param array<string, string> $context
+     *
+     * @return array{0: string, 1: array<string, string>}
+     */
+    private function mcpEndpoint(FlowStep $step, array $config, array $context): array
+    {
+        $server = $step->getMcpServer();
+        if (null !== $server) {
+            $url = (string) $this->resolver->resolve($server->getUrl(), $context);
+
+            return [$url, $this->resolveHeaders($server->getHeaders(), $context)];
+        }
+
+        return [
+            (string) $this->resolver->resolve((string) ($config['server'] ?? ''), $context),
+            $this->resolveHeaders($config['headers'] ?? [], $context),
+        ];
     }
 
     /**
