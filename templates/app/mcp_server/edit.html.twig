@@ -1,0 +1,120 @@
+{% extends 'app/_layout.html.twig' %}
+{% import '_icons.html.twig' as ic %}
+
+{% block title %}{{ server ? server.name : 'New MCP server'|trans }}{% endblock %}
+
+{% block panel %}
+{% set action = server ? path('app_mcpserver_update', {workspace: workspace.id, server: server.id}) : path('app_mcpserver_create', {workspace: workspace.id}) %}
+{% set csrf_id = server ? 'edit-mcp-server' ~ server.id : 'new-mcp-server' ~ workspace.id %}
+{% set headers = server ? server.headers : {'Authorization': 'Bearer {{' ~ 'mcpToken}}'} %}
+{% set usesVars = server ? ('{{' in server.url or '{{' in server.headers|join(' ')) : true %}
+
+<a class="backlink" href="{{ path('app_mcpserver_index', {workspace: workspace.id}) }}">
+    <span class="ic">{{ ic.i('arrow-left', 12, 2.2) }}</span>{{ 'MCP servers'|trans }}</a>
+<div class="pagehead">
+    <div>
+        <h1>{{ server ? server.name : 'New MCP server'|trans }}</h1>
+        <p class="subtitle">{{ server ? (server.serverName ? server.serverName ~ ' · ' ~ (server.protocolVersion ?: '') : workspace.name) : workspace.name }}</p>
+    </div>
+</div>
+
+<div class="formcard" style="max-width:660px;">
+    <form method="post" action="{{ action }}">
+        <input type="hidden" name="_token" value="{{ csrf_token(csrf_id) }}">
+
+        <div class="field"><label for="msName">{{ 'Name'|trans }}</label>
+            <input type="text" name="name" id="msName" value="{{ server ? server.name }}" placeholder="{{ 'e.g. Support MCP (stage)'|trans }}" required></div>
+
+        <div class="field"><label for="msUrl">{{ 'Endpoint'|trans }}</label>
+            <input type="text" name="url" id="msUrl" class="input-mono" value="{{ server ? server.url }}" placeholder="https://host/mcp" required></div>
+
+        <div class="field"><label for="msDesc">{{ 'What it is for'|trans }}</label>
+            <input type="text" name="description" id="msDesc" value="{{ server ? server.description }}" placeholder="{{ 'Refunds, cancellations, subscriber lookups'|trans }}"></div>
+
+        <div class="field">
+            <label>{{ 'Headers'|trans }}</label>
+            {% for name, value in headers %}
+                <div class="grid2" style="grid-template-columns:1fr 2fr;margin-bottom:6px;">
+                    <input type="text" name="header_name[]" value="{{ name }}" placeholder="Authorization" class="input-mono">
+                    <input type="text" name="header_value[]" value="{{ value }}" placeholder="Bearer {{ '{{' }}mcpToken{{ '}}' }}" class="input-mono">
+                </div>
+            {% endfor %}
+            {% for i in 1..2 %}
+                <div class="grid2" style="grid-template-columns:1fr 2fr;margin-bottom:6px;">
+                    <input type="text" name="header_name[]" value="" placeholder="{{ 'header'|trans }}" class="input-mono">
+                    <input type="text" name="header_value[]" value="" placeholder="{{ 'value'|trans }}" class="input-mono">
+                </div>
+            {% endfor %}
+            <p class="fhint">{{ 'Write the token as a {{variable}} and keep its value in an environment — the same server then works against local, stage and production, and the secret stays masked.'|trans }}</p>
+        </div>
+
+        {% if not server %}
+            <div class="field">
+                <label for="msEnv">{{ 'Read its tools using'|trans }}</label>
+                <select name="environment" id="msEnv">
+                    <option value="">{{ '— not now —'|trans }}</option>
+                    {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+                </select>
+                <p class="fhint">{{ 'The endpoint and headers above are resolved with this environment before the server is called.'|trans }}</p>
+            </div>
+        {% endif %}
+
+        <button class="btn" type="submit">{{ ic.i('check', 13, 2.6) }}{{ server ? 'Save changes'|trans : 'Add server'|trans }}</button>
+    </form>
+</div>
+
+{% if server %}
+    <div class="pagehead" style="margin-top:26px;">
+        <div>
+            <h2 class="section-title" style="margin:0;">{{ 'Tools'|trans }}</h2>
+            <p class="subtitle">
+                {%- if server.toolsRefreshedAt %}{{ 'Last read %when%'|trans({'%when%': server.toolsRefreshedAt|date('Y-m-d H:i')}) }}
+                {%- else %}{{ 'Not read yet — nothing to pick from in the step editor.'|trans }}{% endif -%}
+            </p>
+        </div>
+        <div class="actions">
+            <form method="post" action="{{ path('app_mcpserver_refresh', {workspace: workspace.id, server: server.id}) }}"
+                  style="display:flex;gap:7px;align-items:center;">
+                <input type="hidden" name="_token" value="{{ csrf_token('refresh-mcp-server' ~ server.id) }}">
+                {% if usesVars %}
+                    <select name="environment" title="{{ 'The endpoint and headers use {{variables}}; this environment supplies their values.'|trans }}">
+                        <option value="">{{ '— environment —'|trans }}</option>
+                        {% for env in environments %}<option value="{{ env.id }}">{{ env.name }}</option>{% endfor %}
+                    </select>
+                {% endif %}
+                <button class="btn ghost" type="submit">{{ ic.i('rerun', 13) }}{{ 'Read tools'|trans }}</button>
+            </form>
+        </div>
+    </div>
+
+    {% if server.refreshError %}
+        <div class="hintbox" style="background:var(--fail-soft);color:var(--fail);">
+            {{ ic.i('alert', 15) }}{{ server.refreshError }}{% if server.tools|length %} — {{ 'showing the last catalogue that worked'|trans }}{% endif %}
+        </div>
+    {% endif %}
+
+    {% if server.tools is empty %}
+        <div class="empty">{{ 'No tools read yet. Pick the environment that supplies this server’s values and read them.'|trans }}</div>
+    {% else %}
+        <table class="data">
+            <thead><tr><th style="width:230px;">{{ 'Tool'|trans }}</th><th style="width:240px;">{{ 'Arguments'|trans }}</th><th>{{ 'What it does'|trans }}</th></tr></thead>
+            <tbody>
+            {% for t in server.tools %}
+                <tr>
+                    <td class="mono" style="font-size:11.5px;color:var(--ink);">{{ t.name }}</td>
+                    <td class="mono" style="font-size:11px;color:var(--muted);">{{ (t.inputSchema.properties ?? {})|keys|join(', ') ?: '—' }}</td>
+                    <td style="font-size:12px;color:var(--muted);">{{ t.description|default('')|slice(0, 160) }}</td>
+                </tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    {% endif %}
+
+    <form method="post" action="{{ path('app_mcpserver_delete', {workspace: workspace.id, server: server.id}) }}"
+          onsubmit="return confirm('{{ 'Steps using this server keep their tool and arguments but lose the endpoint. Delete it?'|trans|e('js') }}');"
+          style="margin-top:22px;">
+        <input type="hidden" name="_token" value="{{ csrf_token('delete-mcp-server' ~ server.id) }}">
+        <button class="btn danger small" type="submit">{{ ic.i('trash', 12) }}{{ 'Delete server'|trans }}</button>
+    </form>
+{% endif %}
+{% endblock %}

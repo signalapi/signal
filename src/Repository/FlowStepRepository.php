@@ -31,4 +31,15 @@ class FlowStepRepository extends ServiceEntityRepository
             $this->getEntityManager()->flush();
         }
     }
+
+    /** How many steps point at this MCP server. */
+    public function countByMcpServer(\App\Entity\McpServer $server): int
+    {
+        return (int) $this->createQueryBuilder('s')
+            ->select('COUNT(s.id)')
+            ->andWhere('s.mcpServer = :srv')
+            ->setParameter('srv', $server->getId(), 'uuid')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 }

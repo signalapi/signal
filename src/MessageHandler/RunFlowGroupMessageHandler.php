@@ -23,6 +23,7 @@ final class RunFlowGroupMessageHandler
         private readonly EnvironmentRepository $environments,
         private readonly FlowRunner $runner,
         private readonly UserRepository $users,
+        private readonly \App\Service\EnvironmentResolver $envResolver,
         private readonly EventDispatcherInterface $events,
         private readonly \Symfony\Component\Messenger\MessageBusInterface $bus,
     ) {
@@ -86,7 +87,10 @@ final class RunFlowGroupMessageHandler
             // createRun tags each run with the shared batchId + its order (iteration);
             // executeInto runs it to completion before the loop moves to the next flow.
             $run = $this->runner->createRun($flow, $env, 'group', $message->batchId, $i, [], $actor);
-            $this->runner->executeInto($run, $flow, $env);
+            // The acting user's personal environment values apply here too: a
+            // suite is a way of running their flows, not a different set of
+            // credentials. Resolved per flow because each may use another env.
+            $this->runner->executeInto($run, $flow, $env, $this->envResolver->overridesFor($env, $actor));
             $flowRuns[] = $run;
             // A quarantined (flaky) flow's failure is reported but does not turn
             // the batch red — checked after executeInto, because the run just
