@@ -16,6 +16,7 @@ use Symfony\Component\Uid\Uuid;
  */
 #[ORM\Entity(repositoryClass: MockRouteRepository::class)]
 #[ORM\Table(name: 'mock_route')]
+#[ORM\Index(name: 'idx_mock_route_workspace', columns: ['workspace_id'])]
 class MockRoute
 {
     #[ORM\Id]

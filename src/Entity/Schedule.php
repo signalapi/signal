@@ -23,6 +23,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: ScheduleRepository::class)]
 #[ORM\Table(name: 'schedule')]
 #[ORM\Index(name: 'idx_schedule_workspace', columns: ['workspace_id'])]
+#[ORM\Index(name: 'idx_schedule_evaluation', columns: ['evaluation_id'])]
 class Schedule
 {
     #[ORM\Id]

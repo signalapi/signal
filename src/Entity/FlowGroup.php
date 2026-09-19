@@ -16,6 +16,7 @@ use Symfony\Component\Uid\Uuid;
  */
 #[ORM\Entity(repositoryClass: FlowGroupRepository::class)]
 #[ORM\Table(name: 'flow_group')]
+#[ORM\UniqueConstraint(name: 'uniq_flow_group_badge_token', columns: ['badge_token'])]
 class FlowGroup
 {
     #[ORM\Id]

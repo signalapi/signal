@@ -11,6 +11,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: WorkspaceRepository::class)]
 #[ORM\Table(name: 'workspace')]
 #[ORM\UniqueConstraint(name: 'uniq_workspace_merchant_slug', columns: ['merchant_id', 'slug'])]
+#[ORM\UniqueConstraint(name: 'uniq_workspace_mock_token', columns: ['mock_token'])]
 class Workspace
 {
     #[ORM\Id]

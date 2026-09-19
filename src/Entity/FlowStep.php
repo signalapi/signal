@@ -10,6 +10,7 @@ use Symfony\Component\Uid\Uuid;
 
 #[ORM\Entity(repositoryClass: FlowStepRepository::class)]
 #[ORM\Table(name: 'flow_step')]
+#[ORM\Index(name: 'idx_flow_step_mcp_server', columns: ['mcp_server_id'])]
 class FlowStep
 {
     public const TYPE_HTTP = 'http';

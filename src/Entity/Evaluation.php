@@ -20,6 +20,7 @@ use Symfony\Component\Uid\Uuid;
 #[ORM\Entity(repositoryClass: EvaluationRepository::class)]
 #[ORM\Table(name: 'evaluation')]
 #[ORM\Index(name: 'idx_evaluation_workspace', columns: ['workspace_id'])]
+#[ORM\Index(name: 'idx_evaluation_flow', columns: ['flow_id'])]
 class Evaluation
 {
     #[ORM\Id]

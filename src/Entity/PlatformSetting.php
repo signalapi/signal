@@ -17,6 +17,7 @@ use Symfony\Component\Uid\Uuid;
  */
 #[ORM\Entity(repositoryClass: PlatformSettingRepository::class)]
 #[ORM\Table(name: 'platform_setting')]
+#[ORM\UniqueConstraint(name: 'uniq_platform_setting_name', columns: ['name'])]
 class PlatformSetting
 {
     #[ORM\Id]
